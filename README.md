@@ -1,2 +1,3 @@
-# StaffSync
-StaffSync is a resource allocation system for IT teams. PMs describe who they need, a matching engine ranks candidates by skills and real availability, and resource managers approve or reject allocations with capacity checks. Spring Boot, Angular, PostgreSQL, Docker.
+StaffSync replaces spreadsheets and chat messages in the process of assigning people to projects. A project manager creates a staffing request (skills, seniority level, allocation percentage, period), the system returns a ranked list of candidates with an explanation of each score, and a line manager approves or rejects the allocation with one click. A day-by-day capacity rule guarantees that nobody is booked beyond their capacity, and every change to an approved allocation also goes through approval.
+
+Key features: 4 roles (Employee, PM, RM, Admin), a matching engine with a 0-100 score, capacity checks over time, an allocation change workflow, Swagger documentation, and the whole stack with a single command: docker compose up --build
