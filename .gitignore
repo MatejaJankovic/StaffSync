@@ -1,0 +1,12 @@
+# IDEs and editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Environment
+.env
+
+# System files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: staffsync-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/staffsync}
+    username: ${DB_USER:staffsync}
+    password: ${DB_PASSWORD:staffsync}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
