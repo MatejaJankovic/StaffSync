@@ -1,7 +1,8 @@
 # StaffSync: sistem za raspoređivanje zaposlenih na projekte
 
-> Capstone project proposal · Tim: 3 developera + 1 QA · Trajanje: 3 nedelje
+> Capstone project proposal · Tim: 3 developera + 1 QA · Trajanje: 2 nedelje (jedan sprint, 19.10–30.10.2026.)
 > Radni naziv „StaffSync“ možete da promenite.
+> Sprint backlog, redosled rada i zavisnosti: [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md). Zadaci su u [GitHub Issues](https://github.com/MatejaJankovic/StaffSync/issues).
 
 ---
 
@@ -78,7 +79,9 @@ Svaki korisnik ima tačno jednu rolu. Svaki Employee ima tačno jednog RM-a (`ma
 | Početna stranica | Jednostavna, po roli (kartice sa brojevima) | Brz pregled, bez grafikona |
 | Obaveštenja | Nema | Statusi se vide na listama i na početnoj stranici |
 | Jezik | UI i poruke API-ja na engleskom, dokumentacija na srpskom | Standard za enterprise alate |
-| Komunikacija | Discord/Teams, a GitHub Issues možda kasnije | Mali tim, brža komunikacija |
+| Komunikacija | Discord/Teams | Mali tim, brža komunikacija |
+| Zadaci i bagovi | GitHub Issues: svaki user story ima zadatke kao sub-issue, a bagovi se prijavljuju po šablonu *Bug* | Svi vide ko šta radi, a PR zatvara svoj zadatak (`Closes #…`) |
+| Proces | Scrum: jedan sprint od 2 nedelje (19.10–30.10), prioriteti *Must* / *Should* / *Could* | Rok je kratak, pa mora biti jasno šta je cilj sprinta i šta prvo otpada ako kasnimo |
 
 ---
 
@@ -420,14 +423,14 @@ UI je na **engleskom**.
 | Frontend | Angular (standalone komponente), Angular Material, Reactive Forms, RxJS |
 | Testovi | JUnit 5, Mockito, Spring Boot Test, Testcontainers, REST Assured, Playwright |
 | Infrastruktura | Docker + Docker Compose (ceo stack) |
-| Alati | Git (feature grane, PR, code review), Discord/Teams za komunikaciju i zadatke. GitHub Issues su opcija za kasnije |
+| Alati | Git (feature grane, PR, code review), GitHub Issues za sprint backlog, zadatke i bagove, Discord/Teams za komunikaciju |
 
 ### Struktura repozitorijuma
 ```text
 Capstone-project/
 ├── backend/             (Spring Boot, Maven, Dockerfile)
 ├── frontend/            (Angular, Dockerfile, nginx.conf)
-├── docs/                (proposal, test plan)
+├── docs/                (proposal, sprint backlog, test plan)
 ├── docker-compose.yml
 └── .env.example         (DB_USER, DB_PASSWORD, JWT_SECRET, ...)
 ```
@@ -510,6 +513,7 @@ volumes:
 - `spring.jpa.hibernate.ddl-auto=validate`: šemu menja isključivo Flyway, a Hibernate samo proverava da se entiteti i tabele slažu.
 - **Migracija se nikad ne menja posle merge-a.** Svaka promena je nova migracija.
 - Pre pravljenja migracije, sledeći broj se „rezerviše“ porukom na Discord/Teams kanalu, da dva developera ne bi napravila isti `V5`.
+- Redosled migracija prati strane ključeve (department/users → skill → employee_skill, project → staffing_request → allocation) i opisan je u [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md#flyway-migration-order).
 - Ako se lokalna baza pokvari, reset je `docker compose down -v`. Seed migracije sve vraćaju.
 
 ### Seed podaci
@@ -531,16 +535,18 @@ Rad je podeljen na vertikalne slice-ove: svaki developer radi i backend i fronte
 
 | Član | Odgovornost |
 |---|---|
-| **Dev 1: Platforma i korisnici** | Setup projekta (Spring Boot, Angular, Flyway), Docker (baza u prvoj nedelji, ceo stack u trećoj), Spring Security + JWT, **Swagger konfiguracija** (`OpenApiConfig`, Authorize), guardovi i interceptor, korisnici (kreiranje naloga, promena lozinke), departmenti, profil zaposlenog sa skillovima, admin stranice, **početna stranica** (`/api/dashboard` i *Home*). *Stretch:* upload dokumenata. |
-| **Dev 2: Projekti i matching** | Katalog skillova, projekti, staffing zahtevi (forma sa dinamičkim skillovima), **MatchingService**, stranica kandidata, pretraga zaposlenih, PM stranice. *Stretch:* timeline/heatmap. |
-| **Dev 3: Alokacije i kapacitet** | **CapacityService**, alokacije (predlog, odobravanje, odbijanje, otkazivanje), **tok izmene alokacije** (BR-15, BR-16), automatski status zahteva, RM stranice (*Pending approvals* sa *New*/*Change*), availability endpoint. *Stretch:* odsustva. |
-| **QA** | Test plan, matrica testova iz poslovnih pravila, unit testovi za `CapacityService` i `MatchingService`, integracioni testovi (Testcontainers), API automatizacija (REST Assured), E2E (Playwright), matrica ovlašćenja, istraživačko testiranje kroz Swagger, **testiranje i odobravanje feature PR-ova pre merge-a**, prijava bagova na Discord/Teams kanalu (ili kroz GitHub Issues, ako ih uvedete). |
+| **Dev 1: Platforma i korisnici** (Bogdan, @bogdanv4) | Setup projekta (Spring Boot, Angular, Flyway), Docker (ceo stack je postavljen u PR #1, a finalna provera je pred demo), Spring Security + JWT, **Swagger konfiguracija** (`OpenApiConfig`, Authorize), format grešaka, guardovi i interceptor, korisnici (kreiranje naloga, promena lozinke), departmenti, profil zaposlenog sa skillovima, admin stranice, **početna stranica** (`/api/dashboard` i *Home*), stranice *My team* (RM) i *My allocations* (Employee). *Stretch:* upload dokumenata. |
+| **Dev 2: Projekti i matching** (Mateja, @MatejaJankovic) | Katalog skillova, projekti i promena statusa projekta (BR-11), staffing zahtevi (forma sa dinamičkim skillovima), **MatchingService**, stranica kandidata, pretraga zaposlenih, PM stranice. *Stretch:* timeline/heatmap. |
+| **Dev 3: Alokacije i kapacitet** (Lazar, @lazardunjic) | **CapacityService**, alokacije (predlog, odobravanje, odbijanje, otkazivanje), **tok izmene alokacije** (BR-15, BR-16), automatski status zahteva, alokacioni deo BR-11, RM stranica *Pending approvals* (sa *New*/*Change*), availability endpoint i `capacity-bar`. *Stretch:* odsustva. |
+| **QA** (Vukašin, @patkovicvukasin) | Test plan, matrica testova iz poslovnih pravila, unit testovi za `CapacityService` i `MatchingService`, integracioni testovi (Testcontainers), API automatizacija (REST Assured), E2E (Playwright), matrica ovlašćenja, istraživačko testiranje kroz Swagger, **testiranje i odobravanje feature PR-ova pre merge-a**, prijava bagova kroz GitHub Issues (šablon *Bug*). |
 
 Svaki developer sam piše Swagger anotacije za svoje endpointe.
 
+Zbog skraćenog roka, stranice *My team* i *My allocations* su prebačene sa Dev 3 na Dev 1: Dev 3 ima najduži kritični put, a Dev 1 za početnu stranicu ionako računa iste podatke.
+
 ### Git workflow i PR review
 
-`main` je uvek stabilan. Feature grane se zovu `feature/<kratak-opis>`. Dogovori i podela zadataka idu preko Discord/Teams kanala.
+`main` je uvek stabilan. Feature grane se zovu `feature/<broj-issue-a>-<kratak-opis>` (npr. `feature/4-jwt-login`). Zadaci su u GitHub Issues: svaki user story ima zadatke kao sub-issue, a PR zatvara svoj zadatak sa `Closes #<broj>`. Dogovori idu preko Discord/Teams kanala.
 
 | Vrsta PR-a | Ko odobrava | Šta proverava |
 |---|---|---|
@@ -553,42 +559,36 @@ QA-ovo odobrenje znači **„testirano i radi po specifikaciji“**, a ne „kod
 **Da QA ne bi kočio rad:**
 - QA pregleda feature PR **u roku od pola radnog dana** od otvaranja.
 - PR-ovi su mali: jedan endpoint ili jedan ekran, a ne nedelja rada.
-- Ako QA ne stigne u roku, PR se merge-uje sa odobrenjem developera, a QA ga testira naknadno na `main` i bagove prijavljuje na kanalu.
-- Autor PR-a u opisu navodi šta treba testirati i na koja pravila (BR-x) se PR odnosi.
+- Ako QA ne stigne u roku, PR se merge-uje sa odobrenjem developera, a QA ga testira naknadno na `main` i bagove prijavljuje kroz GitHub Issues.
+- Autor PR-a u opisu navodi šta treba testirati i na koja pravila (BR-x) se PR odnosi. Šablon za PR (`.github/pull_request_template.md`) to traži.
 
 ---
 
 ## 14. Plan po nedeljama
 
-### Nedelja 1: temelji
+Rok je skraćen na **2 nedelje** i radi se kao **jedan sprint (19.10–30.10.2026.)**. Stretch funkcionalnosti ne ulaze u sprint (vidi sekciju 17). Detaljan sprint backlog, redosled rada po članu tima i zavisnosti su u [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md), a svi zadaci su u [GitHub Issues](https://github.com/MatejaJankovic/StaffSync/issues).
+
+**Cilj sprinta:** ceo demo scenario iz sekcije 4 (uključujući izmenu u koraku 8) radi od početka do kraja kroz `docker compose up --build`, a svi endpointi su u Swagger-u.
+
+### Nedelja 1 (19–23.10): temelji i model podataka
 | Član | Zadaci |
 |---|---|
-| Dev 1 | Kostur repoa i oba projekta, `docker-compose.yml` sa bazom, Flyway V1, auth/JWT end-to-end (login stranica), **Swagger sa Authorize dugmetom**, layout i guardovi |
-| Dev 2 | Katalog skillova, entiteti i CRUD za projekte i staffing zahteve (backend), PM lista projekata |
-| Dev 3 | Entiteti za alokacije, `CapacityService` sa unit testovima za osnovne slučajeve, availability endpoint |
-| QA | Test plan, test case-ovi iz BR-1…BR-16, setup REST Assured, Testcontainers i Playwright projekta, test podaci za granične slučajeve, **unit testovi za `CapacityService` iz primera iz sekcije 7 pre implementacije**, API testovi prema dogovorenim DTO-ima, upoznavanje API-ja kroz Swagger, testiranje prvih feature PR-ova |
+| Dev 1 | Migracija za korisnike i departmente sa seed nalozima, auth/JWT end-to-end (login stranica), **Swagger sa Authorize dugmetom**, format grešaka, layout i guardovi, deljene komponente, profil i skillovi zaposlenog |
+| Dev 2 | Katalog skillova, projekti i staffing zahtevi (backend i stranice), forma zahteva sa dinamičkim skillovima, početak `MatchingService`-a (sa mock `CapacityService`-om) |
+| Dev 3 | Entitet alokacije, `CapacityService` sa unit testovima, predlog alokacije, pretraga alokacija, availability endpoint, početak odobravanja |
+| QA | Test plan i matrica testova, **unit testovi za `CapacityService` i `MatchingService` iz primera iz sekcija 7 i 8 pre implementacije**, osnova za API testove, matrica ovlašćenja, testiranje prvih feature PR-ova |
 
-**Cilj kraja nedelje:** login radi, korisnici, skillovi i projekti postoje u bazi i vide se u UI-ju, a svi endpointi se vide u Swagger-u.
+**Provera u petak 23.10:** login radi za sve 4 role, skillovi, projekti i zahtevi se vide u UI-ju, `CapacityService` prolazi testove iz sekcije 7, predlog alokacije radi kroz Swagger, a svi endpointi se vide u Swagger-u. Ako kasnimo, prvo otpadaju *Should* stavke.
 
-### Nedelja 2: srž sistema
-| Član | Zadaci |
-|---|---|
-| Dev 1 | Profil i skillovi zaposlenog, admin stranice (kreiranje naloga), promena lozinke, **početna stranica po roli** |
-| Dev 2 | `MatchingService`, stranica kandidata, forma zahteva, pretraga zaposlenih |
-| Dev 3 | Tok predlog → odobravanje/odbijanje, **tok izmene alokacije**, BR-1…BR-16, RM stranice |
-| QA | Testiranje i odobravanje feature PR-ova, API testovi za alokacije, izmene i ovlašćenja, unit testovi za capacity i matching, bug reportovi |
-
-**Cilj kraja nedelje:** ceo demo scenario iz sekcije 4 (uključujući izmenu u koraku 8) radi od početka do kraja.
-
-### Nedelja 3: stretch, kvalitet i prezentacija
+### Nedelja 2 (26–30.10): srž sistema i demo
 | Dan | Fokus |
 |---|---|
-| 1–2 | **Docker ceo stack** (Dev 1), stretch: upload dokumenata (Dev 1), odsustva (Dev 3), timeline/heatmap (Dev 2) |
-| 3 | Završetak stretch funkcionalnosti; **feature freeze** na kraju dana |
-| 4 | Ispravljanje bagova, UI polish, finalni seed podaci, provera da sve radi kroz `docker compose up --build` |
-| 5 | Probna prezentacija, demo scenario, README sa uputstvom za pokretanje |
+| Pon–uto | Matching endpoint i stranica kandidata (Dev 2), odobravanje i odbijanje, automatski status zahteva i otkazivanje (Dev 3), admin stranice, promena lozinke i početna stranica (Dev 1), seed podaci za demo (svi) |
+| Uto–sre | Tok izmene alokacije i *Pending approvals* (Dev 3), pretraga zaposlenih i status projekta (Dev 2), *My team* i *My allocations* (Dev 1). **Feature freeze u sredu 28.10. na kraju dana** |
+| Čet 29.10. | Ispravljanje bagova, finalni seed podaci, provera da sve radi kroz `docker compose up --build`, regresija |
+| Pet 30.10. | Probna prezentacija (pre podne), Sprint Review (demo) i retrospektiva, README i test izveštaj |
 
-QA u trećoj nedelji radi E2E testove glavnog toka, regresiju i finalni test izveštaj.
+QA u drugoj nedelji radi API testove za alokacije, izmene i ovlašćenja, E2E test glavnog toka, regresiju i finalni test izveštaj.
 
 ---
 
@@ -683,10 +683,14 @@ QA ne čeka da developeri završe, nego radi paralelno sa njima:
 - **Docker:** ceo stack kroz `docker compose up --build`
 - Seed podaci i demo scenario
 
+U sprintu je MVP podeljen na *Must* (demo tok, mora da bude gotovo) i *Should* (ostatak MVP-a, prvo otpada ako kasnimo). Podela po stavkama je u [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md#sprint-backlog).
+
 ### Stretch (redosledom prioriteta)
 1. **Odsustva:** prijava, odobravanje, uticaj na kapacitet (BR-14)
 2. **Upload CV-a i dokumenata projekta**
 3. **Timeline/heatmap** zauzetosti tima
+
+Zbog skraćenog roka (2 nedelje), stretch ne ulazi u sprint. Ove stavke su u product backlog-u (GitHub Issues sa labelom `stretch`) i rade se samo ako je ceo MVP spojen pre feature freeze-a.
 
 ### Van opsega (svesno izostavljeno)
 - Email i in-app obaveštenja, real-time (WebSocket)
@@ -702,13 +706,14 @@ QA ne čeka da developeri završe, nego radi paralelno sa njima:
 
 | Rizik | Mitigacija |
 |---|---|
-| Matching ispadne previše jednostavan i projekat izgleda kao CRUD | Matching i capacity su prioritet u drugoj nedelji, a objašnjenje skora je obavezan deo MVP-a |
+| Kraći rok: 2 umesto 3 nedelje | Prioriteti *Must* / *Should* / *Could*, provera u petak 23.10. i *Should* stavke prve otpadaju. Ko završi svoje *Must* zadatke, pomaže na tuđim *Must* zadacima na kritičnom putu (prvo Dev 3) |
+| Matching ispadne previše jednostavan i projekat izgleda kao CRUD | Matching i capacity su *Must* i počinju u prvoj nedelji, a objašnjenje skora je obavezan deo MVP-a |
 | Greške u računanju kapaciteta na granicama datuma i kod izmena | Pravila su definisana unapred (sekcije 6 i 7), a QA piše testove za granice pre implementacije |
-| Tok izmene alokacije poveća obim posla za Dev 3 | Izmena koristi iste endpointe za approve/reject i isti `CapacityService`. Dashboard i Docker su kod Dev 1, a heatmap kod Dev 2 |
-| Integracija frontenda i backenda kasni | API ugovor (DTO-i) dogovoren u prvoj nedelji i vidljiv u Swagger-u, a frontend može da radi sa mock podacima |
-| Docker setup za ceo stack oduzme previše vremena | Baza je u Docker-u od prvog dana, a ceo stack se radi u trećoj nedelji. Rezervna opcija za demo je da se backend i frontend pokrenu lokalno |
+| Tok izmene alokacije poveća obim posla za Dev 3 | Izmena koristi iste endpointe za approve/reject i isti `CapacityService`. Dashboard, Docker, *My team* i *My allocations* su kod Dev 1, a heatmap kod Dev 2 |
+| Integracija frontenda i backenda kasni | API ugovor (DTO-i) se dogovara prvog dana sprinta i vidljiv je u Swagger-u, a frontend može da radi sa mock podacima |
+| Docker setup za ceo stack oduzme previše vremena | Ceo stack je već postavljen (PR #1) i proverava se pred veće merge-ove i u četvrtak 29.10. Rezervna opcija za demo je da se backend i frontend pokrenu lokalno |
 | Bez CI-ja se pokvari `main` | `mvn verify` i `ng build` lokalno pre svakog PR-a, obavezan review, regresija pre većih merge-ova |
 | Konflikt brojeva Flyway migracija | Broj migracije se rezerviše na kanalu, a lokalna baza se resetuje sa `docker compose down -v` |
 | QA postane usko grlo za PR-ove | Rok od pola radnog dana, mali PR-ovi; ako QA ne stigne, merge sa odobrenjem developera, pa QA testira na `main` |
-| Previše stretch funkcionalnosti | Feature freeze na kraju 3. dana treće nedelje, bez izuzetaka |
+| Previše stretch funkcionalnosti | Stretch ne ulazi u sprint, a feature freeze je u sredu 28.10. na kraju dana, bez izuzetaka |
 | Merge konflikti u istim fajlovima | Paketi po feature-ima, mali i česti PR-ovi |
