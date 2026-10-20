@@ -20,7 +20,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/staffsync
       DB_USER: ${DB_USER:-staffsync}
       DB_PASSWORD: ${DB_PASSWORD:-staffsync}
-      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-staffsync-local-dev-jwt-secret-change-me-0123456789}
     depends_on:
       db:
         condition: service_healthy
