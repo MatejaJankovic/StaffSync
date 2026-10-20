@@ -11,4 +11,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("staffsync.jwt")
 public record JwtProperties(String secret, Duration expiration) {
 
+	public JwtProperties {
+		// Fail at startup instead of signing tokens with a missing or guessable key
+		if (secret == null || secret.isBlank()) {
+			throw new IllegalStateException(
+					"JWT_SECRET is not set. Set it (at least 32 characters) or run with the dev profile.");
+		}
+	}
+
 }

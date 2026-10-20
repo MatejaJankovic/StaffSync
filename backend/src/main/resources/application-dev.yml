@@ -1,0 +1,9 @@
+# Local development and demos only: docker-compose, run-dev.cmd and the tests turn this on.
+spring:
+  flyway:
+    # db/dev-seed holds the demo accounts (see README), so they never reach other environments
+    locations: classpath:db/migration,classpath:db/dev-seed
+
+staffsync:
+  jwt:
+    secret: ${JWT_SECRET:staffsync-local-dev-jwt-secret-change-me-0123456789}

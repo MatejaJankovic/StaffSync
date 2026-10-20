@@ -16,13 +16,15 @@ docker compose up --build
 
 Optionally copy `.env.example` to `.env` to override `DB_USER`, `DB_PASSWORD` and `JWT_SECRET`.
 
+The backend runs with the `dev` Spring profile here, which provides a local JWT secret and the dev accounts below. Without that profile, `JWT_SECRET` is required (at least 32 characters) and the backend won't start without it.
+
 **Development (hot reload)**
 
 ```bash
 docker compose up -d db
 ```
 
-Then start the backend with `backend/run-dev.cmd` (or from the IDE) and the frontend with `npm start` in `frontend/`. Stop the `frontend` container first, because both use port 4200.
+Then start the backend with `backend/run-dev.cmd` (or from the IDE with the `dev` profile active) and the frontend with `npm start` in `frontend/`. Stop the `frontend` container first, because both use port 4200.
 
 **Reset the database**
 
@@ -32,7 +34,7 @@ docker compose down -v
 
 ## Dev accounts
 
-The Flyway seed creates one account per role (there is no self-registration). They are for local development and demos only.
+The `dev` profile seeds one account per role from `db/dev-seed` (there is no self-registration). Other environments don't get them.
 
 | Name | Email | Role | Password |
 |---|---|---|---|

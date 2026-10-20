@@ -53,6 +53,12 @@ class JwtServiceTests {
 			.isInstanceOf(WeakKeyException.class);
 	}
 
+	@Test
+	void missingSecretFailsFast() {
+		assertThatThrownBy(() -> new JwtProperties("", Duration.ofHours(8))).isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("JWT_SECRET");
+	}
+
 	static User user(Long id, String email, Role role) {
 		User user = new User(email, "hash", "First", "Last", role);
 		try {
