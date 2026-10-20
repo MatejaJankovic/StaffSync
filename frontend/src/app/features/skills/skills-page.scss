@@ -1,0 +1,35 @@
+.skills {
+  padding: 24px;
+  max-width: 720px;
+}
+
+.skills__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0;
+  }
+}
+
+.skills__category {
+  font: var(--mat-sys-title-medium);
+  margin: 24px 0 4px;
+}
+
+.skills__table {
+  width: 100%;
+}
+
+.skills__actions {
+  width: 112px;
+  text-align: end;
+}
+
+.skills__message {
+  color: var(--mat-sys-on-surface-variant);
+}
