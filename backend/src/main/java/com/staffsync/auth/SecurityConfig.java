@@ -3,6 +3,7 @@ package com.staffsync.auth;
 import java.io.IOException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.staffsync.common.ErrorResponse;
 import com.staffsync.user.UserRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -70,7 +71,7 @@ public class SecurityConfig {
 			String message) throws IOException {
 		response.setStatus(status.value());
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-		objectMapper.writeValue(response.getOutputStream(), AuthError.of(status.value(), status.name(), message));
+		objectMapper.writeValue(response.getOutputStream(), ErrorResponse.of(status, status.name(), message));
 	}
 
 }

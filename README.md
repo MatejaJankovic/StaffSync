@@ -76,3 +76,60 @@ public class AllocationController {
     public AllocationDto approve(@PathVariable Long id) { … }
 }
 ```
+
+For list endpoints, add `@ParameterObject Pageable pageable` so Swagger shows `page`, `size` and `sort` as separate fields.
+
+### Errors
+
+Every error has the same JSON shape, written by `common/GlobalExceptionHandler` (and by `SecurityConfig` for 401/403 before a controller is reached):
+
+```json
+{
+  "timestamp": "2026-11-03T10:15:30Z",
+  "status": 409,
+  "code": "CAPACITY_EXCEEDED",
+  "message": "Capacity exceeded on 3 days",
+  "details": [{ "date": "2026-11-10", "load": 110 }]
+}
+```
+
+| Situation | Status | `code` | `details` |
+|---|---|---|---|
+| Bean Validation failed (`@Valid` body, constrained parameter, `@Validated` service) | 400 | `VALIDATION_ERROR` | `[{ "field": "email", "message": "must not be blank" }]` |
+| Malformed JSON, missing or wrongly typed parameter | 400 | `BAD_REQUEST` | `[]` |
+| No token, or an invalid or expired one | 401 | `UNAUTHORIZED` | `[]` |
+| Wrong role (`@PreAuthorize`) | 403 | `FORBIDDEN` | `[]` |
+| `NotFoundException`, or an unknown URL | 404 | `NOT_FOUND` | `[]` |
+| `BusinessException` | its own | its own, e.g. `CAPACITY_EXCEEDED` | whatever the service passes |
+| Anything else | 500 | `INTERNAL_ERROR` | `[]`. The stack trace is only logged |
+
+**In your code:** never build error bodies in controllers and don't add `@ExceptionHandler`s. Throw from the service instead:
+
+```java
+throw new NotFoundException("Project", id);                       // 404 "Project 42 not found"
+throw new BusinessException(HttpStatus.CONFLICT, "CAPACITY_EXCEEDED",
+        "Capacity exceeded on 3 days", List.of(Map.of("date", day, "load", 110)));
+```
+
+Use an UPPER_SNAKE_CASE `code` the UI can rely on, a `message` a user can read (the UI shows it in a snackbar), and document it with `@ApiResponse(responseCode = "409", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))`.
+
+### Paging
+
+Lists take `page` (0-based), `size` (default 20, max 100) and `sort` (`sort=lastName,asc`, repeat it for more fields), and return a Spring Data `Page`, which is always serialized as:
+
+```json
+{
+  "content": [ … ],
+  "page": { "size": 20, "number": 0, "totalElements": 45, "totalPages": 3 }
+}
+```
+
+```java
+@GetMapping
+public Page<ProjectDto> list(@RequestParam(required = false) ProjectStatus status,
+        @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
+    return projectService.list(status, pageable);   // repository.findAll(spec, pageable).map(mapper::toDto)
+}
+```
+
+The frontend's `paged-table` component reads exactly this shape.
