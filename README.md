@@ -29,3 +29,14 @@ Then start the backend with `backend/run-dev.cmd` (or from the IDE) and the fron
 ```bash
 docker compose down -v
 ```
+
+## Dev accounts
+
+The Flyway seed creates one account per role (there is no self-registration). They are for local development and demos only.
+
+| Email | Role | Password |
+|---|---|---|
+| `admin@staffsync.local` | ADMIN | `Password123!` |
+| `pm@staffsync.local` | PM | `Password123!` |
+| `rm@staffsync.local` | RM | `Password123!` |
+| `employee@staffsync.local` | EMPLOYEE (managed by the RM) | `Password123!` |

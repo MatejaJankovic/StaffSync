@@ -1,0 +1,61 @@
+package com.staffsync;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.staffsync.user.Role;
+import com.staffsync.user.Seniority;
+import com.staffsync.user.User;
+import com.staffsync.user.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
+
+@Import(TestcontainersConfiguration.class)
+@SpringBootTest
+@Transactional
+class UserRepositoryTests {
+
+	private static final String DEV_PASSWORD = "Password123!";
+
+	@Autowired
+	UserRepository userRepository;
+
+	@Test
+	void seedsOneActiveUserPerRole() {
+		assertThat(userRepository.findAll())
+			.filteredOn(User::isActive)
+			.extracting(User::getRole)
+			.contains(Role.ADMIN, Role.PM, Role.RM, Role.EMPLOYEE);
+	}
+
+	@Test
+	void seededEmployeeIsManagedByTheSeededRm() {
+		User employee = userRepository.findByEmailIgnoreCase("employee@staffsync.local").orElseThrow();
+
+		assertThat(employee.getManager().getEmail()).isEqualTo("rm@staffsync.local");
+		assertThat(employee.getManager().getRole()).isEqualTo(Role.RM);
+		assertThat(employee.getSeniority()).isEqualTo(Seniority.MEDIOR);
+		assertThat(employee.getCapacityPercent()).isEqualTo(100);
+		assertThat(employee.getDepartment().getName()).isEqualTo("Engineering");
+	}
+
+	@Test
+	void seededPasswordsAreBcryptHashesOfTheDevPassword() {
+		var encoder = new BCryptPasswordEncoder();
+		for (String email : new String[] { "admin@staffsync.local", "pm@staffsync.local", "rm@staffsync.local",
+				"employee@staffsync.local" }) {
+			User user = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+			assertThat(user.getPasswordHash()).startsWith("$2a$");
+			assertThat(encoder.matches(DEV_PASSWORD, user.getPasswordHash())).isTrue();
+		}
+	}
+
+	@Test
+	void findsUserByEmailIgnoringCase() {
+		assertThat(userRepository.findByEmailIgnoreCase("ADMIN@StaffSync.local")).isPresent();
+	}
+
+}
