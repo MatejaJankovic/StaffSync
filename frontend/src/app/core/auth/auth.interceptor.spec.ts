@@ -64,6 +64,22 @@ describe('authInterceptor', () => {
     expect(navigate).toHaveBeenCalledWith(['/login']);
   });
 
+  it('ignores a late 401 for a token that is no longer current', () => {
+    http.get('/api/projects').subscribe({ error: () => undefined });
+    const stale = httpMock.expectOne('/api/projects');
+
+    auth.login('a@b.c', 'pw').subscribe();
+    httpMock.expectOne(LOGIN_URL).flush({
+      token: 'new-token',
+      user: { id: 1, email: 'a@b.c', firstName: 'A', lastName: 'B', role: 'ADMIN' },
+    });
+    stale.flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(auth.token()).toBe('new-token');
+    expect(auth.isLoggedIn()).toBe(true);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('leaves the session alone on a failed login', () => {
     http.post(LOGIN_URL, {}).subscribe({ error: () => undefined });
     httpMock.expectOne(LOGIN_URL).flush(null, { status: 401, statusText: 'Unauthorized' });

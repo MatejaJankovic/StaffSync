@@ -1,5 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom, map, Observable, tap } from 'rxjs';
 import { LoginResponse, User } from './auth.models';
@@ -45,7 +45,9 @@ export class AuthService {
 
   /**
    * Called once on app start: if a token is stored, re-validate it with /api/auth/me.
-   * Never rejects, so a dead backend or an expired token doesn't block the app from starting.
+   * Never rejects, so a dead backend doesn't block the app from starting. Only a 401 ends the
+   * session; on a network error or 5xx the stored session is kept, so a backend restart
+   * doesn't log everyone out.
    */
   async restoreSession(): Promise<void> {
     const token = this.tokenState();
@@ -55,8 +57,10 @@ export class AuthService {
     try {
       const user = await firstValueFrom(this.http.get<User>(ME_URL));
       this.setSession(token, user);
-    } catch {
-      this.clearSession();
+    } catch (error: unknown) {
+      if (error instanceof HttpErrorResponse && error.status === 401) {
+        this.clearSession();
+      }
     }
   }
 

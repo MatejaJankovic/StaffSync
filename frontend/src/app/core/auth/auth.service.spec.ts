@@ -103,4 +103,30 @@ describe('AuthService', () => {
     expect(auth.isLoggedIn()).toBe(false);
     expect(localStorage.getItem('staffsync.token')).toBeNull();
   });
+
+  it('restoreSession keeps the session when the backend is down', async () => {
+    localStorage.setItem('staffsync.token', 'jwt-token');
+    localStorage.setItem('staffsync.user', JSON.stringify(USER));
+    const auth = setup();
+
+    const restored = auth.restoreSession();
+    httpMock.expectOne(ME_URL).error(new ProgressEvent('error'), { status: 0 });
+    await restored;
+
+    expect(auth.isLoggedIn()).toBe(true);
+    expect(localStorage.getItem('staffsync.token')).toBe('jwt-token');
+  });
+
+  it('restoreSession keeps the session on a server error', async () => {
+    localStorage.setItem('staffsync.token', 'jwt-token');
+    localStorage.setItem('staffsync.user', JSON.stringify(USER));
+    const auth = setup();
+
+    const restored = auth.restoreSession();
+    httpMock.expectOne(ME_URL).flush(null, { status: 503, statusText: 'Service Unavailable' });
+    await restored;
+
+    expect(auth.isLoggedIn()).toBe(true);
+    expect(auth.role()).toBe('PM');
+  });
 });

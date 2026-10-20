@@ -7,7 +7,8 @@ import { AuthService, LOGIN_URL } from './auth.service';
 /**
  * Adds `Authorization: Bearer <token>` to /api calls. A 401 from any call except the login
  * itself means the token is missing, invalid or expired: the session is cleared and the user
- * goes back to the login page.
+ * goes back to the login page. That only happens if the request used the current token, so a
+ * late 401 for an old token can't end a session started after it.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
@@ -24,7 +25,13 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(request).pipe(
     catchError((error: unknown) => {
-      if (isApi && !isLogin && error instanceof HttpErrorResponse && error.status === 401) {
+      if (
+        isApi &&
+        !isLogin &&
+        error instanceof HttpErrorResponse &&
+        error.status === 401 &&
+        token === auth.token()
+      ) {
         auth.clearSession();
         void router.navigate(['/login']);
       }

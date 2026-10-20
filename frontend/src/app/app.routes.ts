@@ -13,7 +13,6 @@ export const routes: Routes = [
     path: '',
     loadComponent: () => import('./core/layout/shell').then((m) => m.Shell),
     canActivate: [authGuard],
-    canActivateChild: [authGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'home' },
       // Each page is a placeholder until its owner swaps in the real component,
