@@ -1,0 +1,14 @@
+@use '@angular/material' as mat;
+
+.confirm-dialog__message {
+  margin: 0;
+}
+
+.confirm-dialog__confirm--destructive {
+  @include mat.button-overrides(
+    (
+      filled-container-color: var(--mat-sys-error),
+      filled-label-text-color: var(--mat-sys-on-error),
+    )
+  );
+}
