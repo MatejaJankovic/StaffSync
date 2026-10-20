@@ -432,6 +432,7 @@ Capstone-project/
 ├── frontend/            (Angular, Dockerfile, nginx.conf)
 ├── docs/                (proposal, sprint backlog, test plan)
 ├── docker-compose.yml
+├── CONTRIBUTING.md      (konvencije: grane, commit-ovi, PR-ovi)
 └── .env.example         (DB_USER, DB_PASSWORD, JWT_SECRET, ...)
 ```
 
@@ -546,7 +547,7 @@ Zbog skraćenog roka, stranice *My team* i *My allocations* su prebačene sa Dev
 
 ### Git workflow i PR review
 
-`main` je uvek stabilan. Feature grane se zovu `feature/<broj-issue-a>-<kratak-opis>` (npr. `feature/4-jwt-login`). Zadaci su u GitHub Issues: svaki user story ima zadatke kao sub-issue, a PR zatvara svoj zadatak sa `Closes #<broj>`. Dogovori idu preko Discord/Teams kanala.
+`main` je uvek stabilan i jedina je trajna grana. Grane se prave od `main`-a, zovu se `<tip>/<broj-issue-a>-<kratak-opis>` (npr. `feature/4-jwt-login`, `test/89-capacity-service-tests`) i vraćaju se u `main` kroz PR. Zadaci su u GitHub Issues: svaki user story ima zadatke kao sub-issue, a PR zatvara svoj zadatak sa `Closes #<broj>`. Sve konvencije (grane, commit poruke, PR-ovi, provere pre PR-a) su u [CONTRIBUTING.md](../CONTRIBUTING.md). Dogovori idu preko Discord/Teams kanala.
 
 | Vrsta PR-a | Ko odobrava | Šta proverava |
 |---|---|---|
