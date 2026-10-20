@@ -1,7 +1,7 @@
 # Sprint 1 backlog: StaffSync
 
 > **Sprint 1** · Mon Oct 19 – Fri Oct 30, 2026 (10 working days) · 3 developers + 1 QA
-> **Spec:** [docs/CLAUDE.md](CLAUDE.md) · **Live status:** [sprint issues on GitHub](https://github.com/MatejaJankovic/StaffSync/issues?q=is%3Aissue%20label%3A%22sprint%201%22)
+> **Spec:** [docs/CLAUDE.md](CLAUDE.md) · **Board:** [StaffSync project](https://github.com/users/MatejaJankovic/projects/7) · **Live status:** [sprint issues on GitHub](https://github.com/MatejaJankovic/StaffSync/issues?q=is%3Aissue%20label%3A%22sprint%201%22)
 >
 > This file is the plan. GitHub Issues hold the live status: every story and task below is an issue, and each task is a sub-issue of its story.
 
@@ -293,7 +293,7 @@ Tables reference each other, so the migrations must be applied in this order. Re
 - **Must before Should:** an unblocked *Must* task on the critical path always comes before a *Should* task (see the swarm rule).
 - **Bugs:** open an issue with the *Bug* template, link the story, assign the story owner and set the severity. Demo blockers come first.
 - **Closing:** a task closes when its PR merges. A story closes when all its tasks are closed and QA has verified its acceptance criteria.
-- **Status:** keep issues current, with the right assignee and a linked PR. Optionally, add a GitHub Project board (Todo / In progress / In review / Done) for `label:"sprint 1"`.
+- **Status:** the [project board](https://github.com/users/MatejaJankovic/projects/7) is the team dashboard. Move your card to *In progress* when you start a task. It moves to *Done* by itself when the PR with `Closes #N` merges. Use the *Board* and *Current iteration* views day to day.
 
 ## Definition of Ready
 
