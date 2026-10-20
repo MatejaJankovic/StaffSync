@@ -16,6 +16,11 @@ spring:
 server:
   port: 8080
 
+springdoc:
+  swagger-ui:
+    # Keeps the token from Authorize across a reload of the Swagger page
+    persist-authorization: true
+
 staffsync:
   jwt:
     # Must be at least 32 characters (HS256). No default on purpose: without JWT_SECRET the

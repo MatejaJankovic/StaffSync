@@ -2,6 +2,9 @@ package com.staffsync.common;
 
 import java.util.Map;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -11,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/health")
+@Tag(name = "Health", description = "Check that the backend and its database are up")
 public class HealthController {
 
 	private final JdbcTemplate jdbcTemplate;
@@ -19,6 +23,9 @@ public class HealthController {
 		this.jdbcTemplate = jdbcTemplate;
 	}
 
+	@Operation(summary = "Report whether the backend and the database are up (public, no token needed)")
+	@ApiResponse(responseCode = "200", description = "Backend and database are up")
+	@ApiResponse(responseCode = "503", description = "The database is down")
 	@GetMapping
 	public ResponseEntity<Map<String, String>> health() {
 		boolean dbUp;
