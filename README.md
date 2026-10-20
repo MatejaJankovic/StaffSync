@@ -133,3 +133,27 @@ public Page<ProjectDto> list(@RequestParam(required = false) ProjectStatus statu
 ```
 
 The frontend's `paged-table` component reads exactly this shape.
+
+## Shared UI components
+
+Reuse these instead of building your own. Each file has a doc comment with a full example.
+
+| What | Where | Use it for |
+|---|---|---|
+| Error snackbar | `core/error/error.interceptor.ts` | Nothing to do: every failed `/api` call shows the API's `message` in a snackbar (except 401, which logs the user out). If your page shows the error itself (e.g. inline in a form), pass `{ context: skipErrorSnackbar() }` to that request |
+| `Notifications` | `core/error/notifications.ts` | `notifications.success('Allocation approved')` after an action, or `error(…)` for a client-side error |
+| `ConfirmDialogService` | `shared/confirm-dialog/` | `confirm({ title, message, confirmText?, cancelText?, destructive? })` returns `Observable<boolean>`, `false` for cancel/Escape/outside click |
+| `<app-status-chip>` | `shared/status-chip/` | `<app-status-chip [status]="row.status" />` for any project, request or allocation status, with one color per meaning |
+| `<app-paged-table>` | `shared/paged-table/` | Any backend list: give it `columns` and a `fetch(query)` function. It sends `page`/`size`/`sort` and reads `{ content, page }`. Custom cells with `<ng-template appPagedTableCell="key" let-row>` |
+| `Page<T>`, `PageQuery`, `toPageParams` | `core/api/page.ts` | Typing list responses and building the query in your service |
+
+```ts
+// project.service.ts
+list(query: PageQuery, filters: { status?: ProjectStatus }): Observable<Page<ProjectDto>> {
+  let params = toPageParams(query);
+  if (filters.status) {
+    params = params.set('status', filters.status);
+  }
+  return this.http.get<Page<ProjectDto>>('/api/projects', { params });
+}
+```

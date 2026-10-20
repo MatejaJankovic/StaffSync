@@ -1,0 +1,24 @@
+:host {
+  display: block;
+}
+
+// Wide tables scroll sideways on small screens; only the table, so the paginator stays put
+.paged-table__scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+// Keeps the table from jumping when the progress bar appears
+.paged-table__progress {
+  height: 4px;
+}
+
+table {
+  width: 100%;
+}
+
+.paged-table__empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--mat-sys-on-surface-variant);
+}

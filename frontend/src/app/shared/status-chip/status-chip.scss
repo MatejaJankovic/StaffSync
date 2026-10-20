@@ -1,0 +1,37 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font: var(--mat-sys-label-medium);
+  white-space: nowrap;
+  background: var(--status-chip-bg);
+  color: var(--status-chip-fg);
+}
+
+:host(.status-chip--info) {
+  --status-chip-bg: var(--mat-sys-primary-container);
+  --status-chip-fg: var(--mat-sys-on-primary-container);
+}
+
+// Material has no success or warning roles, so these two use fixed colors
+:host(.status-chip--success) {
+  --status-chip-bg: light-dark(#d3f0da, #1f4a2c);
+  --status-chip-fg: light-dark(#0e5225, #b9efc6);
+}
+
+:host(.status-chip--warning) {
+  --status-chip-bg: light-dark(#ffe9b8, #4d3a00);
+  --status-chip-fg: light-dark(#5c4300, #ffe08f);
+}
+
+:host(.status-chip--neutral) {
+  --status-chip-bg: var(--mat-sys-surface-container-highest);
+  --status-chip-fg: var(--mat-sys-on-surface-variant);
+}
+
+:host(.status-chip--error) {
+  --status-chip-bg: var(--mat-sys-error-container);
+  --status-chip-fg: var(--mat-sys-on-error-container);
+}

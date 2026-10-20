@@ -12,6 +12,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { map } from 'rxjs';
 import { ROLE_LABELS } from '../auth/auth.models';
 import { AuthService } from '../auth/auth.service';
+import { skipErrorSnackbar } from '../error/error.interceptor';
 import { menuFor } from './menu';
 
 interface HealthResponse {
@@ -58,7 +59,8 @@ export class Shell implements OnInit {
   );
 
   ngOnInit(): void {
-    this.http.get<HealthResponse>('/api/health').subscribe({
+    // The footer shows the backend status itself
+    this.http.get<HealthResponse>('/api/health', { context: skipErrorSnackbar() }).subscribe({
       next: (health) => this.health.set({ kind: 'ok', health }),
       error: () => this.health.set({ kind: 'error' }),
     });
