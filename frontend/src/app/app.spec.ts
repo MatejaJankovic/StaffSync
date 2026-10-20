@@ -1,54 +1,73 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter, Router } from '@angular/router';
 import { App } from './app';
+import { routes } from './app.routes';
+
+const PM = { id: 2, email: 'pm@staffsync.local', firstName: 'Ana', lastName: 'P', role: 'PM' };
 
 describe('App', () => {
   let httpMock: HttpTestingController;
+  let router: Router;
 
   beforeEach(async () => {
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter(routes)],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
+    router = TestBed.inject(Router);
   });
 
-  afterEach(() => httpMock.verify());
+  function logInAs(user: object): void {
+    localStorage.setItem('staffsync.token', 'jwt');
+    localStorage.setItem('staffsync.user', JSON.stringify(user));
+  }
 
   it('should create the app', () => {
     const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    httpMock.expectOne('/api/health');
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('should render title', async () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    httpMock.expectOne('/api/health');
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('StaffSync');
+  it('sends a logged-out user to /login', async () => {
+    TestBed.createComponent(App);
+    await router.navigateByUrl('/home');
+    expect(router.url).toBe('/login');
   });
 
-  it('should show backend status from /api/health', async () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    httpMock.expectOne('/api/health').flush({ status: 'UP', database: 'UP' });
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.status')?.textContent).toContain('Backend: UP / DB: UP');
+  it('sends a logged-in user from / to /home', async () => {
+    logInAs(PM);
+    TestBed.createComponent(App);
+    await router.navigateByUrl('/');
+    expect(router.url).toBe('/home');
   });
 
-  it('should show error when backend is unreachable', async () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    httpMock
-      .expectOne('/api/health')
-      .flush(null, { status: 503, statusText: 'Service Unavailable' });
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.status')?.textContent).toContain('Backend unreachable');
+  it('blocks a direct URL that belongs to another role and goes to /home', async () => {
+    logInAs(PM);
+    TestBed.createComponent(App);
+    await router.navigateByUrl('/admin/users');
+    expect(router.url).toBe('/home');
+  });
+
+  it("allows a page of the user's own role", async () => {
+    logInAs(PM);
+    TestBed.createComponent(App);
+    await router.navigateByUrl('/projects');
+    expect(router.url).toBe('/projects');
+  });
+
+  it('keeps a logged-in user off the login page', async () => {
+    logInAs(PM);
+    TestBed.createComponent(App);
+    await router.navigateByUrl('/login');
+    expect(router.url).toBe('/home');
+  });
+
+  afterEach(() => {
+    // The shell asks for /api/health when it is shown
+    httpMock.match('/api/health');
+    httpMock.verify();
   });
 });

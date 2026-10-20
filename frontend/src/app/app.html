@@ -1,16 +1,1 @@
-<main class="shell">
-  <h1>{{ title() }}</h1>
-
-  @let state = health();
-  @if (state.kind === 'loading') {
-    <p class="status">Checking backend…</p>
-  } @else if (state.kind === 'ok') {
-    <p class="status status--ok">
-      Backend: {{ state.health.status }} / DB: {{ state.health.database }}
-    </p>
-  } @else {
-    <p class="status status--error">Backend unreachable</p>
-  }
-</main>
-
 <router-outlet />
