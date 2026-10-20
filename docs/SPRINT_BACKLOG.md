@@ -280,7 +280,7 @@ Tables reference each other, so the migrations must be applied in this order. Re
 ## Working agreements
 
 - **Picking work:** take the next task in your order of work above. It's already assigned to you. Mention any swap at the Daily Scrum.
-- **Branches:** `feature/<issue-number>-<short-description>`, e.g. `feature/4-jwt-login`.
+- **Branches:** create them from `main` as `<type>/<issue-number>-<short-description>`, e.g. `feature/4-jwt-login` or `test/89-capacity-service-tests`, and merge them back into `main` through a pull request. The full conventions are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 - **One task = one small PR:** one endpoint or one screen. The PR body says `Closes #<task>`, lists the BR-x rules, and explains how to test it. The PR template asks for all of this.
 - **Before opening a PR,** run the local checks, since there is no CI: `mvn verify` for the backend, and `ng build` and `ng test` for the frontend.
 - **Reviews:** every PR needs 1 developer approval, and feature PRs also need QA approval. QA reviews within half a working day. If QA can't make it, merge with the developer's approval, and QA tests it on `main` afterwards.
