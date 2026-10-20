@@ -43,6 +43,12 @@ How the backlog is organized:
 - Create new issues from the templates in `.github/ISSUE_TEMPLATE/`: *User story*, *Task* or *Bug*. Add a new task as a sub-issue of its story.
 - Report bugs with the *Bug* template, link the story, and assign the story owner.
 
+The [project board](https://github.com/users/MatejaJankovic/projects/7) is the team dashboard for all issues:
+
+- Move your card to *In progress* when you start working on it.
+- It moves to *Done* by itself when the pull request with `Closes #N` is merged.
+- Use the *Board* and *Current iteration* views day to day.
+
 If no issue exists:
 
 - Ask whether a GitHub Issue should be created.
