@@ -6,7 +6,7 @@ CREATE TABLE department (
 -- "user" is a reserved word in PostgreSQL, hence "users"
 CREATE TABLE users (
     id               BIGSERIAL PRIMARY KEY,
-    email            VARCHAR(255) NOT NULL UNIQUE,
+    email            VARCHAR(255) NOT NULL,
     password_hash    VARCHAR(100) NOT NULL,
     first_name       VARCHAR(100) NOT NULL,
     last_name        VARCHAR(100) NOT NULL,
@@ -21,5 +21,7 @@ CREATE TABLE users (
     CONSTRAINT chk_users_seniority CHECK (seniority IN ('JUNIOR', 'MEDIOR', 'SENIOR'))
 );
 
+-- Login looks emails up case-insensitively, so Bob@x.com and bob@x.com must not both exist
+CREATE UNIQUE INDEX uq_users_email_lower ON users (lower(email));
 CREATE INDEX idx_users_department ON users (department_id);
 CREATE INDEX idx_users_manager ON users (manager_id);

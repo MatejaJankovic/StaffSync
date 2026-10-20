@@ -21,7 +21,8 @@ public class User {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(nullable = false, unique = true)
+	// Unique regardless of case: see uq_users_email_lower in V1
+	@Column(nullable = false)
 	private String email;
 
 	@Column(name = "password_hash", nullable = false, length = 100)

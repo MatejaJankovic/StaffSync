@@ -1,6 +1,7 @@
 package com.staffsync;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.staffsync.user.Role;
 import com.staffsync.user.Seniority;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,6 +60,14 @@ class UserRepositoryTests {
 	@Test
 	void findsUserByEmailIgnoringCase() {
 		assertThat(userRepository.findByEmailIgnoreCase("Vukasin_ADMIN@StaffSync.local")).isPresent();
+	}
+
+	@Test
+	void emailIsUniqueIgnoringCase() {
+		User duplicate = new User("BOGDAN_EMPLOYEE@staffsync.local", "hash", "Other", "Person", Role.EMPLOYEE);
+
+		assertThatThrownBy(() -> userRepository.saveAndFlush(duplicate))
+			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 }
