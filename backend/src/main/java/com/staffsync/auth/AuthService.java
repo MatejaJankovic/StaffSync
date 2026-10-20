@@ -43,13 +43,16 @@ public class AuthService {
 		return new LoginResponse(jwtService.generateToken(user), UserDto.from(user));
 	}
 
-	/** The user behind a valid token; 401 if it was deleted or deactivated since. */
+	/**
+	 * The user behind a valid token. The JWT filter already rejects deleted and deactivated
+	 * users, so this only fails if that happens while the request is running.
+	 */
 	@Transactional(readOnly = true)
 	public UserDto me(AuthUser authUser) {
 		return userRepository.findById(authUser.id())
 			.filter(User::isActive)
 			.map(UserDto::from)
-			.orElseThrow(InvalidCredentialsException::new);
+			.orElseThrow(SessionExpiredException::new);
 	}
 
 }

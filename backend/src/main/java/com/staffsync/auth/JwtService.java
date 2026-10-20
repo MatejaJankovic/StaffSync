@@ -10,6 +10,7 @@ import com.staffsync.user.Role;
 import com.staffsync.user.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Service;
@@ -29,10 +30,13 @@ public class JwtService {
 
 	private final SecretKey key;
 
+	private final JwtParser parser;
+
 	public JwtService(JwtProperties properties) {
 		this.properties = properties;
 		// Throws WeakKeyException at startup if the secret is shorter than 256 bits
 		this.key = Keys.hmacShaKeyFor(properties.secret().getBytes(StandardCharsets.UTF_8));
+		this.parser = Jwts.parser().verifyWith(this.key).build();
 	}
 
 	public String generateToken(User user) {
@@ -52,7 +56,7 @@ public class JwtService {
 	 * @throws JwtException if the token is invalid, tampered with or expired
 	 */
 	public AuthUser parse(String token) {
-		Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+		Claims claims = parser.parseSignedClaims(token).getPayload();
 		try {
 			return new AuthUser(Long.valueOf(claims.getSubject()), claims.get(CLAIM_EMAIL, String.class),
 					Role.valueOf(claims.get(CLAIM_ROLE, String.class)));

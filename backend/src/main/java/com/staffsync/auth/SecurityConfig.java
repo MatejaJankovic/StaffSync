@@ -3,6 +3,7 @@ package com.staffsync.auth;
 import java.io.IOException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.staffsync.user.UserRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -40,8 +41,8 @@ public class SecurityConfig {
 	};
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, ObjectMapper objectMapper)
-			throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, UserRepository userRepository,
+			ObjectMapper objectMapper) throws Exception {
 		return http
 				.csrf(AbstractHttpConfigurer::disable)
 				.httpBasic(AbstractHttpConfigurer::disable)
@@ -56,7 +57,7 @@ public class SecurityConfig {
 						.requestMatchers(PUBLIC_PATHS).permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
 						.anyRequest().authenticated())
-				.addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class)
+				.addFilterBefore(new JwtAuthenticationFilter(jwtService, userRepository), UsernamePasswordAuthenticationFilter.class)
 				.build();
 	}
 

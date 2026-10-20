@@ -10,6 +10,7 @@ import java.util.Map;
 
 import com.staffsync.auth.JwtProperties;
 import com.staffsync.auth.JwtService;
+import com.staffsync.user.Role;
 import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
 import io.restassured.RestAssured;
@@ -154,6 +155,37 @@ class AuthControllerTests {
 			.when().get("/api/test/pm-only")
 			.then()
 			.statusCode(200);
+	}
+
+	@Test
+	void tokenOfAUserDeactivatedAfterLoginIs401() {
+		String token = tokenFor("mateja_pm@staffsync.local");
+		User pm = userRepository.findByEmailIgnoreCase("mateja_pm@staffsync.local").orElseThrow();
+		pm.setActive(false);
+		userRepository.save(pm);
+		try {
+			given().auth().oauth2(token).when().get("/api/test/pm-only").then().statusCode(401);
+			given().auth().oauth2(token).when().get("/api/auth/me").then().statusCode(401);
+		}
+		finally {
+			pm.setActive(true);
+			userRepository.save(pm);
+		}
+	}
+
+	@Test
+	void tokenWhoseRoleChangedSinceLoginIs401() {
+		String token = tokenFor("mateja_pm@staffsync.local");
+		User pm = userRepository.findByEmailIgnoreCase("mateja_pm@staffsync.local").orElseThrow();
+		pm.setRole(Role.EMPLOYEE);
+		userRepository.save(pm);
+		try {
+			given().auth().oauth2(token).when().get("/api/test/pm-only").then().statusCode(401);
+		}
+		finally {
+			pm.setRole(Role.PM);
+			userRepository.save(pm);
+		}
 	}
 
 	private Response login(String email, String password) {

@@ -53,8 +53,8 @@ public class AuthController {
 	}
 
 	// Stand-in until the GlobalExceptionHandler from US-02 (#9) takes this over
-	@ExceptionHandler(InvalidCredentialsException.class)
-	ResponseEntity<AuthError> handleInvalidCredentials(InvalidCredentialsException ex) {
+	@ExceptionHandler({ InvalidCredentialsException.class, SessionExpiredException.class })
+	ResponseEntity<AuthError> handleUnauthorized(RuntimeException ex) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 			.body(AuthError.of(HttpStatus.UNAUTHORIZED.value(), "UNAUTHORIZED", ex.getMessage()));
 	}
