@@ -1,0 +1,37 @@
+.login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.login__card {
+  width: 100%;
+  max-width: 400px;
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+}
+
+.login__error {
+  margin: 0 0 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+  font: var(--mat-sys-body-medium);
+}
+
+.login__submit {
+  height: 44px;
+}
+
+.login__submit mat-spinner {
+  margin: 0 auto;
+}

@@ -1,0 +1,73 @@
+<mat-toolbar class="shell__toolbar">
+  @if (isHandset()) {
+    <button mat-icon-button type="button" aria-label="Toggle menu" (click)="sidenav.toggle()">
+      <mat-icon>menu</mat-icon>
+    </button>
+  }
+  <a class="shell__brand" routerLink="/home">StaffSync</a>
+  <span class="shell__spacer"></span>
+
+  @if (user(); as current) {
+    <button
+      mat-button
+      type="button"
+      class="shell__user"
+      [matMenuTriggerFor]="userMenu"
+      aria-label="User menu"
+    >
+      <mat-icon>account_circle</mat-icon>
+      <span class="shell__user-text">
+        <span class="shell__user-name">{{ current.firstName }} {{ current.lastName }}</span>
+        <span class="shell__user-role">{{ roleLabel() }}</span>
+      </span>
+    </button>
+    <mat-menu #userMenu="matMenu" xPosition="before">
+      <button mat-menu-item type="button" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        <span>Logout</span>
+      </button>
+    </mat-menu>
+  }
+</mat-toolbar>
+
+<mat-sidenav-container class="shell__container">
+  <mat-sidenav
+    #sidenav
+    class="shell__sidenav"
+    [mode]="isHandset() ? 'over' : 'side'"
+    [opened]="!isHandset()"
+  >
+    <mat-nav-list aria-label="Main menu">
+      @for (item of menu(); track item.path) {
+        <a
+          mat-list-item
+          [routerLink]="'/' + item.path"
+          routerLinkActive
+          #rla="routerLinkActive"
+          [activated]="rla.isActive"
+          (click)="isHandset() && sidenav.close()"
+        >
+          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+          <span matListItemTitle>{{ item.label }}</span>
+        </a>
+      }
+    </mat-nav-list>
+
+    <footer class="shell__footer">
+      @let state = health();
+      @if (state.kind === 'loading') {
+        <span class="status">Checking backend…</span>
+      } @else if (state.kind === 'ok') {
+        <span class="status status--ok"
+          >Backend: {{ state.health.status }} / DB: {{ state.health.database }}</span
+        >
+      } @else {
+        <span class="status status--error">Backend unreachable</span>
+      }
+    </footer>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <router-outlet />
+  </mat-sidenav-content>
+</mat-sidenav-container>
