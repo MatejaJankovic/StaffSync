@@ -33,9 +33,9 @@ class UserRepositoryTests {
 
 	@Test
 	void seededEmployeeIsManagedByTheSeededRm() {
-		User employee = userRepository.findByEmailIgnoreCase("employee@staffsync.local").orElseThrow();
+		User employee = userRepository.findByEmailIgnoreCase("bogdan_employee@staffsync.local").orElseThrow();
 
-		assertThat(employee.getManager().getEmail()).isEqualTo("rm@staffsync.local");
+		assertThat(employee.getManager().getEmail()).isEqualTo("lazar_rm@staffsync.local");
 		assertThat(employee.getManager().getRole()).isEqualTo(Role.RM);
 		assertThat(employee.getSeniority()).isEqualTo(Seniority.MEDIOR);
 		assertThat(employee.getCapacityPercent()).isEqualTo(100);
@@ -45,8 +45,8 @@ class UserRepositoryTests {
 	@Test
 	void seededPasswordsAreBcryptHashesOfTheDevPassword() {
 		var encoder = new BCryptPasswordEncoder();
-		for (String email : new String[] { "admin@staffsync.local", "pm@staffsync.local", "rm@staffsync.local",
-				"employee@staffsync.local" }) {
+		for (String email : new String[] { "vukasin_admin@staffsync.local", "mateja_pm@staffsync.local", "lazar_rm@staffsync.local",
+				"bogdan_employee@staffsync.local" }) {
 			User user = userRepository.findByEmailIgnoreCase(email).orElseThrow();
 			assertThat(user.getPasswordHash()).startsWith("$2a$");
 			assertThat(encoder.matches(DEV_PASSWORD, user.getPasswordHash())).isTrue();
@@ -55,7 +55,7 @@ class UserRepositoryTests {
 
 	@Test
 	void findsUserByEmailIgnoringCase() {
-		assertThat(userRepository.findByEmailIgnoreCase("ADMIN@StaffSync.local")).isPresent();
+		assertThat(userRepository.findByEmailIgnoreCase("Vukasin_ADMIN@StaffSync.local")).isPresent();
 	}
 
 }

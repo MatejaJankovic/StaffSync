@@ -34,9 +34,9 @@ docker compose down -v
 
 The Flyway seed creates one account per role (there is no self-registration). They are for local development and demos only.
 
-| Email | Role | Password |
-|---|---|---|
-| `admin@staffsync.local` | ADMIN | `Password123!` |
-| `pm@staffsync.local` | PM | `Password123!` |
-| `rm@staffsync.local` | RM | `Password123!` |
-| `employee@staffsync.local` | EMPLOYEE (managed by the RM) | `Password123!` |
+| Name | Email | Role | Password |
+|---|---|---|---|
+| Vukasin Patkovic | `vukasin_admin@staffsync.local` | ADMIN | `Password123!` |
+| Mateja Jankovic | `mateja_pm@staffsync.local` | PM | `Password123!` |
+| Lazar Dunjic | `lazar_rm@staffsync.local` | RM | `Password123!` |
+| Bogdan Vujic | `bogdan_employee@staffsync.local` | EMPLOYEE (managed by the RM) | `Password123!` |

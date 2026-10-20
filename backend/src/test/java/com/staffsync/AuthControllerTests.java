@@ -48,8 +48,8 @@ class AuthControllerTests {
 	}
 
 	@ParameterizedTest
-	@CsvSource({ "admin@staffsync.local, ADMIN", "pm@staffsync.local, PM", "rm@staffsync.local, RM",
-			"employee@staffsync.local, EMPLOYEE" })
+	@CsvSource({ "vukasin_admin@staffsync.local, ADMIN", "mateja_pm@staffsync.local, PM", "lazar_rm@staffsync.local, RM",
+			"bogdan_employee@staffsync.local, EMPLOYEE" })
 	void eachSeededRoleCanLogIn(String email, String role) {
 		login(email, PASSWORD)
 			.then()
@@ -63,13 +63,13 @@ class AuthControllerTests {
 
 	@Test
 	void emailIsCaseInsensitive() {
-		login("PM@StaffSync.local", PASSWORD).then().statusCode(200);
+		login("Mateja_PM@StaffSync.local", PASSWORD).then().statusCode(200);
 	}
 
 	// T-27
 	@Test
 	void wrongPasswordAndUnknownEmailGetTheSameGeneric401() {
-		Response wrongPassword = login("pm@staffsync.local", "wrong-password");
+		Response wrongPassword = login("mateja_pm@staffsync.local", "wrong-password");
 		Response unknownEmail = login("nobody@staffsync.local", PASSWORD);
 
 		wrongPassword.then().statusCode(401).body("code", equalTo("UNAUTHORIZED"))
@@ -81,11 +81,11 @@ class AuthControllerTests {
 	// T-37
 	@Test
 	void inactiveUserCannotLogIn() {
-		User employee = userRepository.findByEmailIgnoreCase("employee@staffsync.local").orElseThrow();
+		User employee = userRepository.findByEmailIgnoreCase("bogdan_employee@staffsync.local").orElseThrow();
 		employee.setActive(false);
 		userRepository.save(employee);
 		try {
-			login("employee@staffsync.local", PASSWORD)
+			login("bogdan_employee@staffsync.local", PASSWORD)
 				.then()
 				.statusCode(401)
 				.body("message", equalTo("Invalid email or password"));
@@ -107,13 +107,13 @@ class AuthControllerTests {
 
 	@Test
 	void meReturnsTheCurrentUser() {
-		String token = tokenFor("rm@staffsync.local");
+		String token = tokenFor("lazar_rm@staffsync.local");
 
 		given().auth().oauth2(token)
 			.when().get("/api/auth/me")
 			.then()
 			.statusCode(200)
-			.body("email", equalTo("rm@staffsync.local"))
+			.body("email", equalTo("lazar_rm@staffsync.local"))
 			.body("role", equalTo("RM"));
 	}
 
@@ -132,7 +132,7 @@ class AuthControllerTests {
 	// T-26
 	@Test
 	void meWithExpiredTokenIs401() {
-		User admin = userRepository.findByEmailIgnoreCase("admin@staffsync.local").orElseThrow();
+		User admin = userRepository.findByEmailIgnoreCase("vukasin_admin@staffsync.local").orElseThrow();
 		String expired = new JwtService(new JwtProperties(jwtProperties.secret(), Duration.ofSeconds(-1)))
 			.generateToken(admin);
 
@@ -141,7 +141,7 @@ class AuthControllerTests {
 
 	@Test
 	void wrongRoleGets403() {
-		given().auth().oauth2(tokenFor("employee@staffsync.local"))
+		given().auth().oauth2(tokenFor("bogdan_employee@staffsync.local"))
 			.when().get("/api/test/pm-only")
 			.then()
 			.statusCode(403)
@@ -150,7 +150,7 @@ class AuthControllerTests {
 
 	@Test
 	void rightRolePassesMethodSecurity() {
-		given().auth().oauth2(tokenFor("pm@staffsync.local"))
+		given().auth().oauth2(tokenFor("mateja_pm@staffsync.local"))
 			.when().get("/api/test/pm-only")
 			.then()
 			.statusCode(200);
