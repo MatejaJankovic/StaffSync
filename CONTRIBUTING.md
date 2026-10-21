@@ -143,8 +143,8 @@ Pull requests should:
 
 - Cover one user story: all its tasks, one commit each. Keep each task small (usually one endpoint or one screen), so the pull request stays easy to review.
 - Target `main`.
-- Close every task of the story, one line each: `Closes #<task-number>`. Do not close the story itself. It closes when all its tasks are closed and QA has verified its acceptance criteria.
-- List the tasks in the description, so the reviewer and QA know what each commit holds.
+- Close the story and all its tasks, one line each: `Closes #<story-number>`, then `Closes #<task-number>` for every task. Merging the pull request closes all of them.
+- List the tasks in the description, so the reviewer knows what each commit holds.
 - Follow the pull request template: what changed, which business rules (BR-x) it touches, and how to test it.
 - Include a concise description of the change.
 - Explain any significant implementation decisions.
@@ -152,15 +152,11 @@ Pull requests should:
 
 Do not include unrelated modifications.
 
-Approvals needed before merging:
+Approval needed before merging: **one approval from any team member** other than the author. QA's approval is not required.
 
-| Pull request | Approvals |
-|---|---|
-| Every pull request | 1 developer, who checks the code, architecture, business rules in services, DTOs, validation and Swagger annotations |
-| Feature pull request (something users see) | Also QA, who tests the branch against the spec within half a working day |
-| Technical pull request (setup, configuration, refactoring) | The developer approval only |
+The reviewer checks the code, architecture, business rules in services, DTOs, validation and Swagger annotations, and that the pull request does what its story's acceptance criteria say.
 
-If QA can't review within half a working day, the pull request can be merged with the developer approval, and QA tests it on `main` afterwards.
+QA tests the merged work on `main` and reports bugs with the *Bug* template (see [GitHub Issues](#github-issues)).
 
 ---
 
@@ -274,7 +270,7 @@ Reviewers should focus on:
 - Requirement alignment
 - The [Definition of Done](docs/SPRINT_BACKLOG.md#definition-of-done)
 
-QA's approval means "tested and works to spec", not "the code is good". The developer who reviews is responsible for code quality.
+The reviewer is responsible for the quality of the code they approve.
 
 Feedback should be constructive and actionable.
 
