@@ -1,5 +1,14 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, contentChildren, input, linkedSignal, signal } from '@angular/core';
+import {
+  booleanAttribute,
+  Component,
+  computed,
+  contentChildren,
+  input,
+  linkedSignal,
+  output,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -64,6 +73,10 @@ export class PagedTable<T> {
   readonly pageSize = input(20);
   readonly pageSizeOptions = input([10, 20, 50]);
   readonly emptyText = input('No results');
+  /** Shows rows as clickable. Pair it with `(rowClick)`. */
+  readonly clickableRows = input(false, { transform: booleanAttribute });
+  /** Emits the row that was clicked, e.g. to open its details. */
+  readonly rowClick = output<T>();
 
   private readonly cells = contentChildren(PagedTableCell);
   protected readonly cellTemplates = computed(

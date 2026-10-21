@@ -1,0 +1,45 @@
+<section class="projects">
+  <header class="projects__header">
+    <h1>My projects</h1>
+    <button mat-flat-button (click)="create()">
+      <mat-icon>add</mat-icon>
+      New project
+    </button>
+  </header>
+
+  <mat-form-field appearance="outline" class="projects__filter" subscriptSizing="dynamic">
+    <mat-label>Status</mat-label>
+    <mat-select [value]="status()" (selectionChange)="status.set($event.value)">
+      <mat-option value="">All statuses</mat-option>
+      @for (option of statuses; track option) {
+        <mat-option [value]="option">{{ statusLabels[option] }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <app-paged-table
+    [columns]="columns"
+    [fetch]="fetch()"
+    [emptyText]="emptyText()"
+    clickableRows
+    (rowClick)="open($event)"
+  >
+    <ng-template appPagedTableCell="name" let-row>
+      <a [routerLink]="['/projects', row.id]" (click)="$event.stopPropagation()">{{ row.name }}</a>
+    </ng-template>
+    <ng-template appPagedTableCell="status" let-row>
+      <app-status-chip [status]="row.status" />
+    </ng-template>
+    <ng-template appPagedTableCell="actions" let-row>
+      @if (isEditable(row)) {
+        <button
+          mat-icon-button
+          [attr.aria-label]="'Edit ' + row.name"
+          (click)="$event.stopPropagation(); edit(row)"
+        >
+          <mat-icon>edit</mat-icon>
+        </button>
+      }
+    </ng-template>
+  </app-paged-table>
+</section>
