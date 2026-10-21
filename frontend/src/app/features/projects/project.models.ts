@@ -1,3 +1,4 @@
+import { formatDate } from '@angular/common';
 import { ProjectStatus } from '../../shared/status-chip/status-chip';
 
 export type { ProjectStatus };
@@ -39,6 +40,16 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
 };
+
+/** `2026-11-01` → `1 Nov 2026` */
+export function shortDate(iso: string): string {
+  return formatDate(iso, 'd MMM y', 'en-US');
+}
+
+/** `2026-11-01`, `2027-03-31` → `1 Nov 2026 – 31 Mar 2027` */
+export function formatPeriod(project: Pick<Project, 'startDate' | 'endDate'>): string {
+  return `${shortDate(project.startDate)} – ${shortDate(project.endDate)}`;
+}
 
 /** A COMPLETED or CANCELLED project can't be edited (the API answers 409). */
 export function isEditable(project: Pick<Project, 'status'>): boolean {

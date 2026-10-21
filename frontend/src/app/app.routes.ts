@@ -26,6 +26,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/projects/projects-page').then((m) => m.ProjectsPage),
       }),
+      // Every role can read a project, so no roleGuard. Reached from My projects (PM)
+      {
+        path: 'projects/:id',
+        loadComponent: () =>
+          import('./features/projects/project-details').then((m) => m.ProjectDetails),
+        title: 'Project details · StaffSync',
+      },
       // RM
       menuRoute('approvals'),
       menuRoute('team'),

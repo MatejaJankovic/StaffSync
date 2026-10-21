@@ -1,4 +1,3 @@
-import { formatDate } from '@angular/common';
 import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -14,6 +13,7 @@ import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
 import { ProjectDialog, ProjectDialogData } from './project-dialog';
 import {
+  formatPeriod,
   isEditable,
   PROJECT_STATUS_LABELS,
   PROJECT_STATUSES,
@@ -59,7 +59,7 @@ export class ProjectsPage {
       key: 'startDate',
       header: 'Period',
       sortable: true,
-      value: (project) => `${shortDate(project.startDate)} – ${shortDate(project.endDate)}`,
+      value: formatPeriod,
     },
     { key: 'status', header: 'Status', sortable: true },
     { key: 'actions', header: '' },
@@ -103,9 +103,4 @@ export class ProjectsPage {
         }
       });
   }
-}
-
-/** `2026-11-01` → `1 Nov 2026` */
-function shortDate(iso: string): string {
-  return formatDate(iso, 'd MMM y', 'en-US');
 }
