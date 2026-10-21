@@ -1,0 +1,65 @@
+.profile {
+  padding: 24px;
+  max-width: 880px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0 0 16px;
+  }
+}
+
+.profile__card {
+  margin-bottom: 24px;
+}
+
+.profile__data {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 24px;
+  margin: 8px 0 0;
+
+  dt {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0;
+    // Long emails wrap instead of running out of the card
+    overflow-wrap: anywhere;
+  }
+}
+
+// The level picker and years field are wide, so a narrow screen scrolls the table, not the page
+.profile__table-scroll {
+  overflow-x: auto;
+}
+
+.profile__table {
+  width: 100%;
+}
+
+.profile__years {
+  width: 96px;
+}
+
+.profile__actions {
+  width: 56px;
+  text-align: end;
+}
+
+.profile__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.profile__add {
+  width: 260px;
+}
+
+.profile__message {
+  color: var(--mat-sys-on-surface-variant);
+}
