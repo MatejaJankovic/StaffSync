@@ -38,7 +38,7 @@ Every task, bug, feature, or meaningful improvement should be associated with a 
 How the backlog is organized:
 
 - A **user story** (label `user story`) describes a feature with its acceptance criteria, business rules (BR-x) and test cases (T-xx).
-- Each story is split into **tasks** (label `task`). Tasks are sub-issues of their story, and each one is small enough for one pull request.
+- Each story is split into **tasks** (label `task`). Tasks are sub-issues of their story, and each one is small enough for one commit. A story is delivered as one branch and one pull request (see [Branching Strategy](#branching-strategy)).
 - Labels also show the sprint (`sprint 1`), the priority (`priority: must`, `priority: should`, `priority: could`), the layer (`backend`, `frontend`, `devops`, `qa`) and the slice.
 - Create new issues from the templates in `.github/ISSUE_TEMPLATE/`: *User story*, *Task* or *Bug*. Add a new task as a sub-issue of its story.
 - Report bugs with the *Bug* template, link the story, and assign the story owner.
@@ -67,11 +67,17 @@ When working on an issue:
 
 `main` is the only long-lived branch, and it must always stay stable. Create every branch from the latest `main`, and merge it back into `main` through a pull request.
 
+**One branch per user story.** Do all the tasks of a story on that one branch, one commit per task (for example the backend, then the list page, then the details page). Do not create a branch per task. The story gets one pull request, and that is the only pull request that goes to `main`.
+
+If two developers share a story, each can take their tasks on a short branch created from the story branch (`<type>/<task-number>-<short-description>`) and merge it into the story branch. Only the story branch is ever merged into `main`.
+
 Branch naming:
 
 ```text
 <type>/<issue-number>-<short-description>
 ```
+
+Use the number of the **story** (the `user story` issue, e.g. `#14`), not of one of its tasks. For work that isn't part of a story, such as a bug or a technical task, use its own issue number.
 
 Types:
 
@@ -88,11 +94,12 @@ test/      tests only
 Examples:
 
 ```text
-feature/33-matching-service
-task/9-error-format
-test/89-capacity-service-tests
-docs/86-test-plan
-chore/56-docker-check
+feature/14-project-management
+feature/32-matching-engine
+task/7-api-foundation
+test/88-spec-first-unit-tests
+docs/85-test-plan
+chore/52-demo-ready
 ```
 
 Only for work that is explicitly done without an issue, leave out the number, e.g. `docs/contributing`.
@@ -124,7 +131,9 @@ test: add capacity service boundary tests
 
 Keep commit messages clear and focused on user-visible intent.
 
-Pull requests are squash-merged, so the **pull request title** becomes the commit message on `main`. Write it in the same format.
+Make **one commit per task** of the story, and name the story in each message, e.g. `feat: add projects API (US-04)`. Each commit should build and pass its tests on its own, so a reviewer can read the pull request commit by commit.
+
+Pull requests are squash-merged, so the **pull request title** becomes the commit message on `main`, and the per-task commits are folded into it. Write the title in the same format.
 
 ---
 
@@ -132,9 +141,10 @@ Pull requests are squash-merged, so the **pull request title** becomes the commi
 
 Pull requests should:
 
-- Address a single concern whenever practical: one task, usually one endpoint or one screen.
+- Cover one user story: all its tasks, one commit each. Keep each task small (usually one endpoint or one screen), so the pull request stays easy to review.
 - Target `main`.
-- Close the related issue with `Closes #<task-number>` in the description.
+- Close every task of the story, one line each: `Closes #<task-number>`. Do not close the story itself. It closes when all its tasks are closed and QA has verified its acceptance criteria.
+- List the tasks in the description, so the reviewer and QA know what each commit holds.
 - Follow the pull request template: what changed, which business rules (BR-x) it touches, and how to test it.
 - Include a concise description of the change.
 - Explain any significant implementation decisions.
