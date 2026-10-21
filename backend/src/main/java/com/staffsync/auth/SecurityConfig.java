@@ -65,6 +65,9 @@ public class SecurityConfig {
 						// Same for projects: a non-PM sending a bad body gets 403, not 400
 						.requestMatchers(HttpMethod.POST, "/api/projects/**").hasRole("PM")
 						.requestMatchers(HttpMethod.PUT, "/api/projects/**").hasRole("PM")
+						// And for staffing requests (POST is covered by /api/projects/{id}/requests above)
+						.requestMatchers(HttpMethod.PUT, "/api/requests/**").hasRole("PM")
+						.requestMatchers(HttpMethod.DELETE, "/api/requests/**").hasRole("PM")
 						.anyRequest().authenticated())
 				.addFilterBefore(new JwtAuthenticationFilter(jwtService, userRepository), UsernamePasswordAuthenticationFilter.class)
 				.build();
