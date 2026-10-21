@@ -75,6 +75,11 @@ describe('ProjectDetails', () => {
   async function respond(project: Project = ALPHA, id = project.id): Promise<void> {
     httpMock.expectOne(`${PROJECTS_URL}/${id}`).flush(project);
     await settle();
+    // the staffing requests section loads the project's requests
+    for (const call of httpMock.match(`${PROJECTS_URL}/${id}/requests?page=0&size=10`)) {
+      call.flush({ content: [], page: { size: 10, number: 0, totalElements: 0, totalPages: 0 } });
+    }
+    await settle();
   }
 
   function editButton(): HTMLButtonElement | undefined {
