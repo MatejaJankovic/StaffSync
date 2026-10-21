@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.staffsync.common.ErrorResponse.FieldViolation;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +52,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	private static final String VALIDATION_MESSAGE = "Some fields are invalid";
 
-	private static final String INTERNAL_MESSAGE = "An unexpected error occurred";
+	static final String INTERNAL_MESSAGE = "An unexpected error occurred";
 
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
@@ -60,13 +61,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return respond(ErrorResponse.of(ex.getStatus(), ex.getCode(), ex.getMessage(), ex.getDetails()));
 	}
 
-	/** Validation of a {@code @Validated} service or component method. */
+	/**
+	 * Validation of the arguments of a {@code @Validated} service or component method. A broken
+	 * return value, or an entity the server built and failed to validate on save, is a bug and
+	 * answers 500 (and is logged), not a 400 that blames the client.
+	 */
 	@ExceptionHandler(ConstraintViolationException.class)
 	ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
+		if (!ex.getConstraintViolations().stream().allMatch(violation -> isArgument(violation.getPropertyPath()))) {
+			return handleUnexpected(ex);
+		}
 		List<FieldViolation> details = ex.getConstraintViolations()
 			.stream()
 			.map(violation -> new FieldViolation(lastNode(violation.getPropertyPath()), violation.getMessage()))
-			.sorted(Comparator.comparing(FieldViolation::field))
+			.sorted(Comparator.comparing(FieldViolation::field, Comparator.nullsFirst(Comparator.naturalOrder())))
 			.toList();
 		return respond(validationError(details));
 	}
@@ -147,6 +155,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return new FieldViolation(field, error.getDefaultMessage());
 	}
 
+	/** {@code approve.request.percent} is an argument of {@code approve}; {@code approve.<return value>} is not. */
+	private static boolean isArgument(Path path) {
+		for (Path.Node node : path) {
+			if (node.getKind() == ElementKind.PARAMETER || node.getKind() == ElementKind.CROSS_PARAMETER) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** {@code approve.request.percent} → {@code percent}. */
 	private static String lastNode(Path path) {
 		String name = null;
@@ -156,7 +174,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return name;
 	}
 
-	private static String codeFor(HttpStatusCode status) {
+	static String codeFor(HttpStatusCode status) {
 		if (status.value() == HttpStatus.INTERNAL_SERVER_ERROR.value()) {
 			return INTERNAL_ERROR;
 		}

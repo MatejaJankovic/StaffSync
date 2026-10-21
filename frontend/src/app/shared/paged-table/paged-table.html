@@ -26,7 +26,7 @@
       <tr mat-row *matRowDef="let row; columns: columnKeys()"></tr>
       <tr class="mat-mdc-row" *matNoDataRow>
         <td class="mat-mdc-cell paged-table__empty" [attr.colspan]="columnKeys().length">
-          {{ loading() ? 'Loading…' : emptyText() }}
+          {{ loading() ? 'Loading…' : failed() ? 'Unable to load the data' : emptyText() }}
         </td>
       </tr>
     </table>

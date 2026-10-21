@@ -23,7 +23,9 @@ export interface PageQuery {
 
 /**
  * Adds `page`, `size` and `sort` to the request params, e.g.
- * `http.get<Page<ProjectDto>>('/api/projects', { params: toPageParams(query, filters) })`.
+ * `http.get<Page<ProjectDto>>('/api/projects', { params: toPageParams(query) })`.
+ * To send filters too, pass the params that already hold them:
+ * `toPageParams(query, new HttpParams().set('status', status))`.
  */
 export function toPageParams(query: PageQuery, params = new HttpParams()): HttpParams {
   let result = params.set('page', query.page).set('size', query.size);

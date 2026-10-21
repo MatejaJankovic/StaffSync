@@ -5,7 +5,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
-import { catchError, Observable, of, switchMap, tap } from 'rxjs';
+import { catchError, defer, Observable, of, switchMap, tap } from 'rxjs';
 import { Page, PageQuery } from '../../core/api/page';
 import { PagedTableCell } from './paged-table-cell';
 
@@ -42,8 +42,9 @@ export interface PagedTableColumn<T> {
  * </app-paged-table>
  * ```
  *
- * Errors are already shown by the global error snackbar; the table then shows no rows.
- * Call `reload()` (e.g. via `viewChild(PagedTable)`) after a change to reload the current page.
+ * Errors are already shown by the global error snackbar; the table then shows no rows and says
+ * that loading failed. Call `reload()` (e.g. via `viewChild(PagedTable)`) after a change to reload
+ * the current page; if that page no longer exists, the table moves to the new last page.
  */
 @Component({
   selector: 'app-paged-table',
@@ -81,6 +82,8 @@ export class PagedTable<T> {
   protected readonly rows = signal<T[]>([]);
   protected readonly total = signal(0);
   protected readonly loading = signal(false);
+  /** The last request failed, so the empty table is not "no results". */
+  protected readonly failed = signal(false);
 
   private readonly reloads = signal(0);
 
@@ -101,11 +104,20 @@ export class PagedTable<T> {
     toObservable(this.request)
       .pipe(
         tap(() => this.loading.set(true)),
-        switchMap(({ fetch, query }) => fetch(query).pipe(catchError(() => of(null)))),
+        // `defer` so a `fetch` that throws before returning an Observable fails this request only,
+        // and the table keeps working
+        switchMap(({ fetch, query }) => defer(() => fetch(query)).pipe(catchError(() => of(null)))),
         takeUntilDestroyed(),
       )
       .subscribe((page) => {
+        const lastPage = (page?.page.totalPages ?? 0) - 1;
+        if (page && page.content.length === 0 && lastPage >= 0 && this.pageIndex() > lastPage) {
+          // The page is gone, e.g. its only row was deleted: show the new last page instead
+          this.pageIndex.set(lastPage);
+          return;
+        }
         this.loading.set(false);
+        this.failed.set(page === null);
         this.rows.set(page?.content ?? []);
         this.total.set(page?.page.totalElements ?? 0);
       });

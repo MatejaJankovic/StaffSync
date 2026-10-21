@@ -91,6 +91,15 @@ class GlobalExceptionHandlerTests {
 	}
 
 	@Test
+	void constraintViolationOnAReturnValueIs500NotABadRequest() {
+		assertError(given().auth().oauth2(token)
+			.when().get(BASE + "/service-return?value=0")
+			.then(), 500, "INTERNAL_ERROR")
+			.body("message", equalTo("An unexpected error occurred"))
+			.body("details", empty());
+	}
+
+	@Test
 	void malformedJsonIs400() {
 		assertError(given().auth().oauth2(token).contentType(ContentType.JSON)
 			.body("{ not json")
@@ -217,6 +226,11 @@ class GlobalExceptionHandlerTests {
 			return service.check(value);
 		}
 
+		@GetMapping("/service-return")
+		int serviceReturn(@RequestParam int value) {
+			return service.checkResult(value);
+		}
+
 		@GetMapping("/not-found")
 		void notFound() {
 			throw new NotFoundException("Project", 42);
@@ -251,6 +265,12 @@ class GlobalExceptionHandlerTests {
 	static class ValidatedService {
 
 		int check(@Min(1) int value) {
+			return value;
+		}
+
+		/** The argument is fine, the result breaks its own constraint: a bug in the service. */
+		@Min(1)
+		int checkResult(int value) {
 			return value;
 		}
 

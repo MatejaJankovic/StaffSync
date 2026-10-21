@@ -135,8 +135,58 @@ describe('PagedTable', () => {
     expect(el.querySelector('.paged-table__empty')?.textContent).toContain('No results');
   });
 
-  it('shows no rows when the request fails', async () => {
+  it('says that loading failed, not that there are no results, when the request fails', async () => {
     const el = await render(() => throwError(() => new Error('500')));
-    expect(el.querySelector('.paged-table__empty')?.textContent).toContain('No results');
+    expect(el.querySelector('.paged-table__empty')?.textContent).toContain(
+      'Unable to load the data',
+    );
+  });
+
+  it('keeps working after a fetch that throws before returning an Observable', async () => {
+    const el = await render(() => {
+      throw new Error('bad params');
+    });
+    expect(el.querySelector('.paged-table__empty')?.textContent).toContain(
+      'Unable to load the data',
+    );
+
+    fetch.mockImplementation(() => of(pageOf([{ id: 3, name: 'Ana', status: 'OPEN' }])));
+    fixture.componentInstance.table().reload();
+    await settle();
+
+    expect(cells(el)).toEqual(['Ana', '#3', '[OPEN]']);
+  });
+
+  it('moves to the new last page when the current page no longer exists', async () => {
+    const el = await render(() => of(pageOf([{ id: 1, name: 'A', status: 'OPEN' }])));
+    const paginator = fixture.debugElement
+      .query(By.directive(MatPaginator))
+      .injector.get(MatPaginator);
+    paginator.nextPage();
+    await settle();
+    paginator.nextPage();
+    await settle();
+    expect(lastQuery()).toEqual({ page: 2, size: 20 });
+
+    // The only row of page 2 was deleted: 40 rows are left, so pages 0 and 1
+    fetch.mockImplementation((query) =>
+      of(
+        query.page >= 2
+          ? {
+              content: [],
+              page: { size: 20, number: query.page, totalElements: 40, totalPages: 2 },
+            }
+          : {
+              content: [{ id: 9, name: 'Zoe', status: 'OPEN' }],
+              page: { size: 20, number: query.page, totalElements: 40, totalPages: 2 },
+            },
+      ),
+    );
+    fixture.componentInstance.table().reload();
+    await settle();
+    await settle();
+
+    expect(lastQuery()).toEqual({ page: 1, size: 20 });
+    expect(cells(el)).toEqual(['Zoe', '#9', '[OPEN]']);
   });
 });
