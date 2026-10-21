@@ -31,18 +31,24 @@ export function menuFor(role: Role | null): MenuItem[] {
   return role ? MENU.filter((item) => item.roles.includes(role)) : [];
 }
 
+/** A page that is loaded on demand, to keep its dependencies out of the initial bundle. */
+export interface LazyPage {
+  loadComponent: () => Promise<Type<unknown>>;
+}
+
 /**
  * The route for a menu page, protected by `roleGuard` with the roles from `MENU`.
- * Swap in your page with e.g. `menuRoute('projects', ProjectList)`.
+ * Swap in your page with e.g. `menuRoute('projects', ProjectList)`, or load it lazily with
+ * `menuRoute('projects', { loadComponent: () => import('./features/projects/list').then((m) => m.ProjectList) })`.
  */
-export function menuRoute(path: string, component: Type<unknown> = Placeholder): Route {
+export function menuRoute(path: string, page: Type<unknown> | LazyPage = Placeholder): Route {
   const item = MENU.find((entry) => entry.path === path);
   if (!item) {
     throw new Error(`No menu item for path "${path}"`);
   }
   return {
     path,
-    component,
+    ...('loadComponent' in page ? { loadComponent: page.loadComponent } : { component: page }),
     canActivate: [roleGuard],
     data: { roles: item.roles, title: item.label },
     title: `${item.label} · StaffSync`,

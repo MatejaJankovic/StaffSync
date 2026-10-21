@@ -56,6 +56,11 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers(PUBLIC_PATHS).permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+						// Checked before the request body is validated, so a non-Admin sending a bad body
+						// gets 403 and not 400. The @PreAuthorize on the controller stays as a second layer.
+						.requestMatchers(HttpMethod.POST, "/api/skills/**").hasRole("ADMIN")
+						.requestMatchers(HttpMethod.PUT, "/api/skills/**").hasRole("ADMIN")
+						.requestMatchers(HttpMethod.DELETE, "/api/skills/**").hasRole("ADMIN")
 						.anyRequest().authenticated())
 				.addFilterBefore(new JwtAuthenticationFilter(jwtService, userRepository), UsernamePasswordAuthenticationFilter.class)
 				.build();
