@@ -100,6 +100,8 @@ export class ProfilePage implements OnInit {
   protected load(): void {
     const userId = this.auth.currentUser()?.id;
     if (userId === undefined) {
+      this.loading.set(false);
+      this.loadFailed.set(true);
       return;
     }
     this.loading.set(true);

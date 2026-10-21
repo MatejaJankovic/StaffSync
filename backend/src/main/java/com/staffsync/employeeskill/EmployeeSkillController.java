@@ -59,7 +59,7 @@ public class EmployeeSkillController {
 					]""")))
 	@ApiResponse(responseCode = "200", description = "The user's new skill list")
 	@ApiResponse(responseCode = "400",
-			description = "Level not 1–5 or years negative (VALIDATION_ERROR), a skill listed twice (DUPLICATE_SKILL) or a skill not in the catalog (UNKNOWN_SKILL)",
+			description = "Level not 1–5 or years not 0–60 (VALIDATION_ERROR), a skill listed twice (DUPLICATE_SKILL) or a skill not in the catalog (UNKNOWN_SKILL)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
