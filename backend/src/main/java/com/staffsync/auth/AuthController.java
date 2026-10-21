@@ -3,7 +3,7 @@ package com.staffsync.auth;
 import com.staffsync.auth.dto.LoginRequest;
 import com.staffsync.auth.dto.LoginResponse;
 import com.staffsync.common.ErrorResponse;
-import com.staffsync.user.dto.UserDto;
+import com.staffsync.user.dto.ProfileDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,13 +40,14 @@ public class AuthController {
 		return authService.login(request);
 	}
 
-	@Operation(summary = "Get the currently logged-in user")
+	@Operation(summary = "Get the currently logged-in user",
+			description = "Includes department, seniority, capacity and resource manager for *My profile*")
 	@SecurityRequirement(name = "bearerAuth")
 	@ApiResponse(responseCode = "200", description = "The current user")
 	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@GetMapping("/me")
-	public UserDto me(@AuthenticationPrincipal AuthUser user) {
+	public ProfileDto me(@AuthenticationPrincipal AuthUser user) {
 		return authService.me(user);
 	}
 

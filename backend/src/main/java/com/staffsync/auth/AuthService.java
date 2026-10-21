@@ -4,6 +4,7 @@ import com.staffsync.auth.dto.LoginRequest;
 import com.staffsync.auth.dto.LoginResponse;
 import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
+import com.staffsync.user.dto.ProfileDto;
 import com.staffsync.user.dto.UserDto;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -48,10 +49,10 @@ public class AuthService {
 	 * users, so this only fails if that happens while the request is running.
 	 */
 	@Transactional(readOnly = true)
-	public UserDto me(AuthUser authUser) {
+	public ProfileDto me(AuthUser authUser) {
 		return userRepository.findById(authUser.id())
 			.filter(User::isActive)
-			.map(UserDto::from)
+			.map(ProfileDto::from)
 			.orElseThrow(SessionExpiredException::new);
 	}
 

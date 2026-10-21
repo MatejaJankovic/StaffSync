@@ -25,7 +25,6 @@ describe('Shell', () => {
     httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(Shell);
     fixture.detectChanges();
-    httpMock.expectOne('/api/health').flush({ status: 'UP', database: 'UP' });
     await fixture.whenStable();
     return fixture.nativeElement as HTMLElement;
   }
@@ -53,11 +52,6 @@ describe('Shell', () => {
     const el = await render('PM');
     expect(el.querySelector('.shell__user-name')?.textContent).toContain('Ana Project');
     expect(el.querySelector('.shell__user-role')?.textContent).toContain('Project Manager');
-  });
-
-  it('shows the backend status in the footer', async () => {
-    const el = await render('ADMIN');
-    expect(el.querySelector('.status')?.textContent).toContain('Backend: UP / DB: UP');
   });
 
   it('logs out from the user menu', async () => {

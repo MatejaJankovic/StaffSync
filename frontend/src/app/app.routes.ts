@@ -19,7 +19,9 @@ export const routes: Routes = [
       // e.g. menuRoute('projects', ProjectList). Roles come from MENU in core/layout/menu.ts.
       menuRoute('home'),
       // Employee
-      menuRoute('profile'),
+      menuRoute('profile', {
+        loadComponent: () => import('./features/profile/profile-page').then((m) => m.ProfilePage),
+      }),
       menuRoute('my-allocations'),
       // PM
       menuRoute('projects', {
