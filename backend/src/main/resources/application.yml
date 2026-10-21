@@ -12,9 +12,20 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  data:
+    web:
+      pageable:
+        # Every Page<T> is returned as { content, page: { size, number, totalElements, totalPages } }
+        serialization-mode: via-dto
+        max-page-size: 100
 
 server:
   port: 8080
+
+springdoc:
+  swagger-ui:
+    # Keeps the token from Authorize across a reload of the Swagger page
+    persist-authorization: true
 
 staffsync:
   jwt:

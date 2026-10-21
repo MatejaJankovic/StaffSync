@@ -2,6 +2,7 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom, map, Observable, tap } from 'rxjs';
+import { skipErrorSnackbar } from '../error/error.interceptor';
 import { LoginResponse, User } from './auth.models';
 
 export const LOGIN_URL = '/api/auth/login';
@@ -25,7 +26,9 @@ export class AuthService {
   readonly isLoggedIn = computed(() => this.tokenState() !== null && this.userState() !== null);
 
   login(email: string, password: string): Observable<User> {
-    return this.http.post<LoginResponse>(LOGIN_URL, { email, password }).pipe(
+    // The login page shows its own error message
+    const context = skipErrorSnackbar();
+    return this.http.post<LoginResponse>(LOGIN_URL, { email, password }, { context }).pipe(
       tap(({ token, user }) => this.setSession(token, user)),
       map(({ user }) => user),
     );
@@ -55,7 +58,9 @@ export class AuthService {
       return;
     }
     try {
-      const user = await firstValueFrom(this.http.get<User>(ME_URL));
+      const user = await firstValueFrom(
+        this.http.get<User>(ME_URL, { context: skipErrorSnackbar() }),
+      );
       this.setSession(token, user);
     } catch (error: unknown) {
       if (error instanceof HttpErrorResponse && error.status === 401) {

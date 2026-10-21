@@ -37,3 +37,14 @@ body {
   height: 100%;
 }
 /* You can add global styles to this file, and also import other style files */
+
+// Error snackbar from core/error/notifications.ts. Global, because the snackbar lives in an overlay
+.snackbar--error {
+  @include mat.snack-bar-overrides(
+    (
+      container-color: var(--mat-sys-error-container),
+      supporting-text-color: var(--mat-sys-on-error-container),
+      button-color: var(--mat-sys-on-error-container),
+    )
+  );
+}
