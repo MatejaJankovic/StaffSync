@@ -1,6 +1,6 @@
 ---
 name: Task
-about: One piece of work inside a user story, small enough for one PR
+about: One piece of work inside a user story, small enough for one commit
 title: "[BE] "
 labels: ["task"]
 ---

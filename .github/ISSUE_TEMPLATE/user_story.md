@@ -25,5 +25,5 @@ As a **<role>**, I want **<goal>**, so that **<benefit>**.
 | @ | Must / Should / Could | | |
 
 **Depends on:** #
-**Tasks:** add each task as a sub-issue of this story. One task is one small PR that closes it (`Closes #<task>`).
-**Done when:** all tasks are closed, QA has verified the acceptance criteria, and the [Definition of Done](https://github.com/MatejaJankovic/StaffSync/blob/main/docs/SPRINT_BACKLOG.md#definition-of-done) is met.
+**Tasks:** add each task as a sub-issue of this story. Each task is one commit on the story's branch, and one PR closes the story and all its tasks (`Closes #<story>`, `Closes #<task>`).
+**Done when:** its PR is merged (that closes the story and its tasks), and the [Definition of Done](https://github.com/MatejaJankovic/StaffSync/blob/main/docs/SPRINT_BACKLOG.md#definition-of-done) is met.

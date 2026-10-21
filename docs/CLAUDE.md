@@ -74,13 +74,14 @@ Svaki korisnik ima tačno jednu rolu. Svaki Employee ima tačno jednog RM-a (`ma
 | Nalozi | Kreira ih Admin, nema registracije | Interni enterprise alat |
 | JWT | Samo access token (8h) | Bez refresh tokena |
 | CI | Ne koristi se | Testovi se pokreću lokalno pre PR-a |
-| **PR review** | **Svaki PR odobrava 1 developer; feature PR dodatno odobrava QA** | Developer proverava kod i arhitekturu, a QA da funkcionalnost radi po specifikaciji |
+| **PR review** | **Svaki PR odobrava 1 član tima (QA odobrenje nije obavezno)** | Brz tok bez čekanja. Reviewer proverava kod i da PR radi ono što piše u kriterijumima prihvatanja, a QA testira spojen kod na `main` i bagove prijavljuje kroz GitHub Issues |
 | QA alati | REST Assured + Playwright | API testovi u Javi, brz i moderan E2E |
 | Početna stranica | Jednostavna, po roli (kartice sa brojevima) | Brz pregled, bez grafikona |
 | Obaveštenja | Nema | Statusi se vide na listama i na početnoj stranici |
 | Jezik | UI i poruke API-ja na engleskom, dokumentacija na srpskom | Standard za enterprise alate |
 | Komunikacija | Discord/Teams | Mali tim, brža komunikacija |
-| Zadaci i bagovi | GitHub Issues: svaki user story ima zadatke kao sub-issue, a bagovi se prijavljuju po šablonu *Bug* | Svi vide ko šta radi, a PR zatvara svoj zadatak (`Closes #…`) |
+| Zadaci i bagovi | GitHub Issues: svaki user story ima zadatke kao sub-issue, a bagovi se prijavljuju po šablonu *Bug* | Svi vide ko šta radi, a PR zatvara user story i sve njegove zadatke (`Closes #…`) |
+| Grane i PR-ovi | Jedna grana i jedan PR po user story-ju, a svaki zadatak je jedan commit | Jedan PR za jednu funkcionalnost, a istorija se i dalje čita zadatak po zadatak |
 | Proces | Scrum: jedan sprint od 2 nedelje (19.10–30.10), prioriteti *Must* / *Should* / *Could* | Rok je kratak, pa mora biti jasno šta je cilj sprinta i šta prvo otpada ako kasnimo |
 
 ---
@@ -539,7 +540,7 @@ Rad je podeljen na vertikalne slice-ove: svaki developer radi i backend i fronte
 | **Dev 1: Platforma i korisnici** (Bogdan, @bogdanv4) | Setup projekta (Spring Boot, Angular, Flyway), Docker (ceo stack je postavljen u PR #1, a finalna provera je pred demo), Spring Security + JWT, **Swagger konfiguracija** (`OpenApiConfig`, Authorize), format grešaka, guardovi i interceptor, korisnici (kreiranje naloga, promena lozinke), departmenti, profil zaposlenog sa skillovima, admin stranice, **početna stranica** (`/api/dashboard` i *Home*), stranice *My team* (RM) i *My allocations* (Employee). *Stretch:* upload dokumenata. |
 | **Dev 2: Projekti i matching** (Mateja, @MatejaJankovic) | Katalog skillova, projekti i promena statusa projekta (BR-11), staffing zahtevi (forma sa dinamičkim skillovima), **MatchingService**, stranica kandidata, pretraga zaposlenih, PM stranice. *Stretch:* timeline/heatmap. |
 | **Dev 3: Alokacije i kapacitet** (Lazar, @lazardunjic) | **CapacityService**, alokacije (predlog, odobravanje, odbijanje, otkazivanje), **tok izmene alokacije** (BR-15, BR-16), automatski status zahteva, alokacioni deo BR-11, RM stranica *Pending approvals* (sa *New*/*Change*), availability endpoint i `capacity-bar`. *Stretch:* odsustva. |
-| **QA** (Vukašin, @patkovicvukasin) | Test plan, matrica testova iz poslovnih pravila, unit testovi za `CapacityService` i `MatchingService`, integracioni testovi (Testcontainers), API automatizacija (REST Assured), E2E (Playwright), matrica ovlašćenja, istraživačko testiranje kroz Swagger, **testiranje i odobravanje feature PR-ova pre merge-a**, prijava bagova kroz GitHub Issues (šablon *Bug*). |
+| **QA** (Vukašin, @patkovicvukasin) | Test plan, matrica testova iz poslovnih pravila, unit testovi za `CapacityService` i `MatchingService`, integracioni testovi (Testcontainers), API automatizacija (REST Assured), E2E (Playwright), matrica ovlašćenja, istraživačko testiranje kroz Swagger, **testiranje spojenog koda na `main`**, prijava bagova kroz GitHub Issues (šablon *Bug*). |
 
 Svaki developer sam piše Swagger anotacije za svoje endpointe.
 
@@ -547,21 +548,14 @@ Zbog skraćenog roka, stranice *My team* i *My allocations* su prebačene sa Dev
 
 ### Git workflow i PR review
 
-`main` je uvek stabilan i jedina je trajna grana. Grane se prave od `main`-a, zovu se `<tip>/<broj-issue-a>-<kratak-opis>` (npr. `feature/4-jwt-login`, `test/89-capacity-service-tests`) i vraćaju se u `main` kroz PR. Zadaci su u GitHub Issues: svaki user story ima zadatke kao sub-issue, a PR zatvara svoj zadatak sa `Closes #<broj>`. Sve konvencije (grane, commit poruke, PR-ovi, provere pre PR-a) su u [CONTRIBUTING.md](../CONTRIBUTING.md). Dogovori idu preko Discord/Teams kanala.
+`main` je uvek stabilan i jedina je trajna grana. Grane se prave od `main`-a, zovu se `<tip>/<broj-issue-a>-<kratak-opis>` (npr. `feature/14-project-management`, `test/88-spec-first-unit-tests`) i vraćaju se u `main` kroz PR. Za jedan user story se pravi jedna grana, a broj u njenom nazivu je broj user story-ja. Zadaci su u GitHub Issues: svaki user story ima zadatke kao sub-issue, svaki zadatak je jedan commit na toj grani, a jedan PR zatvara user story i sve njegove zadatke sa `Closes #<broj>`. Sve konvencije (grane, commit poruke, PR-ovi, provere pre PR-a) su u [CONTRIBUTING.md](../CONTRIBUTING.md). Dogovori idu preko Discord/Teams kanala.
 
-| Vrsta PR-a | Ko odobrava | Šta proverava |
-|---|---|---|
-| **Svaki PR** | **1 developer (obavezno)** | Kod i arhitektura, poslovna pravila u servisu, DTO-i, validacija, Swagger anotacije |
-| **Feature PR** (nova funkcionalnost koju korisnik vidi) | **+ QA (drugo odobrenje)** | Pokreće granu lokalno, isproba je kroz Swagger i UI, proverava pravila iz matrice testova, validacije i poruke grešaka |
-| Tehnički PR (setup, konfiguracija, refaktor) | Samo developer | QA nije potreban |
+**Svaki PR odobrava jedan član tima** (osim autora). QA odobrenje nije obavezno. Reviewer proverava kod i arhitekturu, poslovna pravila u servisu, DTO-e, validaciju, Swagger anotacije i da PR radi ono što piše u kriterijumima prihvatanja svog user story-ja. Za kvalitet koda odgovara reviewer koji ga odobri.
 
-QA-ovo odobrenje znači **„testirano i radi po specifikaciji“**, a ne „kod je dobar“. Za kvalitet koda odgovara developer koji radi review.
+QA testira spojen kod na `main` i bagove prijavljuje kroz GitHub Issues (šablon *Bug*).
 
-**Da QA ne bi kočio rad:**
-- QA pregleda feature PR **u roku od pola radnog dana** od otvaranja.
-- PR-ovi su mali: jedan endpoint ili jedan ekran, a ne nedelja rada.
-- Ako QA ne stigne u roku, PR se merge-uje sa odobrenjem developera, a QA ga testira naknadno na `main` i bagove prijavljuje kroz GitHub Issues.
-- Autor PR-a u opisu navodi šta treba testirati i na koja pravila (BR-x) se PR odnosi. Šablon za PR (`.github/pull_request_template.md`) to traži.
+- Jedan PR pokriva jedan user story, a svaki zadatak je poseban commit, pa se PR čita commit po commit. Zadaci ostaju mali: jedan endpoint ili jedan ekran.
+- Autor PR-a u opisu navodi zadatke, šta treba testirati i na koja pravila (BR-x) se PR odnosi. Šablon za PR (`.github/pull_request_template.md`) to traži.
 
 ---
 
@@ -577,7 +571,7 @@ Rok je skraćen na **2 nedelje** i radi se kao **jedan sprint (19.10–30.10.202
 | Dev 1 | Migracija za korisnike i departmente sa seed nalozima, auth/JWT end-to-end (login stranica), **Swagger sa Authorize dugmetom**, format grešaka, layout i guardovi, deljene komponente, profil i skillovi zaposlenog |
 | Dev 2 | Katalog skillova, projekti i staffing zahtevi (backend i stranice), forma zahteva sa dinamičkim skillovima, početak `MatchingService`-a (sa mock `CapacityService`-om) |
 | Dev 3 | Entitet alokacije, `CapacityService` sa unit testovima, predlog alokacije, pretraga alokacija, availability endpoint, početak odobravanja |
-| QA | Test plan i matrica testova, **unit testovi za `CapacityService` i `MatchingService` iz primera iz sekcija 7 i 8 pre implementacije**, osnova za API testove, matrica ovlašćenja, testiranje prvih feature PR-ova |
+| QA | Test plan i matrica testova, **unit testovi za `CapacityService` i `MatchingService` iz primera iz sekcija 7 i 8 pre implementacije**, osnova za API testove, matrica ovlašćenja, testiranje prvih spojenih funkcionalnosti na `main` |
 
 **Provera u petak 23.10:** login radi za sve 4 role, skillovi, projekti i zahtevi se vide u UI-ju, `CapacityService` prolazi testove iz sekcije 7, predlog alokacije radi kroz Swagger, a svi endpointi se vide u Swagger-u. Ako kasnimo, prvo otpadaju *Should* stavke.
 
@@ -603,7 +597,7 @@ Funkcionalnost je gotova kada:
 - [ ] je promena šeme urađena kroz novu Flyway migraciju
 - [ ] lokalno prolaze `mvn verify` i `ng build` / `ng test`
 - [ ] radi kroz `docker compose up --build`
-- [ ] je za feature PR **QA testirao granu i odobrio PR**: glavni tok i pravila iz matrice testova koja se odnose na tu funkcionalnost. Ako je PR merge-ovan bez QA-a zbog roka, QA ga je testirao na `main`
+- [ ] je PR odobrio bar jedan član tima, a QA je spojenu funkcionalnost testirao na `main`: glavni tok i pravila iz matrice testova koja se odnose na nju
 
 ---
 
@@ -619,7 +613,7 @@ Funkcionalnost je gotova kada:
 ### QA od prvog dana (shift-left)
 QA ne čeka da developeri završe, nego radi paralelno sa njima:
 - **Pre implementacije:** test case-ovi iz poslovnih pravila, test podaci i automatski testovi napisani prema specifikaciji. Primeri iz sekcija 7 i 8 su gotovi test case-ovi za `CapacityService` i `MatchingService`, a dogovoreni DTO-i su osnova za REST Assured testove. Ovi testovi „čekaju“ implementaciju i prolaze kad je posao gotov.
-- **Tokom implementacije:** testiranje i odobravanje feature PR-ova (vidi [Git workflow i PR review](#git-workflow-i-pr-review)).
+- **Tokom implementacije:** testiranje spojenih funkcionalnosti na `main` (vidi [Git workflow i PR review](#git-workflow-i-pr-review)).
 - **Posle merge-a:** regresija na `main` pre većih merge-ova i E2E testovi glavnog toka.
 
 ### Matrica testova (izvod)
@@ -715,6 +709,6 @@ Zbog skraćenog roka (2 nedelje), stretch ne ulazi u sprint. Ove stavke su u pro
 | Docker setup za ceo stack oduzme previše vremena | Ceo stack je već postavljen (PR #1) i proverava se pred veće merge-ove i u četvrtak 29.10. Rezervna opcija za demo je da se backend i frontend pokrenu lokalno |
 | Bez CI-ja se pokvari `main` | `mvn verify` i `ng build` lokalno pre svakog PR-a, obavezan review, regresija pre većih merge-ova |
 | Konflikt brojeva Flyway migracija | Broj migracije se rezerviše na kanalu, a lokalna baza se resetuje sa `docker compose down -v` |
-| QA postane usko grlo za PR-ove | Rok od pola radnog dana, mali PR-ovi; ako QA ne stigne, merge sa odobrenjem developera, pa QA testira na `main` |
+| Bagovi se otkriju tek na `main`, jer QA ne odobrava PR-ove | Jedan PR po user story-ju sa malim commitima, obavezan review, `mvn verify` i `ng test` pre PR-a, a QA testira `main` posle svakog merge-a i regresiju pre većih merge-ova |
 | Previše stretch funkcionalnosti | Stretch ne ulazi u sprint, a feature freeze je u sredu 28.10. na kraju dana, bez izuzetaka |
 | Merge konflikti u istim fajlovima | Paketi po feature-ima, mali i česti PR-ovi |
