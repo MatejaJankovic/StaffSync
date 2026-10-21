@@ -22,7 +22,10 @@ export const routes: Routes = [
       menuRoute('profile'),
       menuRoute('my-allocations'),
       // PM
-      menuRoute('projects'),
+      menuRoute('projects', {
+        loadComponent: () =>
+          import('./features/projects/projects-page').then((m) => m.ProjectsPage),
+      }),
       // RM
       menuRoute('approvals'),
       menuRoute('team'),
