@@ -65,9 +65,5 @@ describe('App', () => {
     expect(router.url).toBe('/home');
   });
 
-  afterEach(() => {
-    // The shell asks for /api/health when it is shown
-    httpMock.match('/api/health');
-    httpMock.verify();
-  });
+  afterEach(() => httpMock.verify());
 });
