@@ -1,0 +1,71 @@
+<section class="project">
+  @if (isPm()) {
+    <a mat-button routerLink="/projects" class="project__back">
+      <mat-icon>arrow_back</mat-icon>
+      My projects
+    </a>
+  }
+
+  @switch (state()) {
+    @case ('loading') {
+      <p class="project__message">Loading project…</p>
+    }
+    @case ('notFound') {
+      <p class="project__message" role="alert">This project doesn’t exist.</p>
+    }
+    @case ('failed') {
+      <p class="project__message" role="alert">
+        Unable to load the project.
+        <button mat-button (click)="retry()">Retry</button>
+      </p>
+    }
+    @default {
+      @if (project(); as current) {
+        <header class="project__header">
+          <h1>{{ current.name }}</h1>
+          <app-status-chip [status]="current.status" />
+          <span class="project__spacer"></span>
+          <!-- US-24 (#82) puts the status action here: the PM changes the project's status -->
+          <div class="project__status-action"></div>
+          @if (canEdit()) {
+            <button mat-stroked-button (click)="edit()">
+              <mat-icon>edit</mat-icon>
+              Edit
+            </button>
+          }
+        </header>
+
+        <dl class="project__info">
+          <div>
+            <dt>Client</dt>
+            <dd>{{ current.client }}</dd>
+          </div>
+          <div>
+            <dt>Period</dt>
+            <dd>{{ period() }}</dd>
+          </div>
+          <div>
+            <dt>Project manager</dt>
+            <dd>{{ current.pmName }}</dd>
+          </div>
+          <div class="project__description">
+            <dt>Description</dt>
+            <dd>{{ current.description || 'No description' }}</dd>
+          </div>
+        </dl>
+
+        <section class="project__section" aria-labelledby="project-requests">
+          <h2 id="project-requests">Staffing requests</h2>
+          <!-- US-05 (#21) puts the request list, New request and Cancel here -->
+          <p class="project__placeholder">Staffing requests will appear here.</p>
+        </section>
+
+        <section class="project__section" aria-labelledby="project-team">
+          <h2 id="project-team">Team</h2>
+          <!-- US-08 (#31) embeds the allocations team panel here, e.g. <app-team-panel [projectId]="current.id" /> -->
+          <p class="project__placeholder">The project team will appear here.</p>
+        </section>
+      }
+    }
+  }
+</section>

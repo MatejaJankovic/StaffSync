@@ -20,7 +20,12 @@ type Fetch = (query: PageQuery) => Observable<Page<Row>>;
 @Component({
   imports: [PagedTable, PagedTableCell],
   template: `
-    <app-paged-table [columns]="columns" [fetch]="fetch()">
+    <app-paged-table
+      [columns]="columns"
+      [fetch]="fetch()"
+      [clickableRows]="clickable()"
+      (rowClick)="clicked.push($event)"
+    >
       <ng-template appPagedTableCell="status" let-row>
         <b class="custom-status">[{{ row.status }}]</b>
       </ng-template>
@@ -34,6 +39,8 @@ class Host {
     { key: 'status', header: 'Status' },
   ];
   readonly fetch = signal<Fetch>(() => of(emptyPage()));
+  readonly clickable = signal(false);
+  readonly clicked: Row[] = [];
   readonly table = viewChild.required(PagedTable);
 }
 
@@ -188,5 +195,36 @@ describe('PagedTable', () => {
 
     expect(lastQuery()).toEqual({ page: 1, size: 20 });
     expect(cells(el)).toEqual(['Zoe', '#9', '[OPEN]']);
+  });
+
+  describe('row click', () => {
+    const rows = (el: HTMLElement) => [...el.querySelectorAll<HTMLElement>('tr.mat-mdc-row')];
+    const page = () =>
+      of(
+        pageOf([
+          { id: 1, name: 'A', status: 'OPEN' },
+          { id: 2, name: 'B', status: 'OPEN' },
+        ]),
+      );
+
+    it('emits the clicked row when the rows are clickable', async () => {
+      const el = await render(page);
+      fixture.componentInstance.clickable.set(true);
+      await settle();
+
+      expect(rows(el)[0].classList).toContain('paged-table__row--clickable');
+      rows(el)[1].click();
+
+      expect(fixture.componentInstance.clicked).toEqual([{ id: 2, name: 'B', status: 'OPEN' }]);
+    });
+
+    it('neither marks the rows nor emits when they are not clickable', async () => {
+      const el = await render(page);
+
+      expect(rows(el)[0].classList).not.toContain('paged-table__row--clickable');
+      rows(el)[0].click();
+
+      expect(fixture.componentInstance.clicked).toEqual([]);
+    });
   });
 });

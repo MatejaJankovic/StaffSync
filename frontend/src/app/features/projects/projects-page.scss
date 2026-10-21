@@ -1,0 +1,21 @@
+.projects {
+  padding: 24px;
+}
+
+.projects__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0;
+  }
+}
+
+.projects__filter {
+  width: 220px;
+  margin-bottom: 16px;
+}

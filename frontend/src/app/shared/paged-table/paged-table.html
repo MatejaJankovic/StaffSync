@@ -23,7 +23,12 @@
       }
 
       <tr mat-header-row *matHeaderRowDef="columnKeys()"></tr>
-      <tr mat-row *matRowDef="let row; columns: columnKeys()"></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: columnKeys()"
+        [class.paged-table__row--clickable]="clickableRows()"
+        (click)="clickableRows() && rowClick.emit(row)"
+      ></tr>
       <tr class="mat-mdc-row" *matNoDataRow>
         <td class="mat-mdc-cell paged-table__empty" [attr.colspan]="columnKeys().length">
           {{ loading() ? 'Loading…' : failed() ? 'Unable to load the data' : emptyText() }}

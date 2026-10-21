@@ -17,6 +17,14 @@ table {
   width: 100%;
 }
 
+.paged-table__row--clickable {
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mat-sys-surface-container);
+  }
+}
+
 .paged-table__empty {
   padding: 24px 16px;
   text-align: center;
