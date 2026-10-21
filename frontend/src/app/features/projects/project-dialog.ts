@@ -8,11 +8,11 @@ import {
   Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { parseIsoDate, provideDayFirstDates, toIsoDate } from '../../shared/dates';
 import { Project } from './project.models';
 import { ProjectService } from './project.service';
 
@@ -35,19 +35,6 @@ export interface ProjectDialogData {
   project?: Project;
 }
 
-/** `2026-11-01` → a local-midnight Date, so the date picker doesn't shift it by the time zone. */
-export function parseIsoDate(iso: string): Date {
-  const [year, month, day] = iso.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
-/** A Date from the date picker → `2026-11-01`, from its local parts (not `toISOString`, which uses UTC). */
-export function toIsoDate(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-
 /** The *New project* / *Edit project* dialog: a reactive form that creates or updates a project. */
 @Component({
   selector: 'app-project-dialog',
@@ -59,7 +46,7 @@ export function toIsoDate(date: Date): string {
     MatFormFieldModule,
     MatInputModule,
   ],
-  providers: [provideNativeDateAdapter(), { provide: MAT_DATE_LOCALE, useValue: 'en-GB' }],
+  providers: [provideDayFirstDates()],
   template: `
     <h2 mat-dialog-title>{{ project ? 'Edit project' : 'New project' }}</h2>
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
@@ -104,10 +91,10 @@ export function toIsoDate(date: Date): string {
             <input matInput [matDatepicker]="startPicker" formControlName="startDate" />
             <mat-datepicker-toggle matIconSuffix [for]="startPicker" />
             <mat-datepicker #startPicker />
-            @if (form.controls.startDate.hasError('required')) {
+            @if (form.controls.startDate.hasError('matDatepickerParse')) {
+              <mat-error>Enter a valid date, like 31/03/2027</mat-error>
+            } @else if (form.controls.startDate.hasError('required')) {
               <mat-error>Start date is required</mat-error>
-            } @else if (form.controls.startDate.hasError('matDatepickerParse')) {
-              <mat-error>Enter a valid date</mat-error>
             }
           </mat-form-field>
 
@@ -116,10 +103,10 @@ export function toIsoDate(date: Date): string {
             <input matInput [matDatepicker]="endPicker" formControlName="endDate" />
             <mat-datepicker-toggle matIconSuffix [for]="endPicker" />
             <mat-datepicker #endPicker />
-            @if (form.controls.endDate.hasError('required')) {
+            @if (form.controls.endDate.hasError('matDatepickerParse')) {
+              <mat-error>Enter a valid date, like 31/03/2027</mat-error>
+            } @else if (form.controls.endDate.hasError('required')) {
               <mat-error>End date is required</mat-error>
-            } @else if (form.controls.endDate.hasError('matDatepickerParse')) {
-              <mat-error>Enter a valid date</mat-error>
             }
           </mat-form-field>
         </div>

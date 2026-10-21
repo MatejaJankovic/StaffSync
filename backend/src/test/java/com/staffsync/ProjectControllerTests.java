@@ -3,10 +3,12 @@ package com.staffsync;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -155,7 +157,7 @@ class ProjectControllerTests {
 			.then()
 			.statusCode(400)
 			.body("code", equalTo("VALIDATION_ERROR"))
-			.body("details.field", org.hamcrest.Matchers.containsInAnyOrder("name", "client", "description",
+			.body("details.field", containsInAnyOrder("name", "client", "description",
 					"startDate", "endDate"));
 	}
 
@@ -166,7 +168,7 @@ class ProjectControllerTests {
 			.when().post("/api/projects")
 			.then()
 			.statusCode(400)
-			.body("details.field", org.hamcrest.Matchers.containsInAnyOrder("name", "client"));
+			.body("details.field", containsInAnyOrder("name", "client"));
 	}
 
 	// BR-3 (start ≤ end)
@@ -297,7 +299,7 @@ class ProjectControllerTests {
 			.then()
 			.statusCode(200)
 			.body("content.pmId", everyItem(equalTo(pm.id())))
-			.body("content.id", org.hamcrest.Matchers.not(hasItem(theirs)));
+			.body("content.id", not(hasItem(theirs)));
 	}
 
 	@Test

@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { catchError, map, of, switchMap, tap } from 'rxjs';
+import { catchError, combineLatest, map, of, startWith, Subject, switchMap, tap } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../core/auth/auth.service';
 import { Notifications } from '../../core/error/notifications';
@@ -34,6 +34,9 @@ export class ProjectDetails {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
+  /** Emits to load the project again, e.g. from *Retry*. It goes through the same stream as a route change. */
+  private readonly reload$ = new Subject<void>();
+
   protected readonly project = signal<Project | null>(null);
   protected readonly state = signal<LoadState>('loading');
 
@@ -51,9 +54,9 @@ export class ProjectDetails {
   protected readonly isPm = computed(() => this.auth.role() === 'PM');
 
   constructor() {
-    this.route.paramMap
+    combineLatest([this.route.paramMap, this.reload$.pipe(startWith(undefined))])
       .pipe(
-        map((params) => Number(params.get('id'))),
+        map(([params]) => Number(params.get('id'))),
         tap(() => {
           this.project.set(null);
           this.state.set('loading');
@@ -68,16 +71,7 @@ export class ProjectDetails {
   }
 
   protected retry(): void {
-    this.state.set('loading');
-    this.projects
-      .get(this.project()?.id ?? Number(this.route.snapshot.paramMap.get('id')))
-      .subscribe({
-        next: (project) => {
-          this.project.set(project);
-          this.state.set('ready');
-        },
-        error: () => this.state.set('failed'),
-      });
+    this.reload$.next();
   }
 
   protected edit(): void {

@@ -27,7 +27,7 @@
         mat-row
         *matRowDef="let row; columns: columnKeys()"
         [class.paged-table__row--clickable]="clickableRows()"
-        (click)="rowClick.emit(row)"
+        (click)="clickableRows() && rowClick.emit(row)"
       ></tr>
       <tr class="mat-mdc-row" *matNoDataRow>
         <td class="mat-mdc-cell paged-table__empty" [attr.colspan]="columnKeys().length">

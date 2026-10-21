@@ -68,6 +68,7 @@ export class ProjectsPage {
   /** A new function reloads the table from the first page, so a filter change does that. */
   protected readonly fetch = computed(() => {
     const status = this.status() || undefined;
+    // The route is PM-only, so there is always a user. Without a pmId this would list every project.
     const pmId = this.auth.currentUser()?.id;
     return (query: PageQuery) => this.projects.list(query, { status, pmId });
   });

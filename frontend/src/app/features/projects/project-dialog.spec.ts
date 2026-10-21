@@ -5,7 +5,8 @@ import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Project } from './project.models';
 import { PROJECTS_URL } from './project.service';
-import { parseIsoDate, ProjectDialog, ProjectDialogData, toIsoDate } from './project-dialog';
+import { toIsoDate } from '../../shared/dates';
+import { ProjectDialog, ProjectDialogData } from './project-dialog';
 
 const ALPHA: Project = {
   id: 5,
@@ -18,14 +19,6 @@ const ALPHA: Project = {
   pmId: 7,
   pmName: 'Ana PM',
 };
-
-describe('project dates', () => {
-  it('round-trip without a time zone shift', () => {
-    expect(toIsoDate(parseIsoDate('2026-11-01'))).toBe('2026-11-01');
-    expect(toIsoDate(parseIsoDate('2027-01-01'))).toBe('2027-01-01');
-    expect(toIsoDate(new Date(2026, 2, 9, 23, 59))).toBe('2026-03-09');
-  });
-});
 
 describe('ProjectDialog', () => {
   let fixture: ComponentFixture<ProjectDialog>;
@@ -75,6 +68,36 @@ describe('ProjectDialog', () => {
     fixture.detectChanges();
     await fixture.whenStable();
   }
+
+  function type(label: string, text: string): void {
+    const input = [...el().querySelectorAll('mat-form-field')]
+      .find((field) => field.querySelector('mat-label')?.textContent?.trim() === label)!
+      .querySelector('input')!;
+    input.value = text;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
+
+  it('reads typed dates as day/month/year', async () => {
+    await open({});
+
+    type('Start date', '05/02/2027');
+    type('End date', '31/03/2027');
+
+    expect(toIsoDate(form().controls.startDate.value!)).toBe('2027-02-05');
+    expect(toIsoDate(form().controls.endDate.value!)).toBe('2027-03-31');
+  });
+
+  it('says so when a typed date cannot be read, instead of "required"', async () => {
+    await open({});
+
+    type('Start date', 'tomorrow');
+    form().controls.startDate.markAsTouched();
+    fixture.detectChanges();
+
+    expect(el().textContent).toContain('Enter a valid date');
+    expect(el().textContent).not.toContain('Start date is required');
+  });
 
   it('does not call the API while required fields are missing', async () => {
     await open({});

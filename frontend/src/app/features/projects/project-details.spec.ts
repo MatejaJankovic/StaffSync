@@ -227,6 +227,22 @@ describe('ProjectDetails', () => {
     expect(el().querySelector('h1')?.textContent).toContain('Project Alpha');
   });
 
+  it('says the project does not exist when a retry answers 404', async () => {
+    await open();
+    httpMock
+      .expectOne(`${PROJECTS_URL}/5`)
+      .flush({ code: 'INTERNAL_ERROR', message: 'x' }, { status: 500, statusText: 'Error' });
+    await settle();
+
+    [...el().querySelectorAll('button')].find((b) => b.textContent?.includes('Retry'))!.click();
+    httpMock
+      .expectOne(`${PROJECTS_URL}/5`)
+      .flush({ code: 'NOT_FOUND', message: 'x' }, { status: 404, statusText: 'Not Found' });
+    await settle();
+
+    expect(el().textContent).toContain('doesn’t exist');
+  });
+
   it('loads the other project when the id in the URL changes', async () => {
     await open();
     await respond();
