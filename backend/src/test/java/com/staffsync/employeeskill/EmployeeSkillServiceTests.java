@@ -1,0 +1,131 @@
+package com.staffsync.employeeskill;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import com.staffsync.common.BusinessException;
+import com.staffsync.common.NotFoundException;
+import com.staffsync.employeeskill.dto.EmployeeSkillRequest;
+import com.staffsync.skill.Skill;
+import com.staffsync.skill.SkillRepository;
+import com.staffsync.user.User;
+import com.staffsync.user.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+
+@ExtendWith(MockitoExtension.class)
+class EmployeeSkillServiceTests {
+
+	private static final Long USER_ID = 4L;
+
+	@Mock
+	EmployeeSkillRepository employeeSkillRepository;
+
+	@Mock
+	UserRepository userRepository;
+
+	@Mock
+	SkillRepository skillRepository;
+
+	@InjectMocks
+	EmployeeSkillService employeeSkillService;
+
+	@Test
+	void replaceUpdatesKeptSkillsDeletesDroppedOnesAndInsertsNewOnes() {
+		User user = mock(User.class);
+		Skill java = skill(1L);
+		Skill spring = skill(2L);
+		Skill sql = skill(3L);
+		EmployeeSkill keptJava = new EmployeeSkill(user, java, 2, 1);
+		EmployeeSkill droppedSpring = new EmployeeSkill(user, spring, 3, 2);
+		when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+		when(skillRepository.findAllById(Set.of(1L, 3L))).thenReturn(List.of(java, sql));
+		when(employeeSkillRepository.findByUserIdOrderBySkillCategoryAscSkillNameAsc(USER_ID))
+			.thenReturn(List.of(keptJava, droppedSpring));
+
+		employeeSkillService.replace(USER_ID,
+				List.of(new EmployeeSkillRequest(1L, 5, 4), new EmployeeSkillRequest(3L, 2, 0)));
+
+		assertThat(keptJava.getLevel()).isEqualTo(5);
+		assertThat(keptJava.getYearsOfExperience()).isEqualTo(4);
+		verify(employeeSkillRepository).delete(droppedSpring);
+		ArgumentCaptor<EmployeeSkill> inserted = ArgumentCaptor.forClass(EmployeeSkill.class);
+		verify(employeeSkillRepository).save(inserted.capture());
+		assertThat(inserted.getValue().getSkill()).isSameAs(sql);
+		assertThat(inserted.getValue().getLevel()).isEqualTo(2);
+	}
+
+	@Test
+	void replaceRejectsTheSameSkillTwiceWithoutChangingAnything() {
+		when(userRepository.findById(USER_ID)).thenReturn(Optional.of(mock(User.class)));
+
+		assertThatThrownBy(() -> employeeSkillService.replace(USER_ID,
+				List.of(new EmployeeSkillRequest(1L, 3, 1), new EmployeeSkillRequest(1L, 4, 2))))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+				assertThat(ex.getCode()).isEqualTo("DUPLICATE_SKILL");
+				assertThat(ex.getDetails()).isEqualTo(List.of(1L));
+			});
+		verify(employeeSkillRepository, never()).save(any());
+		verify(employeeSkillRepository, never()).delete(any());
+	}
+
+	@Test
+	void replaceRejectsSkillsThatAreNotInTheCatalog() {
+		Skill java = skill(1L);
+		when(userRepository.findById(USER_ID)).thenReturn(Optional.of(mock(User.class)));
+		when(skillRepository.findAllById(Set.of(1L, 99L))).thenReturn(List.of(java));
+
+		assertThatThrownBy(() -> employeeSkillService.replace(USER_ID,
+				List.of(new EmployeeSkillRequest(1L, 3, 1), new EmployeeSkillRequest(99L, 4, 2))))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getCode()).isEqualTo("UNKNOWN_SKILL");
+				assertThat(ex.getDetails()).isEqualTo(List.of(99L));
+			});
+		verify(employeeSkillRepository, never()).save(any());
+	}
+
+	@Test
+	void replaceForAnUnknownUserIs404() {
+		when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> employeeSkillService.replace(USER_ID, List.of()))
+			.isInstanceOf(NotFoundException.class);
+	}
+
+	@Test
+	void aConcurrentSaveIs409() {
+		Skill java = skill(1L);
+		when(userRepository.findById(USER_ID)).thenReturn(Optional.of(mock(User.class)));
+		when(skillRepository.findAllById(Set.of(1L))).thenReturn(List.of(java));
+		doThrow(new DataIntegrityViolationException("uq_employee_skill_user_skill")).when(employeeSkillRepository)
+			.flush();
+
+		assertThatThrownBy(() -> employeeSkillService.replace(USER_ID, List.of(new EmployeeSkillRequest(1L, 3, 1))))
+			.isInstanceOfSatisfying(BusinessException.class,
+					ex -> assertThat(ex.getStatus()).isEqualTo(HttpStatus.CONFLICT));
+	}
+
+	private static Skill skill(Long id) {
+		Skill skill = mock(Skill.class);
+		when(skill.getId()).thenReturn(id);
+		return skill;
+	}
+
+}
