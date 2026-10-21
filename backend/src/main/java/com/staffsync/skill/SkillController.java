@@ -39,7 +39,8 @@ public class SkillController {
 		this.skillService = skillService;
 	}
 
-	@Operation(summary = "List skills, ordered by category and name, optionally for one category")
+	@Operation(summary = "List skills, optionally for one category",
+			description = "Ordered by category (alphabetically by the category's code, e.g. BACKEND, DATABASE, DEVOPS), then by name")
 	@ApiResponse(responseCode = "200", description = "The skills")
 	@ApiResponse(responseCode = "400", description = "Unknown category", content = @Content)
 	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
@@ -62,7 +63,8 @@ public class SkillController {
 
 	@Operation(summary = "Add a skill to the catalog (Admin)")
 	@ApiResponse(responseCode = "201", description = "Created")
-	@ApiResponse(responseCode = "400", description = "Name is blank or too long, or the category is missing or unknown",
+	@ApiResponse(responseCode = "400",
+			description = "Name is blank, too long or has control characters, or the category is missing or unknown",
 			content = @Content)
 	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
 			content = @Content(schema = @Schema(implementation = AuthError.class)))
@@ -79,7 +81,8 @@ public class SkillController {
 
 	@Operation(summary = "Rename a skill or change its category (Admin)")
 	@ApiResponse(responseCode = "200", description = "Updated")
-	@ApiResponse(responseCode = "400", description = "Name is blank or too long, or the category is missing or unknown",
+	@ApiResponse(responseCode = "400",
+			description = "Name is blank, too long or has control characters, or the category is missing or unknown",
 			content = @Content)
 	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
 			content = @Content(schema = @Schema(implementation = AuthError.class)))

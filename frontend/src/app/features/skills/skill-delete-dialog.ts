@@ -17,8 +17,16 @@ import { Skill } from './skill.models';
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button [mat-dialog-close]="false">Cancel</button>
-      <button mat-flat-button [mat-dialog-close]="true">Delete</button>
+      <button mat-flat-button class="skill-delete-dialog__confirm" [mat-dialog-close]="true">
+        Delete
+      </button>
     </mat-dialog-actions>
+  `,
+  styles: `
+    .skill-delete-dialog__confirm {
+      --mat-button-filled-container-color: var(--mat-sys-error);
+      --mat-button-filled-label-text-color: var(--mat-sys-on-error);
+    }
   `,
 })
 export class SkillDeleteDialog {

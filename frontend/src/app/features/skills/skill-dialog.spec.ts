@@ -54,6 +54,26 @@ describe('SkillDialog', () => {
     expect(el().textContent).toContain('Add skill');
   });
 
+  it('shows an error for a name over 100 characters and does not call the API', async () => {
+    await open({});
+    fixture.componentInstance['form'].setValue({ name: 'x'.repeat(101), category: 'BACKEND' });
+
+    await submit();
+
+    httpMock.expectNone(SKILLS_URL);
+    expect(el().textContent).toContain('Name must be at most 100 characters');
+  });
+
+  it('rejects control characters in the name without calling the API', async () => {
+    await open({});
+    fixture.componentInstance['form'].setValue({ name: 'a\nb', category: 'BACKEND' });
+
+    await submit();
+
+    httpMock.expectNone(SKILLS_URL);
+    expect(el().textContent).toContain('Name must not contain control characters');
+  });
+
   it('creates a skill with a trimmed name', async () => {
     await open({});
     const saved: Skill = { id: 9, name: 'Go', category: 'BACKEND' };

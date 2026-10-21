@@ -22,8 +22,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 @Import(TestcontainersConfiguration.class)
+@ActiveProfiles("dev")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class SkillControllerTests {
 
@@ -59,6 +61,26 @@ class SkillControllerTests {
 
 		List<String> sorted = categories.stream().sorted().toList();
 		assertThat(categories).isEqualTo(sorted);
+	}
+
+	@Test
+	void skillsInTheSameCategoryAreOrderedByName() {
+		String token = tokenFor(ADMIN);
+		String suffix = UUID.randomUUID().toString().substring(0, 8);
+		// Created in reverse order, so the list can't just be in insertion order
+		int second = createSkill(token, "Order-B-" + suffix, "OTHER");
+		int first = createSkill(token, "Order-A-" + suffix, "OTHER");
+
+		List<Integer> ids = given().auth().oauth2(token)
+			.queryParam("category", "OTHER")
+			.when().get("/api/skills")
+			.then().statusCode(200)
+			.extract().jsonPath().getList("id");
+
+		assertThat(ids).containsSubsequence(first, second);
+
+		given().auth().oauth2(token).when().delete("/api/skills/" + first).then().statusCode(204);
+		given().auth().oauth2(token).when().delete("/api/skills/" + second).then().statusCode(204);
 	}
 
 	@Test
@@ -108,6 +130,21 @@ class SkillControllerTests {
 			.then().statusCode(403);
 		given().auth().oauth2(token)
 			.when().delete("/api/skills/1")
+			.then().statusCode(403);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "mateja_pm@staffsync.local", "lazar_rm@staffsync.local",
+			"bogdan_employee@staffsync.local" })
+	void nonAdminWithAnInvalidBodyGets403NotValidationErrors(String email) {
+		String token = tokenFor(email);
+		Map<String, String> invalid = Map.of("name", "", "category", "COOKING");
+
+		given().auth().oauth2(token).contentType(ContentType.JSON).body(invalid)
+			.when().post("/api/skills")
+			.then().statusCode(403);
+		given().auth().oauth2(token).contentType(ContentType.JSON).body(invalid)
+			.when().put("/api/skills/1")
 			.then().statusCode(403);
 	}
 
@@ -204,6 +241,15 @@ class SkillControllerTests {
 			.when().post("/api/skills").then().statusCode(400);
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = { "a\nb", "tab\there", "bell\u0007", "<script>\r\n" })
+	void nameWithControlCharactersIs400(String name) {
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON)
+			.body(Map.of("name", name, "category", "OTHER"))
+			.when().post("/api/skills")
+			.then().statusCode(400);
+	}
+
 	@Test
 	void missingSkillIs404() {
 		String token = tokenFor(ADMIN);
@@ -213,6 +259,13 @@ class SkillControllerTests {
 			.body(Map.of("name", uniqueName(), "category", "OTHER"))
 			.when().put("/api/skills/999999").then().statusCode(404);
 		given().auth().oauth2(token).when().delete("/api/skills/999999").then().statusCode(404);
+	}
+
+	private int createSkill(String token, String name, String category) {
+		return given().auth().oauth2(token).contentType(ContentType.JSON)
+			.body(Map.of("name", name, "category", category))
+			.when().post("/api/skills")
+			.then().statusCode(201).extract().path("id");
 	}
 
 	private static String uniqueName() {

@@ -5,6 +5,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
+import { filter, switchMap } from 'rxjs';
 import { Skill, SKILL_CATEGORIES, SKILL_CATEGORY_LABELS, SkillCategory } from './skill.models';
 import { SkillService } from './skill.service';
 import { SkillDeleteDialog } from './skill-delete-dialog';
@@ -74,17 +75,16 @@ export class SkillsPage implements OnInit {
     this.dialog
       .open<SkillDeleteDialog, Skill, boolean>(SkillDeleteDialog, { data: skill })
       .afterClosed()
-      .subscribe((confirmed) => {
-        if (!confirmed) {
-          return;
-        }
-        this.skillService.delete(skill.id).subscribe({
-          next: () => {
-            this.skills.update((skills) => skills.filter((s) => s.id !== skill.id));
-            this.snackBar.open(`Deleted ${skill.name}`, 'Dismiss', { duration: 4000 });
-          },
-          error: (err: unknown) => this.showError(err, 'Unable to delete the skill.'),
-        });
+      .pipe(
+        filter(Boolean),
+        switchMap(() => this.skillService.delete(skill.id)),
+      )
+      .subscribe({
+        next: () => {
+          this.skills.update((skills) => skills.filter((s) => s.id !== skill.id));
+          this.snackBar.open(`Deleted ${skill.name}`, 'Dismiss', { duration: 4000 });
+        },
+        error: (err: unknown) => this.showError(err, 'Unable to delete the skill.'),
       });
   }
 

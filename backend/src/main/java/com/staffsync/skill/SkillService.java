@@ -62,6 +62,8 @@ public class SkillService {
 			skillRepository.flush();
 		}
 		catch (DataIntegrityViolationException ex) {
+			// TODO when the GlobalExceptionHandler (#9) lands: any integrity violation is read as
+			// "in use", which is only right while the foreign keys are the only constraint that can fail
 			throw new SkillInUseException(skill.getName());
 		}
 	}
@@ -70,7 +72,9 @@ public class SkillService {
 		return skillRepository.findById(id).orElseThrow(() -> new SkillNotFoundException(id));
 	}
 
-	// The unique index also guards against two concurrent requests with the same name
+	// The unique index also guards against two concurrent requests with the same name.
+	// TODO check the constraint name (uq_skill_name_lower) once the GlobalExceptionHandler (#9) lands:
+	// a violation of another constraint, such as the category CHECK, would be reported as a duplicate name
 	private Skill saveAndFlush(Skill skill, String name) {
 		try {
 			return skillRepository.saveAndFlush(skill);

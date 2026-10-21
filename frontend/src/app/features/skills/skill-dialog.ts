@@ -1,6 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  NonNullableFormBuilder,
+  ReactiveFormsModule,
+  ValidatorFn,
+  Validators,
+} from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,6 +13,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { Skill, SKILL_CATEGORIES, SKILL_CATEGORY_LABELS } from './skill.models';
 import { SkillService } from './skill.service';
+
+/** The API rejects control characters (newlines, tabs, ...) in a name, so it is caught before sending. */
+const noControlChars: ValidatorFn = (control) =>
+  /\p{Cc}/u.test(String(control.value ?? '')) ? { controlChars: true } : null;
 
 /** Pass the skill to edit, or nothing to add a new one. Closes with the saved skill. */
 export interface SkillDialogData {
@@ -34,9 +43,13 @@ export interface SkillDialogData {
 
         <mat-form-field appearance="outline">
           <mat-label>Name</mat-label>
-          <input matInput formControlName="name" maxlength="100" />
-          @if (form.controls.name.hasError('required')) {
+          <input matInput formControlName="name" />
+          @if (form.controls.name.hasError('required') || form.controls.name.hasError('pattern')) {
             <mat-error>Name is required</mat-error>
+          } @else if (form.controls.name.hasError('maxlength')) {
+            <mat-error>Name must be at most {{ maxNameLength }} characters</mat-error>
+          } @else if (form.controls.name.hasError('controlChars')) {
+            <mat-error>Name must not contain control characters</mat-error>
           }
         </mat-form-field>
 
@@ -79,9 +92,18 @@ export class SkillDialog {
 
   protected readonly categories = SKILL_CATEGORIES;
   protected readonly labels = SKILL_CATEGORY_LABELS;
+  protected readonly maxNameLength = 100;
 
   protected readonly form = inject(NonNullableFormBuilder).group({
-    name: [this.skill?.name ?? '', [Validators.required, Validators.pattern(/\S/)]],
+    name: [
+      this.skill?.name ?? '',
+      [
+        Validators.required,
+        Validators.pattern(/\S/),
+        Validators.maxLength(this.maxNameLength),
+        noControlChars,
+      ],
+    ],
     category: [this.skill?.category ?? ('' as Skill['category'] | ''), Validators.required],
   });
 

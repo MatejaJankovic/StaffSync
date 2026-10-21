@@ -32,11 +32,9 @@ export const routes: Routes = [
       menuRoute('admin/users'),
       menuRoute('admin/departments'),
       // Lazy, so the Material table and dialogs stay out of the initial bundle
-      {
-        ...menuRoute('admin/skills'),
-        component: undefined,
+      menuRoute('admin/skills', {
         loadComponent: () => import('./features/skills/skills-page').then((m) => m.SkillsPage),
-      },
+      }),
     ],
   },
   { path: '**', redirectTo: '' },
