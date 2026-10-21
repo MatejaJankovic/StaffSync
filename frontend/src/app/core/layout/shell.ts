@@ -1,6 +1,5 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { HttpClient } from '@angular/common/http';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,15 +11,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { map } from 'rxjs';
 import { ROLE_LABELS } from '../auth/auth.models';
 import { AuthService } from '../auth/auth.service';
-import { skipErrorSnackbar } from '../error/error.interceptor';
 import { menuFor } from './menu';
-
-interface HealthResponse {
-  status: string;
-  database: string;
-}
-
-type HealthState = { kind: 'loading' } | { kind: 'ok'; health: HealthResponse } | { kind: 'error' };
 
 /** The logged-in app layout: toolbar, role-based side menu and the page outlet. */
 @Component({
@@ -39,9 +30,8 @@ type HealthState = { kind: 'loading' } | { kind: 'ok'; health: HealthResponse } 
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })
-export class Shell implements OnInit {
+export class Shell {
   private readonly auth = inject(AuthService);
-  private readonly http = inject(HttpClient);
 
   protected readonly user = this.auth.currentUser;
   protected readonly roleLabel = computed(() => {
@@ -49,7 +39,6 @@ export class Shell implements OnInit {
     return role ? ROLE_LABELS[role] : '';
   });
   protected readonly menu = computed(() => menuFor(this.auth.role()));
-  protected readonly health = signal<HealthState>({ kind: 'loading' });
 
   protected readonly isHandset = toSignal(
     inject(BreakpointObserver)
@@ -57,14 +46,6 @@ export class Shell implements OnInit {
       .pipe(map((state) => state.matches)),
     { initialValue: false },
   );
-
-  ngOnInit(): void {
-    // The footer shows the backend status itself
-    this.http.get<HealthResponse>('/api/health', { context: skipErrorSnackbar() }).subscribe({
-      next: (health) => this.health.set({ kind: 'ok', health }),
-      error: () => this.health.set({ kind: 'error' }),
-    });
-  }
 
   protected logout(): void {
     this.auth.logout();
