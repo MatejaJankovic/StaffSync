@@ -43,7 +43,7 @@
 | Dev 1 | Bogdan · [@bogdanv4](https://github.com/bogdanv4) | Platform & users | Auth and JWT, Swagger config, error format, shared UI components, users, departments, profile and skills, Home, *My team*, *My allocations*, Docker check |
 | Dev 2 | Mateja · [@MatejaJankovic](https://github.com/MatejaJankovic) | Projects & matching | Skills catalog, projects, staffing requests, `MatchingService`, Candidates page, employee search, project status |
 | Dev 3 | Lazar · [@lazardunjic](https://github.com/lazardunjic) | Allocations & capacity | `CapacityService`, propose / approve / reject / cancel, change workflow, request status, *Pending approvals*, availability |
-| QA | Vukašin · [@patkovicvukasin](https://github.com/patkovicvukasin) | Quality | Test plan and matrix, spec-first unit tests, API tests, E2E, feature-PR testing, test report |
+| QA | Vukašin · [@patkovicvukasin](https://github.com/patkovicvukasin) | Quality | Test plan and matrix, spec-first unit tests, API tests, E2E, testing merged features on `main`, test report |
 
 Every developer works full-stack on their slice (backend and frontend) and writes the Swagger annotations for their own endpoints.
 
@@ -231,7 +231,7 @@ From Tue Oct 27, check every day whether [#48][i48] or [#51][i51] can be taken o
 3. Tue–Thu: [#98][i98] E2E of the §4 scenario
 4. Wed–Fri: [#99][i99] regression (Wed and Thu) and the test report (Fri)
 
-**All sprint:** test and approve feature PRs within half a working day.
+**All sprint:** test every merged story on `main` and report bugs with the *Bug* template.
 
 ## Critical path
 
@@ -280,10 +280,10 @@ Tables reference each other, so the migrations must be applied in this order. Re
 ## Working agreements
 
 - **Picking work:** take the next task in your order of work above. It's already assigned to you. Mention any swap at the Daily Scrum.
-- **Branches:** create them from `main` as `<type>/<issue-number>-<short-description>`, e.g. `feature/4-jwt-login` or `test/89-capacity-service-tests`, and merge them back into `main` through a pull request. The full conventions are in [CONTRIBUTING.md](../CONTRIBUTING.md).
-- **One task = one small PR:** one endpoint or one screen. The PR body says `Closes #<task>`, lists the BR-x rules, and explains how to test it. The PR template asks for all of this.
+- **Branches:** one branch per user story, created from `main` as `<type>/<issue-number>-<short-description>` with the story's issue number, e.g. `feature/14-project-management` or `test/88-spec-first-unit-tests`. It goes back into `main` through a pull request. The full conventions are in [CONTRIBUTING.md](../CONTRIBUTING.md).
+- **One story = one PR, one task = one commit:** each task is a small commit (one endpoint or one screen) on the story's branch. The PR body says `Closes #<story>` and `Closes #<task>` for every task, lists the tasks and the BR-x rules, and explains how to test it. The PR template asks for all of this.
 - **Before opening a PR,** run the local checks, since there is no CI: `mvn verify` for the backend, and `ng build` and `ng test` for the frontend.
-- **Reviews:** every PR needs 1 developer approval, and feature PRs also need QA approval. QA reviews within half a working day. If QA can't make it, merge with the developer's approval, and QA tests it on `main` afterwards.
+- **Reviews:** every PR needs one approval from any team member other than the author. QA's approval isn't required: QA tests the merged story on `main` and reports bugs.
 - **API first:** publish your DTOs and endpoints in Swagger early, even as stubs, so frontend work and QA's API tests can start. The frontend can use mock data until the endpoint merges.
 - **Interfaces between slices:** agree on these before coding:
   - `CapacityService`: Lazar with Mateja and Vukašin, on day 1
@@ -292,7 +292,7 @@ Tables reference each other, so the migrations must be applied in this order. Re
   - `capacity-bar`: built by Lazar, used by Bogdan
 - **Must before Should:** an unblocked *Must* task on the critical path always comes before a *Should* task (see the swarm rule).
 - **Bugs:** open an issue with the *Bug* template, link the story, assign the story owner and set the severity. Demo blockers come first.
-- **Closing:** a task closes when its PR merges. A story closes when all its tasks are closed and QA has verified its acceptance criteria.
+- **Closing:** merging the PR closes the story and all its tasks. QA tests on `main` afterwards, and anything wrong is reported as a bug.
 - **Status:** the [project board](https://github.com/users/MatejaJankovic/projects/7) is the team dashboard. Move your card to *In progress* when you start a task. It moves to *Done* by itself when the PR with `Closes #N` merges. Use the *Board* and *Current iteration* views day to day.
 
 ## Definition of Ready
@@ -311,15 +311,15 @@ Every story in this sprint met this at Sprint Planning. Settle the [open questio
 
 Taken from [§15](CLAUDE.md#15-definition-of-done). A task is done when:
 
-- [ ] the code is reviewed and approved by at least one other developer
+- [ ] the code is reviewed and approved by at least one other team member
 - [ ] input is validated (Bean Validation), and errors use the standard format
 - [ ] every new endpoint has Swagger annotations (`@Tag`, `@Operation`, `@ApiResponse`) and works from Swagger UI
 - [ ] schema changes are a new Flyway migration
 - [ ] `mvn verify`, and `ng build` and `ng test`, pass locally
 - [ ] it works with `docker compose up --build`
-- [ ] for a feature PR, QA has tested the branch and approved the PR. If it was merged without QA because of the deadline, QA has tested it on `main`
+- [ ] QA has tested the merged story on `main`
 
-A story is done when all its tasks are done and QA has verified its acceptance criteria.
+A story is done when its PR is merged. That closes the story and all its tasks.
 
 ## Product backlog (not in this sprint)
 
@@ -342,7 +342,7 @@ Deliberately out of scope ([§17](CLAUDE.md#17-mvp-stretch-i-van-opsega)): notif
 | Interfaces between slices (`CapacityService` ↔ matching, allocations ↔ requests, shared components) | Agree on interfaces on day 1, mock them in unit tests, and merge entity migrations early ([#19][i19] before [#23][i23]) |
 | Flyway version conflicts | Reserve numbers on the channel, follow the migration order above, and reset with `docker compose down -v` |
 | Frontend and backend integrate late | API first in Swagger, with the frontend mocking until the endpoint merges |
-| QA becomes a bottleneck | Half-day turnaround, small PRs, and merging with the developer's approval when QA can't make it in time (then tested on `main`) |
+| Bugs are only found on `main`, because QA doesn't approve PRs | One PR per story with small commits, a required review, local checks before the PR, QA testing `main` after every merge, and regression before big merges |
 | The demo data doesn't produce the §4 numbers | The seed tasks ([#53][i53]–[#55][i55]) spell out the personas exactly, and QA's E2E test ([#98][i98]) checks Marko at 85 and Jelena at 67 |
 | `main` breaks without CI | `mvn verify`, `ng build` and `ng test` before every PR, plus QA regression on Wed and Thu |
 
