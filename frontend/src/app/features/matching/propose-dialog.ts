@@ -3,10 +3,10 @@ import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { DateRangePicker, DateRangeValue } from '../../shared/date-range-picker/date-range-picker';
 import { parseIsoDate, toIsoDate } from '../../shared/dates';
+import { WarningList } from '../../shared/warning-list/warning-list';
 import { AllocationProposal } from '../allocations/allocation.models';
 import { AllocationService } from '../allocations/allocation.service';
 import { formatPeriod } from '../projects/project.models';
@@ -32,9 +32,9 @@ export interface ProposeDialogData {
     MatButtonModule,
     MatDialogModule,
     MatFormFieldModule,
-    MatIconModule,
     MatSelectModule,
     DateRangePicker,
+    WarningList,
   ],
   template: `
     <h2 mat-dialog-title>Propose {{ candidate.fullName }}</h2>
@@ -42,16 +42,7 @@ export interface ProposeDialogData {
       <mat-dialog-content class="propose-dialog__content">
         <p class="propose-dialog__request">{{ request.title }} · score {{ candidate.score }}/100</p>
 
-        @if (candidate.warnings.length) {
-          <ul class="propose-dialog__warnings" aria-label="Warnings">
-            @for (warning of candidate.warnings; track $index) {
-              <li>
-                <mat-icon>warning</mat-icon>
-                <span>{{ warning }}</span>
-              </li>
-            }
-          </ul>
-        }
+        <app-warning-list class="propose-dialog__warnings" [warnings]="candidate.warnings" />
 
         <mat-form-field appearance="outline">
           <mat-label>Allocation</mat-label>
@@ -96,27 +87,7 @@ export interface ProposeDialogData {
       margin: -4px 0 0;
     }
     .propose-dialog__warnings {
-      list-style: none;
       margin: 0 0 16px;
-      padding: 6px 12px;
-      border-radius: 8px;
-      background: var(--app-warning-container);
-      color: var(--app-on-warning-container);
-
-      li {
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        padding: 2px 0;
-        font: var(--mat-sys-body-medium);
-      }
-
-      mat-icon {
-        flex: none;
-        width: 18px;
-        height: 18px;
-        font-size: 18px;
-      }
     }
   `,
 })

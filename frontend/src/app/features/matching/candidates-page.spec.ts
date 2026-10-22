@@ -288,10 +288,8 @@ describe('CandidatesPage', () => {
 
       await respond();
 
-      expect(texts(rowOf('Marko'), '.candidate__notes--reasons li > span')).toEqual(MARKO.reasons);
-      expect(texts(rowOf('Jelena'), '.candidate__notes--reasons li > span')).toEqual(
-        JELENA.reasons,
-      );
+      expect(texts(rowOf('Marko'), '.candidate__reasons li > span')).toEqual(MARKO.reasons);
+      expect(texts(rowOf('Jelena'), '.candidate__reasons li > span')).toEqual(JELENA.reasons);
     });
 
     it('shows the warnings in their own list, each with a warning icon', async () => {
@@ -300,13 +298,10 @@ describe('CandidatesPage', () => {
       await respond();
 
       const jelena = rowOf('Jelena');
-      expect(texts(jelena, '.candidate__notes--warnings li > span')).toEqual(JELENA.warnings);
-      expect(texts(jelena, '.candidate__notes--warnings li > mat-icon')).toEqual([
-        'warning',
-        'warning',
-      ]);
+      expect(texts(jelena, '.candidate__warnings li > span')).toEqual(JELENA.warnings);
+      expect(texts(jelena, '.candidate__warnings li > mat-icon')).toEqual(['warning', 'warning']);
       expect(jelena.querySelector('ul[aria-label="Warnings"]')).toBeTruthy();
-      expect(texts(rowOf('Marko'), '.candidate__notes--warnings li > span')).toEqual([
+      expect(texts(rowOf('Marko'), '.candidate__warnings li > span')).toEqual([
         'Seniority SENIOR (MEDIOR requested)',
       ]);
     });
@@ -319,10 +314,12 @@ describe('CandidatesPage', () => {
         { ...JELENA, reasons: [] },
       ]);
 
-      expect(rowOf('Marko').querySelector('.candidate__notes--warnings')).toBeNull();
-      expect(rowOf('Marko').querySelector('.candidate__notes--reasons')).toBeTruthy();
-      expect(rowOf('Jelena').querySelector('.candidate__notes--reasons')).toBeNull();
-      expect(rowOf('Jelena').querySelector('.candidate__notes--warnings')).toBeTruthy();
+      expect(rowOf('Marko').querySelector<HTMLElement>('.candidate__warnings')?.hidden).toBe(true);
+      expect(rowOf('Marko').querySelector('.candidate__reasons')).toBeTruthy();
+      expect(rowOf('Jelena').querySelector('.candidate__reasons')).toBeNull();
+      expect(rowOf('Jelena').querySelector<HTMLElement>('.candidate__warnings')?.hidden).toBe(
+        false,
+      );
     });
 
     it('shows the seniority and department under the name', async () => {

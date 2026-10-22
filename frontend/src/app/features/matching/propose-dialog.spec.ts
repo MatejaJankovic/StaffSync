@@ -173,7 +173,8 @@ describe('ProposeDialog', () => {
   it('shows no warnings list for a candidate without warnings', async () => {
     await open({ candidate: { ...JELENA, warnings: [] } });
 
-    expect(el().querySelector('.propose-dialog__warnings')).toBeNull();
+    expect(el().querySelector<HTMLElement>('.propose-dialog__warnings')?.hidden).toBe(true);
+    expect(el().querySelectorAll('.propose-dialog__warnings li')).toHaveLength(0);
   });
 
   it('offers the allocations from 10% to 100% in steps of 10', async () => {

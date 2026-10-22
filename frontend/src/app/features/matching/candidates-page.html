@@ -137,7 +137,7 @@
             <ng-template appPagedTableCell="notes" let-row>
               <div class="candidate__cell">
                 @if (row.reasons.length) {
-                  <ul class="candidate__notes candidate__notes--reasons" aria-label="Reasons">
+                  <ul class="candidate__reasons" aria-label="Reasons">
                     @for (reason of row.reasons; track $index) {
                       <li>
                         <mat-icon>check_circle</mat-icon>
@@ -146,16 +146,7 @@
                     }
                   </ul>
                 }
-                @if (row.warnings.length) {
-                  <ul class="candidate__notes candidate__notes--warnings" aria-label="Warnings">
-                    @for (warning of row.warnings; track $index) {
-                      <li>
-                        <mat-icon>warning</mat-icon>
-                        <span>{{ warning }}</span>
-                      </li>
-                    }
-                  </ul>
-                }
+                <app-warning-list class="candidate__warnings" [warnings]="row.warnings" />
               </div>
             </ng-template>
 

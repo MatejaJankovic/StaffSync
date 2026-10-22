@@ -161,7 +161,8 @@
   }
 }
 
-.candidate__notes {
+// Laid out like the warnings below them (shared/warning-list), without the warning colors
+.candidate__reasons {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -179,21 +180,10 @@
     width: 18px;
     height: 18px;
     font-size: 18px;
-  }
-
-  & + & {
-    margin-top: 8px;
+    color: var(--mat-sys-primary);
   }
 }
 
-.candidate__notes--reasons mat-icon {
-  color: var(--mat-sys-primary);
-}
-
-// Warnings must stand out: the warning colors, as on the warning status chip
-.candidate__notes--warnings {
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: var(--app-warning-container);
-  color: var(--app-on-warning-container);
+.candidate__reasons + .candidate__warnings {
+  margin-top: 8px;
 }

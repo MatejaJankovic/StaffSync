@@ -21,6 +21,7 @@ import { Notifications } from '../../core/error/notifications';
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
+import { WarningList } from '../../shared/warning-list/warning-list';
 import { AllocationProposal } from '../allocations/allocation.models';
 import { formatPeriod } from '../projects/project.models';
 import { canFindCandidates, SENIORITY_LABELS, StaffingRequest } from '../requests/request.models';
@@ -52,7 +53,15 @@ interface ProposalNotice {
  */
 @Component({
   selector: 'app-candidates-page',
-  imports: [MatButtonModule, MatIconModule, PagedTable, PagedTableCell, RouterLink, StatusChip],
+  imports: [
+    MatButtonModule,
+    MatIconModule,
+    PagedTable,
+    PagedTableCell,
+    RouterLink,
+    StatusChip,
+    WarningList,
+  ],
   templateUrl: './candidates-page.html',
   styleUrl: './candidates-page.scss',
 })
