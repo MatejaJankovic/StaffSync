@@ -100,8 +100,8 @@ export interface ProposeDialogData {
       margin: 0 0 16px;
       padding: 6px 12px;
       border-radius: 8px;
-      background: light-dark(#ffe9b8, #4d3a00);
-      color: light-dark(#5c4300, #ffe08f);
+      background: var(--app-warning-container);
+      color: var(--app-on-warning-container);
 
       li {
         display: flex;

@@ -55,7 +55,7 @@
   margin: 0;
 }
 
-// Same amber as the warning status chip, here and on the warnings of a candidate
+// The warning colors, as on the warning status chip and the warnings of a candidate
 .candidates__notice {
   display: flex;
   align-items: flex-start;
@@ -63,8 +63,8 @@
   margin-bottom: 16px;
   padding: 12px 8px 12px 16px;
   border-radius: 8px;
-  background: light-dark(#ffe9b8, #4d3a00);
-  color: light-dark(#5c4300, #ffe08f);
+  background: var(--app-warning-container);
+  color: var(--app-on-warning-container);
 }
 
 .candidates__notice-text {
@@ -190,10 +190,10 @@
   color: var(--mat-sys-primary);
 }
 
-// Warnings must stand out: the same amber as the warning status chip
+// Warnings must stand out: the warning colors, as on the warning status chip
 .candidate__notes--warnings {
   padding: 6px 12px;
   border-radius: 8px;
-  background: light-dark(#ffe9b8, #4d3a00);
-  color: light-dark(#5c4300, #ffe08f);
+  background: var(--app-warning-container);
+  color: var(--app-on-warning-container);
 }
