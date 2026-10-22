@@ -89,6 +89,24 @@ public class CapacityService {
 		}
 	}
 
+	/**
+	 * BR-13: the working days from {@code from} on where the employee's active allocations would go over
+	 * {@code capacityPercent}, as {@code {"date": ..., "load": ...}}. An empty list means the new capacity fits.
+	 */
+	public List<Map<String, Object>> findDaysOverCapacity(Long employeeId, int capacityPercent, LocalDate from) {
+		LocalDate lastDay = allocationRepository.findLatestEndDate(employeeId, AllocationStatus.ACTIVE);
+		List<Map<String, Object>> overloaded = new ArrayList<>();
+		if (lastDay == null || lastDay.isBefore(from)) {
+			return overloaded;
+		}
+		getDailyLoad(employeeId, from, lastDay, null).forEach((day, load) -> {
+			if (load > capacityPercent) {
+				overloaded.add(Map.of("date", day, "load", load));
+			}
+		});
+		return overloaded;
+	}
+
 	private Map<LocalDate, Integer> computeLoad(Long employeeId, LocalDate from, LocalDate to, Long excludeId,
 			Set<AllocationStatus> statuses) {
 		if (from.isAfter(to)) {

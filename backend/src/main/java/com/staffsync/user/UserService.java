@@ -1,9 +1,15 @@
 package com.staffsync.user;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import com.staffsync.allocation.AllocationRepository;
+import com.staffsync.allocation.AllocationStatus;
+import com.staffsync.allocation.CapacityService;
+import com.staffsync.auth.AuthUser;
 import com.staffsync.common.BusinessException;
 import com.staffsync.common.ErrorResponse.FieldViolation;
 import com.staffsync.common.GlobalExceptionHandler;
@@ -32,6 +38,12 @@ public class UserService {
 
 	public static final String EMAIL_TAKEN = "EMAIL_TAKEN";
 
+	public static final String HAS_ACTIVE_ALLOCATIONS = "USER_HAS_ACTIVE_ALLOCATIONS";
+
+	public static final String RM_HAS_TEAM = "RM_HAS_TEAM";
+
+	public static final String CANNOT_DEACTIVATE_SELF = "CANNOT_DEACTIVATE_SELF";
+
 	/** §5: the only capacities a user can have. */
 	private static final Set<Integer> CAPACITIES = Set.of(100, 80, 50);
 
@@ -43,12 +55,19 @@ public class UserService {
 
 	private final DepartmentRepository departmentRepository;
 
+	private final AllocationRepository allocationRepository;
+
+	private final CapacityService capacityService;
+
 	private final PasswordEncoder passwordEncoder;
 
 	public UserService(UserRepository userRepository, DepartmentRepository departmentRepository,
+			AllocationRepository allocationRepository, CapacityService capacityService,
 			PasswordEncoder passwordEncoder) {
 		this.userRepository = userRepository;
 		this.departmentRepository = departmentRepository;
+		this.allocationRepository = allocationRepository;
+		this.capacityService = capacityService;
 		this.passwordEncoder = passwordEncoder;
 	}
 
@@ -83,7 +102,11 @@ public class UserService {
 		return UserAccountDto.from(saveAndFlush(user, email));
 	}
 
-	/** The same checks as {@link #create}. The password is never changed here. */
+	/**
+	 * The same checks as {@link #create}, plus: an RM who still has active employees keeps the RM role
+	 * (409), and BR-13: capacity can't go down if the active allocations from today on would exceed it
+	 * (409 {@code CAPACITY_EXCEEDED} with the overloaded days, T-23). The password is never changed here.
+	 */
 	@Transactional
 	public UserAccountDto update(Long id, UpdateUserRequest request) {
 		User user = find(id);
@@ -91,8 +114,51 @@ public class UserService {
 		if (userRepository.existsByEmailIgnoreCaseAndIdNot(email, id)) {
 			throw emailTaken(email);
 		}
+		Role oldRole = user.getRole();
+		int oldCapacity = user.getCapacityPercent();
 		apply(user, request);
+
+		if (oldRole == Role.RM && user.getRole() != Role.RM && userRepository.existsByManagerIdAndActiveTrue(id)) {
+			throw rmHasTeam("given another role");
+		}
+		if (user.getCapacityPercent() < oldCapacity) {
+			checkCapacityReduction(user);
+		}
 		return UserAccountDto.from(saveAndFlush(user, email));
+	}
+
+	/**
+	 * BR-12 / BR-16: a user with an APPROVED or CHANGE_PENDING allocation that hasn't ended yet can't be
+	 * deactivated (409, T-22). Neither can the Admin themself, or an RM who still has active employees.
+	 * A deactivated user can't log in, and their tokens stop working (T-37).
+	 */
+	@Transactional
+	public UserAccountDto deactivate(Long id, AuthUser currentUser) {
+		User user = find(id);
+		if (id.equals(currentUser.id())) {
+			throw new BusinessException(HttpStatus.CONFLICT, CANNOT_DEACTIVATE_SELF,
+					"You can't deactivate your own account");
+		}
+		if (allocationRepository.existsByEmployeeIdAndStatusInAndEndDateGreaterThanEqual(id,
+				AllocationStatus.ACTIVE, LocalDate.now())) {
+			throw new BusinessException(HttpStatus.CONFLICT, HAS_ACTIVE_ALLOCATIONS, user.getFirstName() + " "
+					+ user.getLastName() + " has current or future allocations and can't be deactivated");
+		}
+		if (user.getRole() == Role.RM && userRepository.existsByManagerIdAndActiveTrue(id)) {
+			throw rmHasTeam("deactivated");
+		}
+		user.setActive(false);
+		return UserAccountDto.from(user);
+	}
+
+	private void checkCapacityReduction(User user) {
+		List<Map<String, Object>> overloaded = capacityService.findDaysOverCapacity(user.getId(),
+				user.getCapacityPercent(), LocalDate.now());
+		if (!overloaded.isEmpty()) {
+			String days = overloaded.size() == 1 ? "1 day" : overloaded.size() + " days";
+			throw new BusinessException(HttpStatus.CONFLICT, CapacityService.CAPACITY_EXCEEDED, "Lowering capacity to "
+					+ user.getCapacityPercent() + "% would leave existing allocations over it on " + days, overloaded);
+		}
 	}
 
 	private User find(Long id) {
@@ -165,6 +231,13 @@ public class UserService {
 		catch (DataIntegrityViolationException ex) {
 			throw emailTaken(email);
 		}
+	}
+
+	// Their employees' allocations could no longer be approved by anyone (BR-5)
+	private static BusinessException rmHasTeam(String action) {
+		return new BusinessException(HttpStatus.CONFLICT, RM_HAS_TEAM,
+				"This resource manager still has active employees and can't be " + action
+						+ ". Move the employees to another resource manager first");
 	}
 
 	private static BusinessException emailTaken(String email) {

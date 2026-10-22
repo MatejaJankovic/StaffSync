@@ -9,13 +9,24 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import com.staffsync.allocation.Allocation;
+import com.staffsync.allocation.AllocationRepository;
+import com.staffsync.allocation.AllocationStatus;
 import com.staffsync.department.Department;
 import com.staffsync.department.DepartmentRepository;
+import com.staffsync.project.Project;
+import com.staffsync.project.ProjectRepository;
+import com.staffsync.request.StaffingRequest;
+import com.staffsync.request.StaffingRequestRepository;
 import com.staffsync.user.Role;
+import com.staffsync.user.Seniority;
 import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
 import io.restassured.RestAssured;
@@ -43,11 +54,22 @@ class UserControllerTests {
 
 	private static final String RM = "lazar_rm@staffsync.local";
 
+	private static final String PM = "mateja_pm@staffsync.local";
+
 	@LocalServerPort
 	int port;
 
 	@Autowired
 	UserRepository userRepository;
+
+	@Autowired
+	ProjectRepository projectRepository;
+
+	@Autowired
+	StaffingRequestRepository requestRepository;
+
+	@Autowired
+	AllocationRepository allocationRepository;
 
 	@Autowired
 	DepartmentRepository departmentRepository;
@@ -343,7 +365,213 @@ class UserControllerTests {
 			.then().statusCode(403);
 	}
 
+	// ---- BR-13 / T-23: lowering capacity
+
+	@Test
+	void loweringCapacityBelowTheActiveAllocationsIs409WithTheDays() {
+		User employee = newEmployee("Busy", engineering(), rm());
+		LocalDate monday = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+		// Monday to Friday of the next week: 10 working days at 80%
+		allocate(employee, 80, monday, monday.plusDays(11), AllocationStatus.APPROVED);
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(editBody(employee, 50))
+			.when().put("/api/users/" + employee.getId())
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("CAPACITY_EXCEEDED"))
+			.body("details.size()", equalTo(10))
+			.body("details[0].date", equalTo(monday.toString()))
+			.body("details[0].load", equalTo(80));
+
+		assertThat(userRepository.findById(employee.getId()).orElseThrow().getCapacityPercent()).isEqualTo(100);
+	}
+
+	@Test
+	void aChangePendingAllocationCountsWithItsCurrentValues() {
+		User employee = newEmployee("Pending", engineering(), rm());
+		LocalDate monday = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+		allocate(employee, 60, monday, monday.plusDays(4), AllocationStatus.CHANGE_PENDING);
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(editBody(employee, 50))
+			.when().put("/api/users/" + employee.getId())
+			.then().statusCode(409).body("code", equalTo("CAPACITY_EXCEEDED"));
+	}
+
+	@Test
+	void loweringCapacityToExactlyTheLoadIsAllowed() {
+		User employee = newEmployee("Exact", engineering(), rm());
+		LocalDate monday = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+		allocate(employee, 80, monday, monday.plusDays(4), AllocationStatus.APPROVED);
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(editBody(employee, 80))
+			.when().put("/api/users/" + employee.getId())
+			.then().statusCode(200).body("capacityPercent", equalTo(80));
+	}
+
+	@Test
+	void pastAndProposedAllocationsDontBlockLoweringCapacity() {
+		User employee = newEmployee("Free", engineering(), rm());
+		LocalDate today = LocalDate.now();
+		allocate(employee, 100, today.minusDays(30), today.minusDays(1), AllocationStatus.APPROVED);
+		allocate(employee, 100, today.plusDays(1), today.plusDays(30), AllocationStatus.PROPOSED);
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(editBody(employee, 50))
+			.when().put("/api/users/" + employee.getId())
+			.then().statusCode(200).body("capacityPercent", equalTo(50));
+	}
+
+	@Test
+	void raisingCapacityIsNeverChecked() {
+		User employee = newEmployee("Grow", engineering(), rm());
+		employee.setCapacityPercent(50);
+		userRepository.save(employee);
+		LocalDate monday = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+		// Already over 50%, e.g. from before a reduction rule existed
+		allocate(employee, 90, monday, monday.plusDays(4), AllocationStatus.APPROVED);
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(editBody(employee, 80))
+			.when().put("/api/users/" + employee.getId())
+			.then().statusCode(200).body("capacityPercent", equalTo(80));
+	}
+
+	// ---- BR-12 / T-22, T-37: deactivation
+
+	@Test
+	void aUserWithAnApprovedAllocationEndingTodayCantBeDeactivated() {
+		User employee = newEmployee("Today", engineering(), rm());
+		LocalDate today = LocalDate.now();
+		allocate(employee, 50, today.minusDays(10), today, AllocationStatus.APPROVED);
+
+		given().auth().oauth2(tokenFor(ADMIN))
+			.when().patch("/api/users/" + employee.getId() + "/deactivate")
+			.then().statusCode(409).body("code", equalTo("USER_HAS_ACTIVE_ALLOCATIONS"));
+
+		assertThat(userRepository.findById(employee.getId()).orElseThrow().isActive()).isTrue();
+	}
+
+	@Test
+	void aUserWithAFutureChangePendingAllocationCantBeDeactivated() {
+		User employee = newEmployee("Future", engineering(), rm());
+		LocalDate today = LocalDate.now();
+		allocate(employee, 50, today.plusDays(10), today.plusDays(20), AllocationStatus.CHANGE_PENDING);
+
+		given().auth().oauth2(tokenFor(ADMIN))
+			.when().patch("/api/users/" + employee.getId() + "/deactivate")
+			.then().statusCode(409).body("code", equalTo("USER_HAS_ACTIVE_ALLOCATIONS"));
+	}
+
+	@Test
+	void aDeactivatedUserCantLogInAndTheirTokenStopsWorking() {
+		User employee = newEmployee("Leaver", engineering(), rm());
+		LocalDate today = LocalDate.now();
+		// Neither a finished nor a proposed allocation is active (BR-12)
+		allocate(employee, 50, today.minusDays(20), today.minusDays(1), AllocationStatus.APPROVED);
+		allocate(employee, 50, today.plusDays(1), today.plusDays(20), AllocationStatus.PROPOSED);
+		String oldToken = tokenFor(employee.getEmail());
+
+		given().auth().oauth2(tokenFor(ADMIN))
+			.when().patch("/api/users/" + employee.getId() + "/deactivate")
+			.then().statusCode(200).body("active", equalTo(false));
+
+		given().contentType(ContentType.JSON).body(Map.of("email", employee.getEmail(), "password", PASSWORD))
+			.when().post("/api/auth/login")
+			.then().statusCode(401);
+		given().auth().oauth2(oldToken).when().get("/api/auth/me").then().statusCode(401);
+	}
+
+	@Test
+	void deactivatingAnInactiveUserChangesNothing() {
+		User employee = newEmployee("Twice", engineering(), rm());
+		String admin = tokenFor(ADMIN);
+
+		given().auth().oauth2(admin).when().patch("/api/users/" + employee.getId() + "/deactivate")
+			.then().statusCode(200);
+		given().auth().oauth2(admin).when().patch("/api/users/" + employee.getId() + "/deactivate")
+			.then().statusCode(200).body("active", equalTo(false));
+	}
+
+	@Test
+	void anAdminCantDeactivateThemself() {
+		User admin = userRepository.findByEmailIgnoreCase(ADMIN).orElseThrow();
+
+		given().auth().oauth2(tokenFor(ADMIN))
+			.when().patch("/api/users/" + admin.getId() + "/deactivate")
+			.then().statusCode(409).body("code", equalTo("CANNOT_DEACTIVATE_SELF"));
+	}
+
+	@Test
+	void anRmWithActiveEmployeesCantBeDeactivated() {
+		User rm = newUser("Lead", Role.RM);
+		newEmployee("Member", engineering(), rm);
+
+		given().auth().oauth2(tokenFor(ADMIN))
+			.when().patch("/api/users/" + rm.getId() + "/deactivate")
+			.then().statusCode(409).body("code", equalTo("RM_HAS_TEAM"));
+	}
+
+	@Test
+	void anRmWhoseEmployeesAreAllInactiveCanBeDeactivated() {
+		User rm = newUser("Alone", Role.RM);
+		User member = newEmployee("Former", engineering(), rm);
+		member.setActive(false);
+		userRepository.save(member);
+
+		given().auth().oauth2(tokenFor(ADMIN))
+			.when().patch("/api/users/" + rm.getId() + "/deactivate")
+			.then().statusCode(200).body("active", equalTo(false));
+	}
+
+	@Test
+	void anRmWithActiveEmployeesKeepsTheRmRole() {
+		User rm = newUser("Keep", Role.RM);
+		newEmployee("Member", engineering(), rm);
+		Map<String, Object> body = editBody(rm, 100);
+		body.put("role", "PM");
+		body.put("managerId", null);
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
+			.when().put("/api/users/" + rm.getId())
+			.then().statusCode(409).body("code", equalTo("RM_HAS_TEAM"));
+	}
+
+	@Test
+	void aNonAdminCantDeactivate() {
+		User employee = newEmployee("Safe", engineering(), rm());
+
+		given().auth().oauth2(tokenFor(RM))
+			.when().patch("/api/users/" + employee.getId() + "/deactivate")
+			.then().statusCode(403);
+	}
+
+	@Test
+	void deactivatingAnUnknownUserIs404() {
+		given().auth().oauth2(tokenFor(ADMIN))
+			.when().patch("/api/users/999999/deactivate")
+			.then().statusCode(404);
+	}
+
 	// ---- helpers
+
+	/** The user's own fields with a new capacity, as the *Edit* dialog sends them. */
+	private Map<String, Object> editBody(User user, int capacityPercent) {
+		Map<String, Object> body = employeeBody(user.getEmail());
+		body.remove("temporaryPassword");
+		body.put("firstName", user.getFirstName());
+		body.put("capacityPercent", capacityPercent);
+		return body;
+	}
+
+	/** Allocation transitions belong to US-10 and US-12, so tests save the allocation with its status. */
+	private void allocate(User employee, int percent, LocalDate start, LocalDate end, AllocationStatus status) {
+		User pm = userRepository.findByEmailIgnoreCase(PM).orElseThrow();
+		Project project = projectRepository
+			.save(new Project("Project-" + UUID.randomUUID(), "Acme", null, start, end, pm));
+		StaffingRequest request = requestRepository
+			.save(new StaffingRequest(project, "Developer", Seniority.MEDIOR, percent, start, end, 1));
+		Allocation allocation = new Allocation(request, employee, percent, start, end, pm);
+		allocation.setStatus(status);
+		allocationRepository.save(allocation);
+	}
 
 	private Map<String, Object> employeeBody(String email) {
 		Map<String, Object> body = new HashMap<>();

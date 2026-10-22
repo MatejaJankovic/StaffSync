@@ -1,5 +1,6 @@
 package com.staffsync.user;
 
+import com.staffsync.auth.AuthUser;
 import com.staffsync.common.ErrorResponse;
 import com.staffsync.user.dto.CreateUserRequest;
 import com.staffsync.user.dto.UpdateUserRequest;
@@ -17,7 +18,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -90,12 +93,35 @@ public class UserController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "404", description = "No user with this id",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-	@ApiResponse(responseCode = "409", description = "EMAIL_TAKEN: another user has this email (case is ignored)",
+	@ApiResponse(responseCode = "409",
+			description = "EMAIL_TAKEN: another user has this email (case is ignored). CAPACITY_EXCEEDED (BR-13): "
+					+ "the lower capacity would be exceeded by existing active allocations, details lists the days. "
+					+ "RM_HAS_TEAM: an RM with active employees can't get another role",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/{id}")
 	public UserAccountDto update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
 		return userService.update(id, request);
+	}
+
+	@Operation(summary = "Deactivate an account (Admin)",
+			description = "A deactivated user can't log in, and their tokens stop working. Deactivating an inactive "
+					+ "user changes nothing")
+	@ApiResponse(responseCode = "200", description = "Deactivated")
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not an Admin",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No user with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409",
+			description = "USER_HAS_ACTIVE_ALLOCATIONS (BR-12): an APPROVED or CHANGE_PENDING allocation hasn't ended. "
+					+ "RM_HAS_TEAM: the RM still has active employees. CANNOT_DEACTIVATE_SELF: your own account",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('ADMIN')")
+	@PatchMapping("/{id}/deactivate")
+	public UserAccountDto deactivate(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
+		return userService.deactivate(id, user);
 	}
 
 }

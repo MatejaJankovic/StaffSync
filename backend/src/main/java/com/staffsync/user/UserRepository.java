@@ -27,6 +27,9 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 	@EntityGraph(attributePaths = "department")
 	List<User> findByRoleAndActiveTrue(Role role);
 
+	/** Whether an RM still has employees who can log in, so their team would be left without an RM. */
+	boolean existsByManagerIdAndActiveTrue(Long managerId);
+
 	/** Active or not: a deactivated user still belongs to their department. */
 	boolean existsByDepartmentId(Long departmentId);
 
