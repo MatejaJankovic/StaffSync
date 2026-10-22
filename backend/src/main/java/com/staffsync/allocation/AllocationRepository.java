@@ -53,4 +53,13 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 			@Param("from") LocalDate from, @Param("to") LocalDate to,
 			@Param("statuses") Collection<AllocationStatus> statuses);
 
+	/** The employees who have an allocation in one of the given statuses on the request, whatever its period. */
+	@Query("""
+			select distinct a.employee.id from Allocation a
+			where a.request.id = :requestId
+			  and a.status in :statuses
+			""")
+	List<Long> findEmployeeIdsByRequestAndStatuses(@Param("requestId") Long requestId,
+			@Param("statuses") Collection<AllocationStatus> statuses);
+
 }
