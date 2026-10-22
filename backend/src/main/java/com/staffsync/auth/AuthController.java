@@ -56,11 +56,11 @@ public class AuthController {
 	}
 
 	@Operation(summary = "Change the current user's own password",
-			description = "Replaces the temporary password from the Admin. The new one needs 8 to 72 characters")
+			description = "Replaces the temporary password from the Admin. The new one needs at least 8 characters and at most 72 bytes")
 	@SecurityRequirement(name = "bearerAuth")
 	@ApiResponse(responseCode = "204", description = "Password changed")
 	@ApiResponse(responseCode = "400",
-			description = "New password too short or missing (VALIDATION_ERROR), or the current password is wrong (WRONG_PASSWORD)",
+			description = "New password too short, too long or missing (VALIDATION_ERROR), or the current password is wrong (WRONG_PASSWORD)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))

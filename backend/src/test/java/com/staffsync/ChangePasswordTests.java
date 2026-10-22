@@ -105,6 +105,26 @@ class ChangePasswordTests {
 			.body("details.field", hasItem("newPassword"));
 	}
 
+	// BCrypt's limit is 72 bytes, not characters: 40 × 'ž' is 40 characters but 80 bytes
+	@Test
+	void newPasswordOver72BytesIs400NotA500() {
+		changePassword(token(), OLD_PASSWORD, "ž".repeat(40))
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("VALIDATION_ERROR"))
+			.body("details.field", hasItem("newPassword"));
+
+		login(OLD_PASSWORD).then().statusCode(200);
+	}
+
+	@Test
+	void newPasswordOfExactly72BytesIsAccepted() {
+		String password = "ž".repeat(36);
+		changePassword(token(), OLD_PASSWORD, password).then().statusCode(204);
+
+		login(password).then().statusCode(200);
+	}
+
 	@Test
 	void missingFieldsAre400() {
 		changePassword(token(), null, null)
