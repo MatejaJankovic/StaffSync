@@ -774,7 +774,7 @@ class AllocationControllerTests {
 	// ---- BR-6 / T-14
 
 	@ParameterizedTest
-	@ValueSource(strings = { "", "          ", "Too short" })
+	@ValueSource(strings = { "", "          ", "Too short", "  Too short " })
 	void aBlankOrShortCommentIs400AndTheAllocationStaysProposed(String comment) {
 		LoggedIn pm = login(PM);
 		User rm = newUser("Team", Role.RM);

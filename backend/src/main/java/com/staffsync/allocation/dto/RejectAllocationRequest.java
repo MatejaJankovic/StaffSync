@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Size;
 				}""")
 public record RejectAllocationRequest(
 		@Schema(example = "Fully booked on Project Beta until December",
-				description = "Why the allocation is rejected. 10 to 1000 characters (BR-6)") @NotBlank(
+				description = "Why the allocation is rejected. 10 to 1000 characters, without the surrounding spaces (BR-6)") @NotBlank(
 						message = "Comment is required") @Size(min = 10, max = 1000,
 								message = "Comment must be between 10 and 1000 characters") String comment) {
 

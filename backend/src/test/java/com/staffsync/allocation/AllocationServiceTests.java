@@ -513,7 +513,7 @@ class AllocationServiceTests {
 		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.PROPOSED);
 	}
 
-	// ---- reject (US-10; the comment length, BR-6 / T-14, is Bean Validation, see AllocationControllerTests)
+	// ---- reject (US-10; the comment length, BR-6 / T-14, is also Bean Validation, see AllocationControllerTests)
 
 	@Test
 	void theRmRejectsWithACommentAndTheDecisionIsRecorded() {
@@ -530,6 +530,28 @@ class AllocationServiceTests {
 		assertThat(request.getStatus()).isEqualTo(RequestStatus.OPEN);
 		verify(capacityService, never()).checkCapacity(any(), any(), any(), anyInt(), any());
 		verify(requestStatusService, never()).recalculate(any());
+	}
+
+	@Test
+	void theCommentIsStoredWithoutTheSurroundingSpaces() {
+		Allocation allocation = givenProposedAllocation();
+
+		allocationService.reject(ALLOCATION_ID,
+				new RejectAllocationRequest("  Fully booked on Project Beta until December \n"), RM);
+
+		assertThat(allocation.getDecisionComment()).isEqualTo("Fully booked on Project Beta until December");
+	}
+
+	@Test
+	void aCommentShorterThan10CharactersWithoutTheSpacesIsInvalid() {
+		assertThatThrownBy(
+				() -> allocationService.reject(ALLOCATION_ID, new RejectAllocationRequest("  Too short "), RM))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+				assertThat(ex.getCode()).isEqualTo("VALIDATION_ERROR");
+			});
+		// Checked like Bean Validation, before the allocation is even loaded
+		verify(allocationRepository, never()).findById(any());
 	}
 
 	@Test

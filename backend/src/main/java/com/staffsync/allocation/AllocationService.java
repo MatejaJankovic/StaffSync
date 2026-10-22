@@ -131,18 +131,23 @@ public class AllocationService {
 	}
 
 	/**
-	 * The RM rejects a proposed allocation (§9: {@code PROPOSED → REJECTED}) with a comment, whose length
-	 * (BR-6) is checked on the request body. Same checks as approve: BR-5 (403), then BR-7 (409). The request
-	 * status doesn't change, because a proposal was never active (BR-10).
+	 * The RM rejects a proposed allocation (§9: {@code PROPOSED → REJECTED}) with a comment of at least 10
+	 * characters without the surrounding spaces (BR-6, 400). Then BR-5 (403) and BR-7 (409), as for approve.
+	 * The request status doesn't change, because a proposal was never active (BR-10).
 	 */
 	@Transactional
 	public AllocationDto reject(Long id, RejectAllocationRequest body, AuthUser currentUser) {
+		// Bean Validation counts the spaces too, so "  Too short " would pass it
+		String comment = body.comment().trim();
+		if (comment.length() < 10) {
+			throw validationError("comment", "Comment must be between 10 and 1000 characters");
+		}
 		Allocation allocation = find(id);
 		User rm = checkResourceManager(allocation, currentUser);
 		checkPendingDecision(allocation);
 
 		allocation.setStatus(AllocationStatus.REJECTED);
-		allocation.recordDecision(rm, body.comment());
+		allocation.recordDecision(rm, comment);
 		return AllocationDto.from(allocation);
 	}
 
