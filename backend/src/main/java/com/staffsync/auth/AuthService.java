@@ -1,5 +1,6 @@
 package com.staffsync.auth;
 
+import com.staffsync.auth.dto.ChangePasswordRequest;
 import com.staffsync.auth.dto.LoginRequest;
 import com.staffsync.auth.dto.LoginResponse;
 import com.staffsync.user.User;
@@ -54,6 +55,18 @@ public class AuthService {
 			.filter(User::isActive)
 			.map(ProfileDto::from)
 			.orElseThrow(SessionExpiredException::new);
+	}
+
+	/** Only ever changes the caller's own password: the id comes from the token. */
+	@Transactional
+	public void changePassword(AuthUser authUser, ChangePasswordRequest request) {
+		User user = userRepository.findById(authUser.id())
+			.filter(User::isActive)
+			.orElseThrow(SessionExpiredException::new);
+		if (!passwordEncoder.matches(request.oldPassword(), user.getPasswordHash())) {
+			throw new WrongPasswordException();
+		}
+		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
 	}
 
 }

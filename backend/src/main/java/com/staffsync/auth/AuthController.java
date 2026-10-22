@@ -1,5 +1,6 @@
 package com.staffsync.auth;
 
+import com.staffsync.auth.dto.ChangePasswordRequest;
 import com.staffsync.auth.dto.LoginRequest;
 import com.staffsync.auth.dto.LoginResponse;
 import com.staffsync.common.ErrorResponse;
@@ -11,16 +12,19 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
-@Tag(name = "Auth", description = "Log in and get the current user")
+@Tag(name = "Auth", description = "Log in, get the current user and change the own password")
 public class AuthController {
 
 	private final AuthService authService;
@@ -49,6 +53,22 @@ public class AuthController {
 	@GetMapping("/me")
 	public ProfileDto me(@AuthenticationPrincipal AuthUser user) {
 		return authService.me(user);
+	}
+
+	@Operation(summary = "Change the current user's own password",
+			description = "Replaces the temporary password from the Admin. The new one needs 8 to 72 characters")
+	@SecurityRequirement(name = "bearerAuth")
+	@ApiResponse(responseCode = "204", description = "Password changed")
+	@ApiResponse(responseCode = "400",
+			description = "New password too short or missing (VALIDATION_ERROR), or the current password is wrong (WRONG_PASSWORD)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PutMapping("/password")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void changePassword(@AuthenticationPrincipal AuthUser user,
+			@Valid @RequestBody ChangePasswordRequest request) {
+		authService.changePassword(user, request);
 	}
 
 }
