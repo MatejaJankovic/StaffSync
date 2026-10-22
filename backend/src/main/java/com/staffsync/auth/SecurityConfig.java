@@ -72,6 +72,11 @@ public class SecurityConfig {
 						// And for staffing requests (POST is covered by /api/projects/{id}/requests above)
 						.requestMatchers(HttpMethod.PUT, "/api/requests/**").hasRole("PM")
 						.requestMatchers(HttpMethod.DELETE, "/api/requests/**").hasRole("PM")
+						// And for user accounts. A single * on purpose: PUT /api/users/{id}/skills is for the owner too
+						.requestMatchers(HttpMethod.GET, "/api/users").hasAnyRole("ADMIN", "RM")
+						.requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
+						.requestMatchers(HttpMethod.PUT, "/api/users/*").hasRole("ADMIN")
+						.requestMatchers(HttpMethod.PATCH, "/api/users/*/deactivate").hasRole("ADMIN")
 						.anyRequest().authenticated())
 				.addFilterBefore(new JwtAuthenticationFilter(jwtService, userRepository), UsernamePasswordAuthenticationFilter.class)
 				.build();
