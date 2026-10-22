@@ -426,7 +426,7 @@ class AllocationServiceTests {
 	void aCapacityBreachLeavesTheAllocationProposed() {
 		Allocation allocation = givenProposedAllocation();
 		BusinessException exceeded = new BusinessException(HttpStatus.CONFLICT, CapacityService.CAPACITY_EXCEEDED,
-				"Capacity exceeded on 2026-11-02 (60% existing + 60% new = 120%)", List.of(day(2, 120)));
+				"Capacity exceeded on 2026-11-02 (60% existing + 60% new = 120% of 100% capacity)", List.of(day(2, 120)));
 		doThrow(exceeded).when(capacityService).checkCapacity(any(), any(), any(), anyInt(), any());
 
 		assertThatThrownBy(() -> allocationService.approve(ALLOCATION_ID, RM)).isSameAs(exceeded);

@@ -82,15 +82,17 @@ public class CapacityService {
 	/**
 	 * BR-1: throws 409 CAPACITY_EXCEEDED with the overloaded days in {@code details}, and a message with one
 	 * part per run of days, e.g. {@code "Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new
-	 * = 120%)"}. Approve and change approval call this.
+	 * = 120% of 100% capacity)"}. The capacity is shown so a part-time overload reads right. Approve and change
+	 * approval call this.
 	 */
 	public void checkCapacity(Long employeeId, LocalDate from, LocalDate to, int percent, Long excludeAllocationId) {
 		List<Map<String, Object>> overloaded = findOverloadedDays(employeeId, from, to, percent, excludeAllocationId,
 				false);
 		if (!overloaded.isEmpty()) {
+			int capacity = findEmployee(employeeId).getCapacityPercent();
 			String runs = toRuns(overloaded).stream()
 				.map(run -> run.days() + " (" + (run.load() - percent) + "% existing + " + percent + "% new = "
-						+ run.load() + "%)")
+						+ run.load() + "% of " + capacity + "% capacity)")
 				.collect(Collectors.joining("; "));
 			throw new BusinessException(HttpStatus.CONFLICT, CAPACITY_EXCEEDED, "Capacity exceeded on " + runs,
 					overloaded);

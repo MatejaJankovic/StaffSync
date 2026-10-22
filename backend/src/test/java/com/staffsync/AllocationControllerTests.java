@@ -606,7 +606,8 @@ class AllocationControllerTests {
 			.then()
 			.statusCode(409)
 			.body("code", equalTo("CAPACITY_EXCEEDED"))
-			.body("message", equalTo("Capacity exceeded on 2026-11-02 – 2027-01-29 (60% existing + 60% new = 120%)"))
+			.body("message",
+					equalTo("Capacity exceeded on 2026-11-02 – 2027-01-29 (60% existing + 60% new = 120% of 100% capacity)"))
 			.body("details[0].date", equalTo("2026-11-02"))
 			.body("details[0].load", equalTo(120));
 		assertThat(allocationRepository.findById((long) second).orElseThrow().getStatus())
