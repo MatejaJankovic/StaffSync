@@ -72,6 +72,35 @@ describe('ChangePasswordDialog', () => {
     expect(el().textContent).toContain('New password must be at least 8 characters');
   });
 
+  it('rejects a whitespace-only password like the API does', async () => {
+    fill('   ', '        ');
+
+    await submit();
+
+    httpMock.expectNone(PASSWORD_URL);
+    expect(el().textContent).toContain('Current password is required');
+    expect(el().textContent).toContain('New password is required');
+  });
+
+  it('counts the 72-character limit in bytes, like BCrypt and the API', async () => {
+    // 40 characters, but 80 bytes in UTF-8
+    fill('Temporary1!', 'ž'.repeat(40));
+
+    await submit();
+
+    httpMock.expectNone(PASSWORD_URL);
+    expect(el().textContent).toContain('New password is too long (at most 72 bytes)');
+  });
+
+  it('accepts a password of exactly 72 bytes', async () => {
+    fill('Temporary1!', 'ž'.repeat(36));
+
+    await submit();
+
+    httpMock.expectOne(PASSWORD_URL).flush(null, { status: 204, statusText: 'No Content' });
+    expect(close).toHaveBeenCalledWith(true);
+  });
+
   it('rejects a confirmation that does not match', async () => {
     fill('Temporary1!', 'NewPassword1!', 'NewPassword2!');
 
@@ -133,5 +162,35 @@ describe('ChangePasswordDialog', () => {
     );
     expect(notifications.error).not.toHaveBeenCalled();
     expect(close).not.toHaveBeenCalled();
+  });
+
+  it('clears the error message as soon as the form is edited', async () => {
+    fill('Temporary1!', 'NewPassword1!');
+
+    await submit();
+    httpMock.expectOne(PASSWORD_URL).error(new ProgressEvent('error'), { status: 0 });
+    await fixture.whenStable();
+    expect(el().querySelector('[role="alert"]')).not.toBeNull();
+
+    fill('Temporary1!', 'NewPassword2!');
+    await fixture.whenStable();
+
+    expect(el().querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('closes when the session has expired (401), as the app goes back to the login page', async () => {
+    fill('Temporary1!', 'NewPassword1!');
+
+    await submit();
+    httpMock
+      .expectOne(PASSWORD_URL)
+      .flush(
+        { code: 'UNAUTHORIZED', message: 'Authentication required' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
+    await fixture.whenStable();
+
+    expect(close).toHaveBeenCalledWith();
+    expect(el().querySelector('[role="alert"]')).toBeNull();
   });
 });

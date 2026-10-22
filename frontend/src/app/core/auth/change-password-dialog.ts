@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   AbstractControl,
@@ -21,6 +22,17 @@ import { AuthService } from './auth.service';
 
 /** The API's code for a wrong current password (T-38). */
 const WRONG_PASSWORD = 'WRONG_PASSWORD';
+
+const utf8 = new TextEncoder();
+
+/**
+ * BCrypt's limit is in bytes, not characters, so letters such as č or ž count as 2, the same
+ * as the API's `@MaxBytes(72)`. `Validators.maxLength` would count them as 1.
+ */
+function maxBytes(max: number): ValidatorFn {
+  return (control) =>
+    utf8.encode(String(control.value ?? '')).length > max ? { maxBytes: { max } } : null;
+}
 
 const passwordsMatch: ValidatorFn = (group: AbstractControl) =>
   group.get('newPassword')?.value === group.get('confirmPassword')?.value
@@ -65,7 +77,10 @@ class ConfirmPasswordErrorMatcher implements ErrorStateMatcher {
             formControlName="oldPassword"
             autocomplete="current-password"
           />
-          @if (form.controls.oldPassword.hasError('required')) {
+          @if (
+            form.controls.oldPassword.hasError('required') ||
+            form.controls.oldPassword.hasError('pattern')
+          ) {
             <mat-error>Current password is required</mat-error>
           } @else if (form.controls.oldPassword.hasError('incorrect')) {
             <mat-error>Current password is incorrect</mat-error>
@@ -80,12 +95,15 @@ class ConfirmPasswordErrorMatcher implements ErrorStateMatcher {
             formControlName="newPassword"
             autocomplete="new-password"
           />
-          @if (form.controls.newPassword.hasError('required')) {
+          @if (
+            form.controls.newPassword.hasError('required') ||
+            form.controls.newPassword.hasError('pattern')
+          ) {
             <mat-error>New password is required</mat-error>
           } @else if (form.controls.newPassword.hasError('minlength')) {
             <mat-error>New password must be at least {{ minLength }} characters</mat-error>
-          } @else if (form.controls.newPassword.hasError('maxlength')) {
-            <mat-error>New password must be at most {{ maxLength }} characters</mat-error>
+          } @else if (form.controls.newPassword.hasError('maxBytes')) {
+            <mat-error>New password is too long (at most {{ maxBytes }} bytes)</mat-error>
           } @else {
             <mat-hint>At least {{ minLength }} characters</mat-hint>
           }
@@ -137,19 +155,20 @@ export class ChangePasswordDialog {
   private readonly notifications = inject(Notifications);
   private readonly dialogRef = inject<MatDialogRef<ChangePasswordDialog, boolean>>(MatDialogRef);
 
-  // Same limits as the API: BCrypt hashes at most 72 characters
+  // Same rules as the API: @NotBlank, at least 8 characters and at most 72 bytes (BCrypt)
   protected readonly minLength = 8;
-  protected readonly maxLength = 72;
+  protected readonly maxBytes = 72;
 
   protected readonly form = inject(NonNullableFormBuilder).group(
     {
-      oldPassword: ['', Validators.required],
+      oldPassword: ['', [Validators.required, Validators.pattern(/\S/)]],
       newPassword: [
         '',
         [
           Validators.required,
+          Validators.pattern(/\S/),
           Validators.minLength(this.minLength),
-          Validators.maxLength(this.maxLength),
+          maxBytes(this.maxBytes),
         ],
       ],
       confirmPassword: ['', Validators.required],
@@ -160,6 +179,11 @@ export class ChangePasswordDialog {
   protected readonly confirmMatcher = new ConfirmPasswordErrorMatcher();
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+
+  constructor() {
+    // An error from the last attempt no longer applies once the user edits the form
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.error.set(null));
+  }
 
   protected save(): void {
     if (this.form.invalid || this.saving()) {
@@ -181,6 +205,12 @@ export class ChangePasswordDialog {
       error: (err: unknown) => {
         this.dialogRef.disableClose = false;
         this.saving.set(false);
+        if (err instanceof HttpErrorResponse && err.status === 401) {
+          // The auth interceptor has ended the session and is going to the login page, and
+          // MatDialog is a root service, so nothing else would close this dialog
+          this.dialogRef.close();
+          return;
+        }
         if (
           err instanceof HttpErrorResponse &&
           isApiError(err.error) &&
