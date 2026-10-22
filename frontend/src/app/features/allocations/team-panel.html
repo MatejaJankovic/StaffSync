@@ -1,0 +1,5 @@
+<app-paged-table [columns]="columns" [fetch]="fetch()" [emptyText]="emptyText()" [pageSize]="10">
+  <ng-template appPagedTableCell="status" let-row>
+    <app-status-chip [status]="row.status" />
+  </ng-template>
+</app-paged-table>

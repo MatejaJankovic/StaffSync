@@ -9,6 +9,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../core/auth/auth.service';
 import { Notifications } from '../../core/error/notifications';
 import { StatusChip } from '../../shared/status-chip/status-chip';
+import { TeamPanel } from '../allocations/team-panel';
 import { ProjectRequests } from '../requests/project-requests';
 import { ProjectDialog, ProjectDialogData } from './project-dialog';
 import { formatPeriod, isEditable, Project } from './project.models';
@@ -18,12 +19,12 @@ type LoadState = 'loading' | 'ready' | 'notFound' | 'failed';
 
 /**
  * Project details at `/projects/:id`: the project, and a section each for its staffing requests,
- * its team and the status action. The staffing requests (US-05) are in; the team panel (US-08)
- * and the status change (US-24) are still to come.
+ * its team and the status action. The staffing requests (US-05) and the team panel (US-08) are in;
+ * the status change (US-24) is still to come.
  */
 @Component({
   selector: 'app-project-details',
-  imports: [MatButtonModule, MatIconModule, ProjectRequests, RouterLink, StatusChip],
+  imports: [MatButtonModule, MatIconModule, ProjectRequests, RouterLink, StatusChip, TeamPanel],
   templateUrl: './project-details.html',
   styleUrl: './project-details.scss',
 })
