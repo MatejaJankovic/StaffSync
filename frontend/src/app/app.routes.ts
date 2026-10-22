@@ -66,7 +66,9 @@ export const routes: Routes = [
       // PM and RM
       menuRoute('employees'),
       // Admin
-      menuRoute('admin/users'),
+      menuRoute('admin/users', {
+        loadComponent: () => import('./features/users/users-page').then((m) => m.UsersPage),
+      }),
       menuRoute('admin/departments', {
         loadComponent: () =>
           import('./features/departments/departments-page').then((m) => m.DepartmentsPage),
