@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.staffsync.allocation.Allocation;
+import com.staffsync.allocation.AllocationRepository;
+import com.staffsync.allocation.AllocationStatus;
 import com.staffsync.employeeskill.EmployeeSkill;
 import com.staffsync.employeeskill.EmployeeSkillRepository;
 import com.staffsync.project.Project;
@@ -78,6 +81,9 @@ class AllocationControllerTests {
 
 	@Autowired
 	EmployeeSkillRepository employeeSkillRepository;
+
+	@Autowired
+	AllocationRepository allocationRepository;
 
 	@Autowired
 	PasswordEncoder passwordEncoder;
@@ -394,7 +400,185 @@ class AllocationControllerTests {
 			.then().statusCode(404).body("code", equalTo("NOT_FOUND"));
 	}
 
+	// ---- search, filtered by role
+
+	/**
+	 * Two projects of two PMs. Ena reports to a new RM, Filip to another one. Ena is on both projects,
+	 * Filip only on the first.
+	 */
+	private Scenario scenario() {
+		LoggedIn pmA = login(PM);
+		LoggedIn pmB = newPm();
+		int projectA = createProject(pmA.token());
+		int projectB = createProject(pmB.token());
+		User rm = newUser("Team", Role.RM);
+		User ena = newEmployee("Ena", rm);
+		User filip = newEmployee("Filip", newUser("Other", Role.RM));
+		int requestA = createRequest(pmA.token(), projectA);
+		int enaOnA = propose(pmA.token(), proposal(requestA, ena, null, null, null));
+		int filipOnA = propose(pmA.token(), proposal(requestA, filip, null, "2026-12-01", null));
+		int enaOnB = propose(pmB.token(),
+				proposal(createRequest(pmB.token(), projectB), ena, 30, "2026-11-15", "2026-11-30"));
+		return new Scenario(pmA, pmB, rm, ena, filip, projectA, projectB, enaOnA, filipOnA, enaOnB);
+	}
+
+	@Test
+	void anEmployeeSeesOnlyTheirOwnAllocations() {
+		Scenario s = scenario();
+
+		given().auth().oauth2(login(s.ena().getEmail()).token())
+			.when().get("/api/allocations")
+			.then()
+			.statusCode(200)
+			.body("content.id", contains(s.enaOnA(), s.enaOnB()))
+			.body("page.totalElements", equalTo(2));
+	}
+
+	@Test
+	void aPmSeesOnlyTheAllocationsOnTheirProjects() {
+		Scenario s = scenario();
+
+		given().auth().oauth2(s.pmB().token())
+			.when().get("/api/allocations")
+			.then()
+			.statusCode(200)
+			.body("content.id", contains(s.enaOnB()))
+			.body("content[0].projectId", equalTo(s.projectB()));
+	}
+
+	@Test
+	void anRmSeesOnlyTheAllocationsOfTheirTeam() {
+		Scenario s = scenario();
+
+		given().auth().oauth2(login(s.rm().getEmail()).token())
+			.when().get("/api/allocations")
+			.then()
+			.statusCode(200)
+			.body("content.id", contains(s.enaOnA(), s.enaOnB()));
+	}
+
+	@Test
+	void anAdminSeesEveryAllocation() {
+		Scenario s = scenario();
+		String admin = login(ADMIN).token();
+
+		given().auth().oauth2(admin).queryParam("projectId", s.projectA())
+			.when().get("/api/allocations")
+			.then().statusCode(200).body("content.id", contains(s.enaOnA(), s.filipOnA()));
+		given().auth().oauth2(admin).queryParam("projectId", s.projectB())
+			.when().get("/api/allocations")
+			.then().statusCode(200).body("content.id", contains(s.enaOnB()));
+	}
+
+	@Test
+	void aFilterOutsideTheCallersScopeGivesAnEmptyPage() {
+		Scenario s = scenario();
+
+		given().auth().oauth2(login(s.ena().getEmail()).token()).queryParam("employeeId", s.filip().getId())
+			.when().get("/api/allocations")
+			.then().statusCode(200).body("content", empty()).body("page.totalElements", equalTo(0));
+		given().auth().oauth2(s.pmB().token()).queryParam("projectId", s.projectA())
+			.when().get("/api/allocations")
+			.then().statusCode(200).body("content", empty());
+	}
+
+	@Test
+	void theDtoHasEverythingTheTeamPanelShows() {
+		Scenario s = scenario();
+
+		given().auth().oauth2(s.pmA().token()).queryParam("projectId", s.projectA())
+			.when().get("/api/allocations")
+			.then()
+			.statusCode(200)
+			.body("content[0].employeeId", equalTo(s.ena().getId().intValue()))
+			.body("content[0].employeeName", equalTo("Ena Test"))
+			.body("content[0].projectName", notNullValue())
+			.body("content[0].requestTitle", equalTo("Java Developer"))
+			.body("content[0].percent", equalTo(60))
+			.body("content[0].startDate", equalTo("2026-11-01"))
+			.body("content[0].endDate", equalTo("2027-01-31"))
+			.body("content[0].status", equalTo("PROPOSED"))
+			.body("content[0].pendingPercent", nullValue())
+			.body("content[0].pendingStartDate", nullValue())
+			.body("content[0].pendingEndDate", nullValue())
+			.body("content[0].changeReason", nullValue());
+	}
+
+	@Test
+	void filtersByStatusEmployeeAndPeriod() {
+		Scenario s = scenario();
+		String admin = login(ADMIN).token();
+		setAllocationStatus(s.filipOnA(), AllocationStatus.APPROVED);
+
+		given().auth().oauth2(admin).queryParam("projectId", s.projectA()).queryParam("status", "APPROVED")
+			.when().get("/api/allocations")
+			.then().statusCode(200).body("content.id", contains(s.filipOnA()));
+		given().auth().oauth2(admin).queryParam("employeeId", s.ena().getId())
+			.when().get("/api/allocations")
+			.then().statusCode(200).body("content.id", contains(s.enaOnA(), s.enaOnB()));
+		// Ena on B ends on 30 Nov, so a period from 1 Dec only overlaps her allocation on A
+		given().auth().oauth2(admin).queryParam("employeeId", s.ena().getId()).queryParam("from", "2026-12-01")
+			.when().get("/api/allocations")
+			.then().statusCode(200).body("content.id", contains(s.enaOnA()));
+		// Filip on A starts on 1 Dec, which counts as an overlap with a period ending that day
+		given().auth().oauth2(admin).queryParam("projectId", s.projectA()).queryParam("to", "2026-12-01")
+			.when().get("/api/allocations")
+			.then().statusCode(200).body("content.id", contains(s.enaOnA(), s.filipOnA()));
+		given().auth().oauth2(admin).queryParam("projectId", s.projectA()).queryParam("to", "2026-11-30")
+			.when().get("/api/allocations")
+			.then().statusCode(200).body("content.id", contains(s.enaOnA()));
+	}
+
+	@Test
+	void isPagedAndSortedByStartDateByDefault() {
+		Scenario s = scenario();
+
+		// Ena on A starts 1 Nov, Ena on B 15 Nov
+		given().auth().oauth2(login(s.ena().getEmail()).token()).queryParam("size", 1)
+			.when().get("/api/allocations")
+			.then()
+			.statusCode(200)
+			.body("content.id", contains(s.enaOnA()))
+			.body("page.size", equalTo(1))
+			.body("page.totalElements", equalTo(2))
+			.body("page.totalPages", equalTo(2));
+		given().auth().oauth2(login(s.ena().getEmail()).token()).queryParam("sort", "percent,asc")
+			.when().get("/api/allocations")
+			.then().statusCode(200).body("content.id", contains(s.enaOnB(), s.enaOnA()));
+	}
+
+	@Test
+	void badSearchParametersAre400() {
+		String token = login(ADMIN).token();
+
+		given().auth().oauth2(token).queryParam("from", "2026-12-01").queryParam("to", "2026-11-01")
+			.when().get("/api/allocations").then().statusCode(400).body("code", equalTo("INVALID_PERIOD"));
+		given().auth().oauth2(token).queryParam("sort", "employee")
+			.when().get("/api/allocations").then().statusCode(400).body("code", equalTo("INVALID_SORT"));
+		given().auth().oauth2(token).queryParam("status", "PENDING")
+			.when().get("/api/allocations").then().statusCode(400);
+		given().auth().oauth2(token).queryParam("from", "01/11/2026")
+			.when().get("/api/allocations").then().statusCode(400);
+	}
+
+	@Test
+	void searchWithoutATokenIs401() {
+		given().when().get("/api/allocations").then().statusCode(401);
+	}
+
 	// ---- helpers
+
+	private record Scenario(LoggedIn pmA, LoggedIn pmB, User rm, User ena, User filip, int projectA, int projectB,
+			int enaOnA, int filipOnA, int enaOnB) {
+
+	}
+
+	/** BR-7 transitions come with approvals (US-10), so tests set the status directly. */
+	private void setAllocationStatus(int id, AllocationStatus status) {
+		Allocation allocation = allocationRepository.findById((long) id).orElseThrow();
+		allocation.setStatus(status);
+		allocationRepository.save(allocation);
+	}
 
 	private Map<String, Object> proposal(int request, User employee, Integer percent, String start, String end) {
 		Map<String, Object> body = new HashMap<>();
@@ -470,6 +654,13 @@ class AllocationControllerTests {
 	/** A new EMPLOYEE with Java 5 and Spring 4, which meets the demo request's required skills. */
 	private User newEmployee(String firstName) {
 		return newEmployee(firstName, Map.of("Java", 5, "Spring", 4));
+	}
+
+	/** Like {@link #newEmployee(String)}, in the team of this RM. */
+	private User newEmployee(String firstName, User manager) {
+		User employee = newEmployee(firstName);
+		employee.setManager(manager);
+		return userRepository.save(employee);
 	}
 
 	private User newEmployee(String firstName, Map<String, Integer> skills) {

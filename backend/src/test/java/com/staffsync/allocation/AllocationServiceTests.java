@@ -46,11 +46,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.quality.Strictness;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * Unit tests for {@link AllocationService#propose} (US-08). The request is the §4 demo one: 60%,
+ * Unit tests for {@link AllocationService} (US-08). The request is the §4 demo one: 60%,
  * 2026-11-01 – 2027-01-31, Java ≥ 4 and Spring ≥ 3 required, PostgreSQL ≥ 2 nice to have.
  * November 2026 starts on a Sunday, so the 2nd is a Monday.
  */
@@ -366,6 +371,36 @@ class AllocationServiceTests {
 		allocationService.propose(body(40, nov(15), nov(30)), PM);
 
 		verify(capacityService).findOverloadedDays(EMPLOYEE_ID, nov(15), nov(30), 40, null, true);
+	}
+
+	// ---- search (the role scoping runs in the database, see AllocationControllerTests)
+
+	@Test
+	void searchRejectsFromAfterTo() {
+		assertThatThrownBy(() -> allocationService.search(null, null, null, nov(20), nov(10), PageRequest.of(0, 20),
+				PM))
+			.isInstanceOfSatisfying(BusinessException.class,
+					ex -> assertThat(ex.getCode()).isEqualTo("INVALID_PERIOD"));
+		verify(allocationRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+	}
+
+	@Test
+	void searchRejectsAnUnknownSortProperty() {
+		assertThatThrownBy(() -> allocationService.search(null, null, null, null, null,
+				PageRequest.of(0, 20, Sort.by("employee")), PM))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.getCode()).isEqualTo("INVALID_SORT"));
+	}
+
+	@Test
+	void searchAddsTheIdAsTheLastSortKey() {
+		when(allocationRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(Page.empty());
+
+		allocationService.search(null, null, null, nov(1), nov(1), PageRequest.of(2, 10, Sort.by("startDate")), PM);
+
+		ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+		verify(allocationRepository).findAll(any(Specification.class), captor.capture());
+		assertThat(captor.getValue().getPageNumber()).isEqualTo(2);
+		assertThat(captor.getValue().getSort()).isEqualTo(Sort.by("startDate").and(Sort.by("id")));
 	}
 
 	// ---- helpers

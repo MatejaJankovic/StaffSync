@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.staffsync.allocation.dto.AllocationDto;
@@ -27,12 +28,22 @@ import com.staffsync.request.StaffingRequestRepository;
 import com.staffsync.user.Role;
 import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AllocationService {
+
+	/** The properties a list can be sorted by. Anything else is a 400, not a 500 from the query. */
+	private static final Set<String> SORTABLE = Set.of("id", "percent", "startDate", "endDate", "status",
+			"createdAt");
 
 	private final AllocationRepository allocationRepository;
 
@@ -91,6 +102,48 @@ public class AllocationService {
 		Allocation allocation = allocationRepository
 			.save(new Allocation(request, employee, percent, startDate, endDate, proposer));
 		return new AllocationProposalDto(AllocationDto.from(allocation), warnings);
+	}
+
+	/**
+	 * Searches allocations, always within what the caller may see (§10, "filtered by role"): an EMPLOYEE
+	 * their own, a PM those on their projects, an RM those of their team ({@code employee.manager_id}),
+	 * an ADMIN all. The filters narrow that further, so a filter outside the caller's scope gives an empty
+	 * page, not a 403. {@code from} and {@code to} keep the allocations whose period overlaps them.
+	 */
+	@Transactional(readOnly = true)
+	public Page<AllocationDto> search(AllocationStatus status, Long employeeId, Long projectId, LocalDate from,
+			LocalDate to, Pageable pageable, AuthUser currentUser) {
+		if (from != null && to != null && from.isAfter(to)) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_PERIOD", "From must not be after to");
+		}
+		Specification<Allocation> filters = (root, query, cb) -> {
+			List<Predicate> predicates = new ArrayList<>();
+			switch (currentUser.role()) {
+				case EMPLOYEE -> predicates.add(cb.equal(root.get("employee").get("id"), currentUser.id()));
+				case PM -> predicates
+					.add(cb.equal(root.get("request").get("project").get("pm").get("id"), currentUser.id()));
+				case RM -> predicates.add(cb.equal(root.get("employee").get("manager").get("id"), currentUser.id()));
+				case ADMIN -> {
+				}
+			}
+			if (status != null) {
+				predicates.add(cb.equal(root.get("status"), status));
+			}
+			if (employeeId != null) {
+				predicates.add(cb.equal(root.get("employee").get("id"), employeeId));
+			}
+			if (projectId != null) {
+				predicates.add(cb.equal(root.get("request").get("project").get("id"), projectId));
+			}
+			if (from != null) {
+				predicates.add(cb.greaterThanOrEqualTo(root.get("endDate"), from));
+			}
+			if (to != null) {
+				predicates.add(cb.lessThanOrEqualTo(root.get("startDate"), to));
+			}
+			return cb.and(predicates.toArray(Predicate[]::new));
+		};
+		return allocationRepository.findAll(filters, checkedSort(pageable)).map(AllocationDto::from);
 	}
 
 	/** BR-4: only the PM who owns the request's project proposes candidates for it. */
@@ -206,6 +259,22 @@ public class AllocationService {
 	private static BusinessException validationError(String field, String message) {
 		return new BusinessException(HttpStatus.BAD_REQUEST, GlobalExceptionHandler.VALIDATION_ERROR,
 				"Some fields are invalid", List.of(new FieldViolation(field, message)));
+	}
+
+	/** Rejects unknown sort properties, and adds the id as the last sort key so pages don't shuffle on ties. */
+	private static Pageable checkedSort(Pageable pageable) {
+		Sort sort = pageable.getSort();
+		for (Sort.Order order : sort) {
+			if (!SORTABLE.contains(order.getProperty())) {
+				throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_SORT",
+						"Can't sort by '" + order.getProperty() + "'. Sort by one of: "
+								+ String.join(", ", SORTABLE.stream().sorted().toList()));
+			}
+		}
+		if (sort.getOrderFor("id") == null) {
+			sort = sort.and(Sort.by("id"));
+		}
+		return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 	}
 
 }

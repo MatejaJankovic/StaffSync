@@ -4,11 +4,21 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface AllocationRepository extends JpaRepository<Allocation, Long> {
+public interface AllocationRepository extends JpaRepository<Allocation, Long>, JpaSpecificationExecutor<Allocation> {
+
+	// The DTO shows the employee, the request and the project, so they are loaded with the allocation
+	@Override
+	@EntityGraph(attributePaths = { "employee", "request", "request.project" })
+	Page<Allocation> findAll(Specification<Allocation> spec, Pageable pageable);
 
 	/**
 	 * The employee's allocations in the given statuses whose period overlaps {@code [from, to]}
