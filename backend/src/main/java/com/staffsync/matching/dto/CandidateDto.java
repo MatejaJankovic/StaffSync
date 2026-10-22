@@ -5,7 +5,18 @@ import java.util.List;
 import com.staffsync.user.Seniority;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "A candidate for a staffing request, with a 0–100 score and why it is what it is")
+@Schema(description = "A candidate for a staffing request, with a 0–100 score and why it is what it is",
+		example = """
+				{
+				  "employeeId": 17,
+				  "fullName": "Jelena Petrović",
+				  "seniority": "MEDIOR",
+				  "department": "Engineering",
+				  "score": 67,
+				  "breakdown": { "skills": 23, "availability": 34, "seniority": 10 },
+				  "reasons": ["Java 4/5 (required ≥ 4)", "Spring 3/5 (required ≥ 3)"],
+				  "warnings": ["Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)", "Missing PostgreSQL (nice to have)"]
+				}""")
 public record CandidateDto(@Schema(example = "17") Long employeeId,
 		@Schema(example = "Jelena Petrović") String fullName,
 		@Schema(example = "MEDIOR", nullable = true) Seniority seniority,
