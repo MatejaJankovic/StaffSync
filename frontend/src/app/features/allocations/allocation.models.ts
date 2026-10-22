@@ -27,6 +27,25 @@ export interface Allocation {
   changeReason: string | null;
 }
 
+/** What a PM sends to propose an employee for a request (`POST /api/allocations`). */
+export interface ProposeAllocationPayload {
+  requestId: number;
+  employeeId: number;
+  /** 10 to 100, in steps of 10 */
+  percent: number;
+  /** `yyyy-MM-dd`, inside the period of the request (BR-3) */
+  startDate: string;
+  /** `yyyy-MM-dd`, inside the period of the request (BR-3) */
+  endDate: string;
+}
+
+/** The new PROPOSED allocation, with the soft-booking warnings that came with it (BR-2). */
+export interface AllocationProposal {
+  allocation: Allocation;
+  /** Empty when the employee has enough capacity. A warning never blocks the proposal. */
+  warnings: string[];
+}
+
 /** What `GET /api/allocations` filters by, on top of what the caller's role may see. */
 export interface AllocationFilters {
   status?: AllocationStatus;

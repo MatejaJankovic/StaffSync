@@ -13,6 +13,11 @@ export interface LoginResponse {
   user: User;
 }
 
+export interface ChangePasswordRequest {
+  oldPassword: string;
+  newPassword: string;
+}
+
 export const ROLE_LABELS: Record<Role, string> = {
   EMPLOYEE: 'Employee',
   PM: 'Project Manager',

@@ -2,17 +2,32 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Page, PageQuery, toPageParams } from '../../core/api/page';
-import { Allocation, AllocationFilters } from './allocation.models';
+import {
+  Allocation,
+  AllocationFilters,
+  AllocationProposal,
+  ProposeAllocationPayload,
+} from './allocation.models';
 
 export const ALLOCATIONS_URL = '/api/allocations';
 
 /**
  * Talks to the allocations API. The search is filtered by role on the server: an Employee gets
  * their own allocations, a PM those on their projects, an RM those of their team, an Admin all.
+ * Only the PM who owns the project proposes.
  */
 @Injectable({ providedIn: 'root' })
 export class AllocationService {
   private readonly http = inject(HttpClient);
+
+  /**
+   * Proposes an employee for a request: the allocation starts PROPOSED (§9), and the answer lists
+   * the soft-booking warnings (BR-2). The API answers 400 (BR-3, BR-9), 403 (BR-4) and 409 (BR-8,
+   * BR-9), and the error snackbar shows its message.
+   */
+  propose(payload: ProposeAllocationPayload): Observable<AllocationProposal> {
+    return this.http.post<AllocationProposal>(ALLOCATIONS_URL, payload);
+  }
 
   list(query: PageQuery, filters: AllocationFilters = {}): Observable<Page<Allocation>> {
     let params = new HttpParams();

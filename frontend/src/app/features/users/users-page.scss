@@ -1,0 +1,36 @@
+.users {
+  padding: 24px;
+}
+
+.users__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0;
+  }
+
+  button {
+    flex-shrink: 0;
+  }
+}
+
+.users__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  mat-form-field {
+    width: 200px;
+  }
+}
+
+.users__actions {
+  display: inline-flex;
+  white-space: nowrap;
+}

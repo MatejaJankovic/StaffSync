@@ -2,7 +2,6 @@ import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth/auth.guard';
 import { roleGuard } from './core/auth/role.guard';
 import { menuRoute } from './core/layout/menu';
-import { Placeholder } from './features/placeholder/placeholder';
 
 export const routes: Routes = [
   {
@@ -52,12 +51,13 @@ export const routes: Routes = [
         data: { roles: ['PM'] },
         title: 'Edit request · StaffSync',
       },
-      // PM: opened by Find candidates on Project details. The Candidates page (US-11) replaces the placeholder
+      // PM: Candidates, opened by Find candidates on Project details
       {
         path: 'requests/:id/candidates',
-        component: Placeholder,
+        loadComponent: () =>
+          import('./features/matching/candidates-page').then((m) => m.CandidatesPage),
         canActivate: [roleGuard],
-        data: { roles: ['PM'], title: 'Candidates' },
+        data: { roles: ['PM'] },
         title: 'Candidates · StaffSync',
       },
       // RM
@@ -66,7 +66,9 @@ export const routes: Routes = [
       // PM and RM
       menuRoute('employees'),
       // Admin
-      menuRoute('admin/users'),
+      menuRoute('admin/users', {
+        loadComponent: () => import('./features/users/users-page').then((m) => m.UsersPage),
+      }),
       menuRoute('admin/departments', {
         loadComponent: () =>
           import('./features/departments/departments-page').then((m) => m.DepartmentsPage),

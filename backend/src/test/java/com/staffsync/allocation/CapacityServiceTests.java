@@ -199,6 +199,45 @@ class CapacityServiceTests {
 		verify(allocationRepository, never()).findOverlapping(any(), any(), any(), any(), any());
 	}
 
+	// ---- BR-13: findDaysOverCapacity
+
+	@Test
+	void withoutActiveAllocationsAnyCapacityFits() {
+		when(allocationRepository.findLatestEndDate(EMPLOYEE_ID, AllocationStatus.ACTIVE)).thenReturn(null);
+
+		assertThat(capacityService.findDaysOverCapacity(EMPLOYEE_ID, 50, nov(2))).isEmpty();
+		verify(allocationRepository, never()).findOverlapping(any(), any(), any(), any(), any());
+	}
+
+	@Test
+	void allocationsThatEndedBeforeTheStartDontCount() {
+		when(allocationRepository.findLatestEndDate(EMPLOYEE_ID, AllocationStatus.ACTIVE)).thenReturn(nov(6));
+
+		assertThat(capacityService.findDaysOverCapacity(EMPLOYEE_ID, 50, nov(9))).isEmpty();
+		verify(allocationRepository, never()).findOverlapping(any(), any(), any(), any(), any());
+	}
+
+	@Test
+	void reportsTheWorkingDaysFromTheStartOnWhereTheLoadIsOverTheNewCapacity() {
+		// Friday the 6th to Tuesday the 10th: the weekend is skipped
+		when(allocationRepository.findLatestEndDate(EMPLOYEE_ID, AllocationStatus.ACTIVE)).thenReturn(nov(10));
+		when(allocationRepository.findOverlapping(EMPLOYEE_ID, nov(6), nov(10), AllocationStatus.ACTIVE, null))
+			.thenReturn(List.of(approved(60, nov(2), nov(10)), approved(20, nov(10), nov(10))));
+
+		assertThat(capacityService.findDaysOverCapacity(EMPLOYEE_ID, 50, nov(6))).containsExactly(
+				Map.of("date", nov(6), "load", 60), Map.of("date", nov(9), "load", 60),
+				Map.of("date", nov(10), "load", 80));
+	}
+
+	@Test
+	void aLoadExactlyAtTheNewCapacityFits() {
+		when(allocationRepository.findLatestEndDate(EMPLOYEE_ID, AllocationStatus.ACTIVE)).thenReturn(nov(6));
+		when(allocationRepository.findOverlapping(EMPLOYEE_ID, nov(2), nov(6), AllocationStatus.ACTIVE, null))
+			.thenReturn(List.of(approved(80, nov(2), nov(6))));
+
+		assertThat(capacityService.findDaysOverCapacity(EMPLOYEE_ID, 80, nov(2))).isEmpty();
+	}
+
 	@Test
 	void aPeriodThatEndsBeforeItStartsIsRejected() {
 		assertThatThrownBy(() -> capacityService.getDailyLoad(EMPLOYEE_ID, nov(10), nov(9), null))

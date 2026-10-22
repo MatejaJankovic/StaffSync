@@ -65,6 +65,15 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 	/** T-19: the proposals that are cancelled once the request is filled. */
 	List<Allocation> findByRequestIdAndStatus(Long requestId, AllocationStatus status);
 
+	/** The last day of the employee's allocations in the given statuses, or {@code null} if there are none. */
+	@Query("""
+			select max(a.endDate) from Allocation a
+			where a.employee.id = :employeeId
+			  and a.status in :statuses
+			""")
+	LocalDate findLatestEndDate(@Param("employeeId") Long employeeId,
+			@Param("statuses") Collection<AllocationStatus> statuses);
+
 	/** The employees who have an allocation in one of the given statuses on the request, whatever its period. */
 	@Query("""
 			select distinct a.employee.id from Allocation a

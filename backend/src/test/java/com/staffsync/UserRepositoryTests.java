@@ -7,6 +7,7 @@ import com.staffsync.user.Role;
 import com.staffsync.user.Seniority;
 import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -66,8 +67,12 @@ class UserRepositoryTests {
 	void emailIsUniqueIgnoringCase() {
 		User duplicate = new User("BOGDAN_EMPLOYEE@staffsync.local", "hash", "Other", "Person", Role.EMPLOYEE);
 
+		// UserService tells a concurrent duplicate email from other violations by this name
 		assertThatThrownBy(() -> userRepository.saveAndFlush(duplicate))
-			.isInstanceOf(DataIntegrityViolationException.class);
+			.isInstanceOf(DataIntegrityViolationException.class)
+			.cause()
+			.isInstanceOfSatisfying(ConstraintViolationException.class,
+					ex -> assertThat(ex.getConstraintName()).isEqualTo("uq_users_email_lower"));
 	}
 
 }
