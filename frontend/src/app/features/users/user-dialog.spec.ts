@@ -1,8 +1,12 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatSelect } from '@angular/material/select';
+import { By } from '@angular/platform-browser';
+import { AuthService } from '../../core/auth/auth.service';
 import { errorInterceptor } from '../../core/error/error.interceptor';
 import { Notifications } from '../../core/error/notifications';
 import { UserDialog, UserDialogData } from './user-dialog';
@@ -34,6 +38,8 @@ const MARKO: UserAccount = {
   active: true,
 };
 const DEPARTMENTS = [{ id: 1, name: 'Engineering' }];
+/** The Admin who is logged in. */
+const ADMIN_ID = 1;
 
 describe('UserDialog', () => {
   let fixture: ComponentFixture<UserDialog>;
@@ -42,7 +48,8 @@ describe('UserDialog', () => {
   const close = vi.fn();
   const dialogRef = { close, disableClose: false };
 
-  async function open(data: UserDialogData): Promise<void> {
+  /** Opens the dialog and answers its requests for the active RMs, one page per entry. */
+  async function open(data: UserDialogData, managerPages: UserAccount[][] = [[LAZAR]]) {
     close.mockReset();
     dialogRef.disableClose = false;
     await TestBed.configureTestingModule({
@@ -53,6 +60,7 @@ describe('UserDialog', () => {
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         { provide: MAT_DIALOG_DATA, useValue: data },
         { provide: MatDialogRef, useValue: dialogRef },
+        { provide: AuthService, useValue: { currentUser: signal({ id: ADMIN_ID }) } },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
@@ -60,14 +68,31 @@ describe('UserDialog', () => {
     vi.spyOn(notifications, 'error').mockImplementation(() => undefined);
     fixture = TestBed.createComponent(UserDialog);
     fixture.detectChanges();
-    const managers = httpMock.expectOne((r) => r.url === USERS_URL && r.method === 'GET');
-    expect(managers.request.params.get('role')).toBe('RM');
-    expect(managers.request.params.get('active')).toBe('true');
-    managers.flush({
-      content: [LAZAR],
-      page: { size: 100, number: 0, totalElements: 1, totalPages: 1 },
+    const totalElements = managerPages.flat().length;
+    managerPages.forEach((content, number) => {
+      const managers = httpMock.expectOne((r) => r.url === USERS_URL && r.method === 'GET');
+      expect(managers.request.params.get('role')).toBe('RM');
+      expect(managers.request.params.get('active')).toBe('true');
+      expect(managers.request.params.get('page')).toBe(String(number));
+      managers.flush({
+        content,
+        page: { size: 100, number, totalElements, totalPages: managerPages.length },
+      });
     });
     await settle();
+  }
+
+  /** The texts of a dropdown's options, read by opening it. */
+  async function options(control: string): Promise<string[]> {
+    const select = fixture.debugElement
+      .query(By.css(`mat-select[formcontrolname="${control}"]`))
+      .injector.get(MatSelect);
+    select.open();
+    await settle();
+    const texts = [...document.querySelectorAll('mat-option')].map((o) => o.textContent!.trim());
+    select.close();
+    await settle();
+    return texts;
   }
 
   afterEach(() => httpMock.verify());
@@ -106,7 +131,7 @@ describe('UserDialog', () => {
   }
 
   it('requires a department, a resource manager and a temporary password for a new employee', async () => {
-    await open({ departments: DEPARTMENTS });
+    await open({ departments: signal(DEPARTMENTS) });
     form().patchValue({ email: 'a@b.c', firstName: 'A', lastName: 'B' });
 
     await submit();
@@ -118,7 +143,7 @@ describe('UserDialog', () => {
   });
 
   it('creates an employee with a temporary password', async () => {
-    await open({ departments: DEPARTMENTS });
+    await open({ departments: signal(DEPARTMENTS) });
     fillEmployee();
 
     await submit();
@@ -140,7 +165,7 @@ describe('UserDialog', () => {
   });
 
   it('hides the resource manager and sends none for other roles', async () => {
-    await open({ departments: DEPARTMENTS });
+    await open({ departments: signal(DEPARTMENTS) });
     fillEmployee();
     form().patchValue({ role: 'PM', departmentId: null });
     await settle();
@@ -154,7 +179,7 @@ describe('UserDialog', () => {
   });
 
   it('generates a temporary password and shows it', async () => {
-    await open({ departments: DEPARTMENTS });
+    await open({ departments: signal(DEPARTMENTS) });
 
     [...el().querySelectorAll<HTMLButtonElement>('button')]
       .find((b) => b.textContent?.includes('Generate password'))!
@@ -169,7 +194,7 @@ describe('UserDialog', () => {
   });
 
   it('shows a taken email next to the field, not in the snackbar', async () => {
-    await open({ departments: DEPARTMENTS });
+    await open({ departments: signal(DEPARTMENTS) });
     fillEmployee();
 
     await submit();
@@ -189,7 +214,7 @@ describe('UserDialog', () => {
   });
 
   it('shows field errors from the API next to their fields', async () => {
-    await open({ departments: DEPARTMENTS });
+    await open({ departments: signal(DEPARTMENTS) });
     fillEmployee();
 
     await submit();
@@ -210,7 +235,7 @@ describe('UserDialog', () => {
   });
 
   it('edits a user without a password field', async () => {
-    await open({ user: MARKO, departments: DEPARTMENTS });
+    await open({ user: MARKO, departments: signal(DEPARTMENTS) });
 
     expect(el().textContent).toContain('Edit user');
     expect(el().querySelector('input[formcontrolname="temporaryPassword"]')).toBeNull();
@@ -233,7 +258,7 @@ describe('UserDialog', () => {
   });
 
   it('lists the days a lower capacity would overbook (BR-13)', async () => {
-    await open({ user: MARKO, departments: DEPARTMENTS });
+    await open({ user: MARKO, departments: signal(DEPARTMENTS) });
     form().patchValue({ capacityPercent: 50 });
 
     await submit();
@@ -274,7 +299,7 @@ describe('UserDialog', () => {
   });
 
   it('explains why an RM with a team keeps the RM role', async () => {
-    await open({ user: LAZAR, departments: DEPARTMENTS });
+    await open({ user: LAZAR, departments: signal(DEPARTMENTS) });
     form().patchValue({ role: 'PM' });
 
     await submit();
@@ -295,7 +320,7 @@ describe('UserDialog', () => {
   });
 
   it('shows other errors in the snackbar', async () => {
-    await open({ user: MARKO, departments: DEPARTMENTS });
+    await open({ user: MARKO, departments: signal(DEPARTMENTS) });
 
     await submit();
     httpMock
@@ -307,5 +332,89 @@ describe('UserDialog', () => {
     await settle();
 
     expect(notifications.error).toHaveBeenCalledWith('User 4 not found');
+  });
+
+  it('offers the departments that load after it opens', async () => {
+    const departments = signal<typeof DEPARTMENTS>([]);
+    await open({ departments });
+
+    departments.set([...DEPARTMENTS, { id: 2, name: 'Design' }]);
+    await settle();
+
+    expect(await options('departmentId')).toEqual(['Engineering', 'Design']);
+  });
+
+  it('offers the resource managers from every page', async () => {
+    const mila: UserAccount = { ...LAZAR, id: 7, firstName: 'Mila', lastName: 'Zivkovic' };
+    await open({ departments: signal(DEPARTMENTS) }, [[LAZAR], [mila]]);
+
+    expect(await options('managerId')).toEqual(['Lazar Dunjic', 'Mila Zivkovic']);
+  });
+
+  it('doesn’t offer an RM becoming an employee as their own resource manager', async () => {
+    await open({ user: LAZAR, departments: signal(DEPARTMENTS) });
+    form().patchValue({ role: 'EMPLOYEE' });
+    await settle();
+
+    expect(await options('managerId')).toEqual([]);
+  });
+
+  it('keeps an inactive employee’s resource manager who is no longer active', async () => {
+    const archived: UserAccount = {
+      ...MARKO,
+      active: false,
+      manager: { id: 8, firstName: 'Former', lastName: 'Lead' },
+    };
+    await open({ user: archived, departments: signal(DEPARTMENTS) });
+
+    expect(await options('managerId')).toEqual(['Former Lead', 'Lazar Dunjic']);
+    await submit();
+    const req = httpMock.expectOne({ method: 'PUT', url: `${USERS_URL}/4` });
+    expect(req.request.body).toMatchObject({ managerId: 8 });
+    req.flush(archived);
+  });
+
+  it('doesn’t let the Admin change their own role', async () => {
+    const admin: UserAccount = { ...LAZAR, id: ADMIN_ID, role: 'ADMIN', department: null };
+    await open({ user: admin, departments: signal(DEPARTMENTS) });
+
+    expect(form().controls.role.disabled).toBe(true);
+    expect(el().textContent).toContain('You can’t change your own role');
+    await submit();
+    const req = httpMock.expectOne({ method: 'PUT', url: `${USERS_URL}/${ADMIN_ID}` });
+    expect(req.request.body).toMatchObject({ role: 'ADMIN' });
+    req.flush(admin);
+  });
+
+  it('counts the temporary password in bytes, as the API does', async () => {
+    await open({ departments: signal(DEPARTMENTS) });
+    fillEmployee();
+    // 40 characters, but č is 2 bytes in UTF-8
+    form().patchValue({ temporaryPassword: 'č'.repeat(40) });
+
+    await submit();
+
+    httpMock.expectNone({ method: 'POST', url: USERS_URL });
+    expect(el().textContent).toContain('Temporary password must be at most 72 bytes');
+  });
+
+  it('explains why an employee with allocations keeps the employee role', async () => {
+    await open({ user: MARKO, departments: signal(DEPARTMENTS) });
+    form().patchValue({ role: 'PM' });
+
+    await submit();
+    httpMock.expectOne({ method: 'PUT', url: `${USERS_URL}/4` }).flush(
+      {
+        code: 'USER_HAS_ACTIVE_ALLOCATIONS',
+        message:
+          'Marko Markovic has current or future allocations or proposals and must stay an employee',
+      },
+      { status: 409, statusText: 'Conflict' },
+    );
+    await settle();
+
+    expect(el().textContent).toContain('and must stay an employee');
+    expect(el().textContent).toContain('Still has allocations');
+    expect(notifications.error).not.toHaveBeenCalled();
   });
 });

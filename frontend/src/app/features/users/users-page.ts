@@ -109,11 +109,11 @@ export class UsersPage implements OnInit {
   }
 
   protected create(): void {
-    this.openDialog({ departments: this.departments() }, 'User created');
+    this.openDialog({ departments: this.departments }, 'User created');
   }
 
   protected edit(user: UserAccount): void {
-    this.openDialog({ user, departments: this.departments() }, 'User saved');
+    this.openDialog({ user, departments: this.departments }, 'User saved');
   }
 
   protected deactivate(user: UserAccount): void {

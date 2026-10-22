@@ -31,7 +31,8 @@ public record CreateUserRequest(
 		@Schema(example = "MEDIOR", nullable = true) Seniority seniority,
 		@Schema(example = "100", allowableValues = { "100", "80", "50" }) @NotNull(
 				message = "Capacity is required") Integer capacityPercent,
-		@Schema(example = "Welcome2026!", description = "Stored as a BCrypt hash. The user changes it after logging in")
+		@Schema(example = "Welcome2026!", description = "8 to 72 characters, and at most 72 bytes in UTF-8 (an accented "
+				+ "letter is 2). Stored as a BCrypt hash. The user changes it after logging in")
 		@NotBlank(message = "Temporary password is required") @Size(min = 8, max = 72,
 				message = "Temporary password must be 8 to 72 characters") String temporaryPassword)
 		implements UserFields {

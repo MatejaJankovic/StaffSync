@@ -292,6 +292,49 @@ class UserControllerTests {
 	}
 
 	@Test
+	void aTemporaryPasswordOver72BytesIs400EvenWithFewerCharacters() {
+		Map<String, Object> body = employeeBody(uniqueEmail());
+		// 40 characters but 80 bytes: č takes two bytes in UTF-8, and BCrypt can't hash more than 72
+		body.put("temporaryPassword", "č".repeat(40));
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
+			.when().post("/api/users")
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("VALIDATION_ERROR"))
+			.body("details.field", containsInAnyOrder("temporaryPassword"));
+	}
+
+	@Test
+	void aTemporaryPasswordOfExactly72BytesWorks() {
+		String email = uniqueEmail();
+		String password = "č".repeat(36);
+		Map<String, Object> body = employeeBody(email);
+		body.put("temporaryPassword", password);
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
+			.when().post("/api/users")
+			.then().statusCode(201);
+
+		given().contentType(ContentType.JSON).body(Map.of("email", email, "password", password))
+			.when().post("/api/auth/login")
+			.then().statusCode(200);
+	}
+
+	@Test
+	void aTooLongPasswordIsReportedWithTheOtherFieldErrors() {
+		Map<String, Object> body = employeeBody(uniqueEmail());
+		body.put("temporaryPassword", "č".repeat(40));
+		body.put("managerId", null);
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
+			.when().post("/api/users")
+			.then()
+			.statusCode(400)
+			.body("details.field", containsInAnyOrder("temporaryPassword", "managerId"));
+	}
+
+	@Test
 	void aNonAdminGets403EvenWithAnInvalidBody() {
 		given().auth().oauth2(tokenFor(RM)).contentType(ContentType.JSON).body(Map.of())
 			.when().post("/api/users")
@@ -379,6 +422,7 @@ class UserControllerTests {
 			.then()
 			.statusCode(409)
 			.body("code", equalTo("CAPACITY_EXCEEDED"))
+			.body("message", equalTo("Lowering capacity to 50% would leave existing allocations over it on 10 days"))
 			.body("details.size()", equalTo(10))
 			.body("details[0].date", equalTo(monday.toString()))
 			.body("details[0].load", equalTo(80));
@@ -535,6 +579,78 @@ class UserControllerTests {
 	}
 
 	@Test
+	void anAdminCantChangeTheirOwnRole() {
+		User admin = userRepository.findByEmailIgnoreCase(ADMIN).orElseThrow();
+		Map<String, Object> body = editBody(admin, admin.getCapacityPercent());
+		body.put("lastName", admin.getLastName());
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
+			.when().put("/api/users/" + admin.getId())
+			.then().statusCode(409).body("code", equalTo("CANNOT_CHANGE_OWN_ROLE"));
+
+		assertThat(userRepository.findById(admin.getId()).orElseThrow().getRole()).isEqualTo(Role.ADMIN);
+	}
+
+	@Test
+	void anEmployeeWithAFutureProposalKeepsTheEmployeeRole() {
+		User employee = newEmployee("Proposed", engineering(), rm());
+		LocalDate today = LocalDate.now();
+		// Only their RM can decide on it (BR-5), and a PM has none
+		allocate(employee, 50, today.plusDays(10), today.plusDays(20), AllocationStatus.PROPOSED);
+		Map<String, Object> body = editBody(employee, 80);
+		body.put("role", "PM");
+		body.put("managerId", null);
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
+			.when().put("/api/users/" + employee.getId())
+			.then().statusCode(409).body("code", equalTo("USER_HAS_ACTIVE_ALLOCATIONS"));
+
+		User saved = userRepository.findById(employee.getId()).orElseThrow();
+		assertThat(saved.getRole()).isEqualTo(Role.EMPLOYEE);
+		assertThat(saved.getManager()).isNotNull();
+	}
+
+	@Test
+	void anEmployeeWhoseAllocationsHaveEndedCanGetAnotherRole() {
+		User employee = newEmployee("Promoted", engineering(), rm());
+		LocalDate today = LocalDate.now();
+		allocate(employee, 50, today.minusDays(20), today.minusDays(1), AllocationStatus.APPROVED);
+		Map<String, Object> body = editBody(employee, 80);
+		body.put("role", "PM");
+		body.put("managerId", null);
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
+			.when().put("/api/users/" + employee.getId())
+			.then().statusCode(200).body("role", equalTo("PM")).body("manager", nullValue());
+	}
+
+	@Test
+	void anInactiveEmployeeKeepsTheirDeactivatedRmWhenEdited() {
+		User formerRm = newUser("Gone", Role.RM);
+		User employee = newEmployee("Archived", engineering(), formerRm);
+		employee.setActive(false);
+		userRepository.save(employee);
+		formerRm.setActive(false);
+		userRepository.save(formerRm);
+		Map<String, Object> body = editBody(employee, 80);
+		body.put("lastName", "Fixed");
+		body.put("managerId", formerRm.getId());
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
+			.when().put("/api/users/" + employee.getId())
+			.then()
+			.statusCode(200)
+			.body("lastName", equalTo("Fixed"))
+			.body("manager.id", equalTo(formerRm.getId().intValue()));
+
+		// Picking a deactivated RM is still refused when it is a change
+		body.put("managerId", newDeactivatedRm().getId());
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
+			.when().put("/api/users/" + employee.getId())
+			.then().statusCode(400).body("details.field", containsInAnyOrder("managerId"));
+	}
+
+	@Test
 	void aNonAdminCantDeactivate() {
 		User employee = newEmployee("Safe", engineering(), rm());
 
@@ -606,6 +722,12 @@ class UserControllerTests {
 		employee.setDepartment(department);
 		employee.setManager(manager);
 		return userRepository.save(employee);
+	}
+
+	private User newDeactivatedRm() {
+		User rm = newUser("Former", Role.RM);
+		rm.setActive(false);
+		return userRepository.save(rm);
 	}
 
 	private User newUser(String firstName, Role role) {

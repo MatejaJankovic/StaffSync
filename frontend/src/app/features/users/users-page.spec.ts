@@ -13,7 +13,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { errorInterceptor } from '../../core/error/error.interceptor';
 import { Notifications } from '../../core/error/notifications';
 import { DEPARTMENTS_URL } from '../departments/department.service';
-import { UserDialog } from './user-dialog';
+import { UserDialog, UserDialogData } from './user-dialog';
 import { UserAccount } from './user.models';
 import { USERS_URL } from './user.service';
 import { UsersPage } from './users-page';
@@ -211,9 +211,9 @@ describe('UsersPage', () => {
     await load();
 
     expect(dialogOpen.mock.calls[0][0]).toBe(UserDialog);
-    expect(dialogOpen.mock.calls[0][1]).toMatchObject({
-      data: { user: MARKO, departments: [{ id: 1, name: 'Engineering' }] },
-    });
+    const { data } = dialogOpen.mock.calls[0][1] as { data: UserDialogData };
+    expect(data.user).toEqual(MARKO);
+    expect(data.departments()).toEqual([{ id: 1, name: 'Engineering' }]);
     expect(notifications.success).toHaveBeenCalledWith('User saved');
   });
 

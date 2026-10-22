@@ -1,9 +1,9 @@
 package com.staffsync.user;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import com.staffsync.allocation.AllocationRepository;
@@ -21,6 +21,7 @@ import com.staffsync.user.dto.UpdateUserRequest;
 import com.staffsync.user.dto.UserAccountDto;
 import com.staffsync.user.dto.UserFields;
 import jakarta.persistence.criteria.Predicate;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -44,8 +45,16 @@ public class UserService {
 
 	public static final String CANNOT_DEACTIVATE_SELF = "CANNOT_DEACTIVATE_SELF";
 
+	public static final String CANNOT_CHANGE_OWN_ROLE = "CANNOT_CHANGE_OWN_ROLE";
+
+	/** The unique index on {@code lower(email)}, see V1. */
+	private static final String EMAIL_INDEX = "uq_users_email_lower";
+
 	/** §5: the only capacities a user can have. */
 	private static final Set<Integer> CAPACITIES = Set.of(100, 80, 50);
+
+	/** BCrypt hashes at most 72 bytes, and Spring Security refuses a longer password instead of cutting it. */
+	private static final int PASSWORD_MAX_BYTES = 72;
 
 	/** The properties a list can be sorted by. Anything else is a 400, not a 500 from the query. */
 	private static final Set<String> SORTABLE = Set.of("id", "email", "firstName", "lastName", "role", "seniority",
@@ -96,34 +105,47 @@ public class UserService {
 		if (userRepository.existsByEmailIgnoreCase(email)) {
 			throw emailTaken(email);
 		}
+		List<FieldViolation> violations = new ArrayList<>();
+		checkPasswordLength(request.temporaryPassword(), violations);
+		Links links = validate(null, request, violations);
 		User user = new User(email, passwordEncoder.encode(request.temporaryPassword()), request.firstName().trim(),
 				request.lastName().trim(), request.role());
-		apply(user, request);
+		copy(user, request, links);
 		return UserAccountDto.from(saveAndFlush(user, email));
 	}
 
 	/**
-	 * The same checks as {@link #create}, plus: an RM who still has active employees keeps the RM role
-	 * (409), and BR-13: capacity can't go down if the active allocations from today on would exceed it
-	 * (409 {@code CAPACITY_EXCEEDED} with the overloaded days, T-23). The password is never changed here.
+	 * The same checks as {@link #create}, plus these 409s: the Admin can't change their own role, so an
+	 * Admin is always left; an RM who still has active employees keeps the RM role; an employee with
+	 * allocations or proposals that haven't ended stays an employee, because only their RM can decide on
+	 * them (BR-5); and BR-13: capacity can't go down if the active allocations from today on would exceed
+	 * it ({@code CAPACITY_EXCEEDED} with the overloaded days, T-23). The password is never changed here.
 	 */
 	@Transactional
-	public UserAccountDto update(Long id, UpdateUserRequest request) {
+	public UserAccountDto update(Long id, UpdateUserRequest request, AuthUser currentUser) {
 		User user = find(id);
 		String email = request.email().trim();
 		if (userRepository.existsByEmailIgnoreCaseAndIdNot(email, id)) {
 			throw emailTaken(email);
 		}
-		Role oldRole = user.getRole();
-		int oldCapacity = user.getCapacityPercent();
-		apply(user, request);
+		Links links = validate(user, request, new ArrayList<>());
 
-		if (oldRole == Role.RM && user.getRole() != Role.RM && userRepository.existsByManagerIdAndActiveTrue(id)) {
+		// Checked before the user is changed: a query would flush the change outside saveAndFlush's catch
+		boolean roleChanges = request.role() != user.getRole();
+		if (roleChanges && id.equals(currentUser.id())) {
+			throw new BusinessException(HttpStatus.CONFLICT, CANNOT_CHANGE_OWN_ROLE, "You can't change your own role");
+		}
+		if (roleChanges && user.getRole() == Role.RM && userRepository.existsByManagerIdAndActiveTrue(id)) {
 			throw rmHasTeam("given another role");
 		}
-		if (user.getCapacityPercent() < oldCapacity) {
-			checkCapacityReduction(user);
+		if (roleChanges && user.getRole() == Role.EMPLOYEE
+				&& hasAllocationsFrom(id, AllocationStatus.ACTIVE_OR_PROPOSED, LocalDate.now())) {
+			throw hasActiveAllocations(user, "current or future allocations or proposals and must stay an employee");
 		}
+		if (request.capacityPercent() < user.getCapacityPercent()) {
+			capacityService.checkCapacityReduction(id, request.capacityPercent());
+		}
+		copy(user, request, links);
 		return UserAccountDto.from(saveAndFlush(user, email));
 	}
 
@@ -139,10 +161,8 @@ public class UserService {
 			throw new BusinessException(HttpStatus.CONFLICT, CANNOT_DEACTIVATE_SELF,
 					"You can't deactivate your own account");
 		}
-		if (allocationRepository.existsByEmployeeIdAndStatusInAndEndDateGreaterThanEqual(id,
-				AllocationStatus.ACTIVE, LocalDate.now())) {
-			throw new BusinessException(HttpStatus.CONFLICT, HAS_ACTIVE_ALLOCATIONS, user.getFirstName() + " "
-					+ user.getLastName() + " has current or future allocations and can't be deactivated");
+		if (hasAllocationsFrom(id, AllocationStatus.ACTIVE, LocalDate.now())) {
+			throw hasActiveAllocations(user, "current or future allocations and can't be deactivated");
 		}
 		if (user.getRole() == Role.RM && userRepository.existsByManagerIdAndActiveTrue(id)) {
 			throw rmHasTeam("deactivated");
@@ -151,14 +171,10 @@ public class UserService {
 		return UserAccountDto.from(user);
 	}
 
-	private void checkCapacityReduction(User user) {
-		List<Map<String, Object>> overloaded = capacityService.findDaysOverCapacity(user.getId(),
-				user.getCapacityPercent(), LocalDate.now());
-		if (!overloaded.isEmpty()) {
-			String days = overloaded.size() == 1 ? "1 day" : overloaded.size() + " days";
-			throw new BusinessException(HttpStatus.CONFLICT, CapacityService.CAPACITY_EXCEEDED, "Lowering capacity to "
-					+ user.getCapacityPercent() + "% would leave existing allocations over it on " + days, overloaded);
-		}
+	/** Whether the employee has an allocation in the given statuses that ends on or after {@code day}. */
+	private boolean hasAllocationsFrom(Long employeeId, Set<AllocationStatus> statuses, LocalDate day) {
+		LocalDate lastDay = allocationRepository.findLatestEndDate(employeeId, statuses);
+		return lastDay != null && !lastDay.isBefore(day);
 	}
 
 	private User find(Long id) {
@@ -166,11 +182,26 @@ public class UserService {
 	}
 
 	/**
-	 * Checks what Bean Validation can't and copies the fields onto the user. Every problem is a 400
-	 * {@code VALIDATION_ERROR} on its field, so the form can show it next to that field.
+	 * {@code @Size(max = 72)} counts characters, but BCrypt's limit is in bytes: 40 letters like "č" are 80,
+	 * and encoding them would fail with a 500. Checked here so the form can show it next to the password.
 	 */
-	private void apply(User user, UserFields request) {
-		List<FieldViolation> violations = new ArrayList<>();
+	private static void checkPasswordLength(String password, List<FieldViolation> violations) {
+		if (password.getBytes(StandardCharsets.UTF_8).length > PASSWORD_MAX_BYTES) {
+			violations.add(new FieldViolation("temporaryPassword",
+					"Temporary password must be at most 72 bytes (an accented letter counts as 2)"));
+		}
+	}
+
+	/** The department and resource manager a valid request names; either can be {@code null}. */
+	private record Links(Department department, User manager) {
+	}
+
+	/**
+	 * Checks what Bean Validation can't, for a new user ({@code user} is {@code null}) or an existing one.
+	 * Every problem, with the {@code violations} found before, is a 400 {@code VALIDATION_ERROR} on its
+	 * field, so the form can show them all next to their fields at once.
+	 */
+	private Links validate(User user, UserFields request, List<FieldViolation> violations) {
 		if (!CAPACITIES.contains(request.capacityPercent())) {
 			violations.add(new FieldViolation("capacityPercent", "Capacity must be 100, 80 or 50"));
 		}
@@ -195,12 +226,16 @@ public class UserService {
 		else if (request.managerId() == null) {
 			violations.add(new FieldViolation("managerId", "An employee needs a resource manager"));
 		}
-		else if (request.managerId().equals(user.getId())) {
+		else if (user != null && request.managerId().equals(user.getId())) {
 			violations.add(new FieldViolation("managerId", "A user can't be their own resource manager"));
 		}
 		else {
+			// The current manager may have been deactivated or given another role since, which only an
+			// inactive employee's manager can be. Keeping them must not block editing the other fields
+			boolean unchanged = user != null && user.getManager() != null
+					&& request.managerId().equals(user.getManager().getId());
 			manager = userRepository.findById(request.managerId())
-				.filter(candidate -> candidate.getRole() == Role.RM && candidate.isActive())
+				.filter(candidate -> unchanged || candidate.getRole() == Role.RM && candidate.isActive())
 				.orElse(null);
 			if (manager == null) {
 				violations.add(new FieldViolation("managerId", "The manager must be an active resource manager"));
@@ -211,26 +246,38 @@ public class UserService {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, GlobalExceptionHandler.VALIDATION_ERROR,
 					"Some fields are invalid", violations);
 		}
+		return new Links(department, manager);
+	}
 
+	private static void copy(User user, UserFields request, Links links) {
 		user.setEmail(request.email().trim());
 		user.setFirstName(request.firstName().trim());
 		user.setLastName(request.lastName().trim());
 		user.setRole(request.role());
-		user.setDepartment(department);
-		user.setManager(manager);
+		user.setDepartment(links.department());
+		user.setManager(links.manager());
 		user.setSeniority(request.seniority());
 		user.setCapacityPercent(request.capacityPercent());
 	}
 
-	// Everything else is checked above, so a violation here is the unique email index
-	// (uq_users_email_lower): a concurrent request saved the same email first
+	// The email was checked above, so a violation of its index means a concurrent request saved the
+	// same email first. Anything else, e.g. a department deleted meanwhile, is not about the email
 	private User saveAndFlush(User user, String email) {
 		try {
 			return userRepository.saveAndFlush(user);
 		}
 		catch (DataIntegrityViolationException ex) {
-			throw emailTaken(email);
+			if (ex.getCause() instanceof ConstraintViolationException violation
+					&& EMAIL_INDEX.equals(violation.getConstraintName())) {
+				throw emailTaken(email);
+			}
+			throw ex;
 		}
+	}
+
+	private static BusinessException hasActiveAllocations(User user, String problem) {
+		return new BusinessException(HttpStatus.CONFLICT, HAS_ACTIVE_ALLOCATIONS,
+				user.getFirstName() + " " + user.getLastName() + " has " + problem);
 	}
 
 	// Their employees' allocations could no longer be approved by anyone (BR-5)

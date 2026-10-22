@@ -96,12 +96,15 @@ public class UserController {
 	@ApiResponse(responseCode = "409",
 			description = "EMAIL_TAKEN: another user has this email (case is ignored). CAPACITY_EXCEEDED (BR-13): "
 					+ "the lower capacity would be exceeded by existing active allocations, details lists the days. "
-					+ "RM_HAS_TEAM: an RM with active employees can't get another role",
+					+ "RM_HAS_TEAM: an RM with active employees can't get another role. USER_HAS_ACTIVE_ALLOCATIONS: "
+					+ "an employee with allocations or proposals that haven't ended can't get another role. "
+					+ "CANNOT_CHANGE_OWN_ROLE: your own account",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/{id}")
-	public UserAccountDto update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
-		return userService.update(id, request);
+	public UserAccountDto update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request,
+			@AuthenticationPrincipal AuthUser user) {
+		return userService.update(id, request, user);
 	}
 
 	@Operation(summary = "Deactivate an account (Admin)",

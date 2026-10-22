@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, Signal, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
@@ -16,6 +16,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { apiErrorMessage, isApiError } from '../../core/api/api-error';
 import { Role, ROLE_LABELS } from '../../core/auth/auth.models';
+import { AuthService } from '../../core/auth/auth.service';
 import { Notifications } from '../../core/error/notifications';
 import { shortDate } from '../../shared/dates';
 import { Department } from '../departments/department.models';
@@ -28,12 +29,17 @@ import {
   ROLES,
   UpdateUserRequest,
   UserAccount,
+  UserRef,
 } from './user.models';
 import { UserService } from './user.service';
 
 /** The API rejects control characters (newlines, tabs, ...) in a name, so it is caught before sending. */
 const noControlChars: ValidatorFn = (control) =>
   /\p{Cc}/u.test(String(control.value ?? '')) ? { controlChars: true } : null;
+
+/** BCrypt hashes at most 72 bytes, and an accented letter like "č" takes 2 of them in UTF-8. */
+const maxPasswordBytes: ValidatorFn = (control) =>
+  new TextEncoder().encode(String(control.value ?? '')).length > 72 ? { maxBytes: true } : null;
 
 /** Enough of the BR-13 days to see the problem; the rest is a count. */
 const MAX_DAYS_SHOWN = 5;
@@ -54,10 +60,13 @@ function isFieldViolation(detail: unknown): detail is FieldViolation {
   );
 }
 
-/** Pass the user to edit, or none to create one, and the departments for the dropdown. */
+/**
+ * Pass the user to edit, or none to create one, and the departments for the dropdown. They are a
+ * signal, so the dropdown fills in if the dialog is opened before they have loaded.
+ */
 export interface UserDialogData {
   user?: UserAccount;
-  departments: Department[];
+  departments: Signal<Department[]>;
 }
 
 /**
@@ -115,6 +124,9 @@ export interface UserDialogData {
                 <mat-option [value]="role">{{ roleLabels[role] }}</mat-option>
               }
             </mat-select>
+            @if (ownAccount) {
+              <mat-hint>You can’t change your own role</mat-hint>
+            }
             @if (form.controls.role.hasError('server')) {
               <mat-error>{{ form.controls.role.getError('server') }}</mat-error>
             }
@@ -125,7 +137,7 @@ export interface UserDialogData {
               @if (!isEmployee()) {
                 <mat-option [value]="null">None</mat-option>
               }
-              @for (department of departments; track department.id) {
+              @for (department of departments(); track department.id) {
                 <mat-option [value]="department.id">{{ department.name }}</mat-option>
               }
             </mat-select>
@@ -219,6 +231,10 @@ export interface UserDialogData {
               form.controls.temporaryPassword.hasError('maxlength')
             ) {
               <mat-error>Temporary password must be 8 to 72 characters</mat-error>
+            } @else if (form.controls.temporaryPassword.hasError('maxBytes')) {
+              <mat-error>
+                Temporary password must be at most 72 bytes (an accented letter counts as 2)
+              </mat-error>
             } @else if (form.controls.temporaryPassword.hasError('server')) {
               <mat-error>{{ form.controls.temporaryPassword.getError('server') }}</mat-error>
             }
@@ -286,6 +302,9 @@ export class UserDialog implements OnInit {
   private readonly data = inject<UserDialogData>(MAT_DIALOG_DATA);
 
   protected readonly user = this.data.user;
+  /** The API refuses to change your own role (409), so that there is always an Admin left. */
+  protected readonly ownAccount =
+    this.user !== undefined && this.user.id === inject(AuthService).currentUser()?.id;
   protected readonly departments = this.data.departments;
   protected readonly roles = ROLES;
   protected readonly roleLabels = ROLE_LABELS;
@@ -309,7 +328,14 @@ export class UserDialog implements OnInit {
     capacityPercent: [this.user?.capacityPercent ?? 100, Validators.required],
     temporaryPassword: [
       '',
-      this.user ? [] : [Validators.required, Validators.minLength(8), Validators.maxLength(72)],
+      this.user
+        ? []
+        : [
+            Validators.required,
+            Validators.minLength(8),
+            Validators.maxLength(72),
+            maxPasswordBytes,
+          ],
     ],
   });
 
@@ -317,13 +343,31 @@ export class UserDialog implements OnInit {
     initialValue: this.form.controls.role.value,
   });
 
-  protected readonly managers = signal<UserAccount[]>([]);
-  /** A 409 the dialog explains itself: BR-13 with the overbooked days, or an RM who still has a team. */
+  private readonly activeManagers = signal<UserAccount[]>([]);
+  /**
+   * The active RMs, without the user being edited (nobody is their own RM), and with their current
+   * manager, who may have been deactivated since. The API accepts keeping them.
+   */
+  protected readonly managers = computed(() => {
+    const managers: UserRef[] = this.activeManagers().filter((rm) => rm.id !== this.user?.id);
+    const current = this.user?.manager;
+    if (current && !managers.some((rm) => rm.id === current.id)) {
+      managers.unshift(current);
+    }
+    return managers;
+  });
+  /**
+   * A 409 the dialog explains itself: BR-13 with the overbooked days, or a role that can't change
+   * because of an RM's team or an employee's allocations.
+   */
   protected readonly conflict = signal<{ message: string; days: OverloadedDay[] } | null>(null);
   protected readonly showPassword = signal(false);
   protected readonly saving = signal(false);
 
   constructor() {
+    if (this.ownAccount) {
+      this.form.controls.role.disable();
+    }
     this.applyRoleRules(this.form.controls.role.value);
     // The conflict was for the values that were sent; new ones may fit
     this.form.controls.role.valueChanges.pipe(takeUntilDestroyed()).subscribe((role) => {
@@ -336,7 +380,7 @@ export class UserDialog implements OnInit {
   }
 
   ngOnInit(): void {
-    this.users.resourceManagers().subscribe((managers) => this.managers.set(managers));
+    this.users.resourceManagers().subscribe((managers) => this.activeManagers.set(managers));
   }
 
   protected isEmployee(): boolean {
@@ -451,6 +495,10 @@ export class UserDialog implements OnInit {
       case 'RM_HAS_TEAM':
         this.conflict.set({ message: body.message, days: [] });
         this.setServerError('role', 'Still has active employees');
+        return;
+      case 'USER_HAS_ACTIVE_ALLOCATIONS':
+        this.conflict.set({ message: body.message, days: [] });
+        this.setServerError('role', 'Still has allocations');
         return;
       default:
         this.notifications.error(body.message);

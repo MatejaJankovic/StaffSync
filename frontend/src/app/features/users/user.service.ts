@@ -1,6 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { map, Observable } from 'rxjs';
+import { EMPTY, expand, Observable, reduce } from 'rxjs';
 import { Page, PageQuery, toPageParams } from '../../core/api/page';
 import { Role } from '../../core/auth/auth.models';
 import { skipErrorSnackbar } from '../../core/error/error.interceptor';
@@ -36,12 +36,17 @@ export class UserService {
     return this.http.get<Page<UserAccount>>(USERS_URL, { params: toPageParams(query, params) });
   }
 
-  /** The active resource managers, by last name, e.g. for the *Resource manager* dropdown. */
+  /**
+   * All active resource managers, by last name, e.g. for the *Resource manager* dropdown. A page
+   * holds at most 100, so the pages are fetched one after another.
+   */
   resourceManagers(): Observable<UserAccount[]> {
-    return this.list(
-      { page: 0, size: 100, sort: 'lastName,asc' },
-      { role: 'RM', active: true },
-    ).pipe(map((page) => page.content));
+    const pageOf = (page: number) =>
+      this.list({ page, size: 100, sort: 'lastName,asc' }, { role: 'RM', active: true });
+    return pageOf(0).pipe(
+      expand(({ page }) => (page.number + 1 < page.totalPages ? pageOf(page.number + 1) : EMPTY)),
+      reduce((managers, { content }) => [...managers, ...content], [] as UserAccount[]),
+    );
   }
 
   create(request: CreateUserRequest): Observable<UserAccount> {

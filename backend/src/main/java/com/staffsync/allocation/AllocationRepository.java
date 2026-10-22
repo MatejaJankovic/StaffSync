@@ -53,10 +53,6 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 			@Param("from") LocalDate from, @Param("to") LocalDate to,
 			@Param("statuses") Collection<AllocationStatus> statuses);
 
-	/** BR-12: whether the employee has an allocation in the given statuses that ends on or after {@code date}. */
-	boolean existsByEmployeeIdAndStatusInAndEndDateGreaterThanEqual(Long employeeId,
-			Collection<AllocationStatus> statuses, LocalDate date);
-
 	/** The last day of the employee's allocations in the given statuses, or {@code null} if there are none. */
 	@Query("""
 			select max(a.endDate) from Allocation a

@@ -83,8 +83,16 @@ public class CapacityService {
 		List<Map<String, Object>> overloaded = findOverloadedDays(employeeId, from, to, percent, excludeAllocationId,
 				false);
 		if (!overloaded.isEmpty()) {
-			String days = overloaded.size() == 1 ? "1 day" : overloaded.size() + " days";
-			throw new BusinessException(HttpStatus.CONFLICT, CAPACITY_EXCEEDED, "Capacity exceeded on " + days,
+			throw capacityExceeded("Capacity exceeded on", overloaded);
+		}
+	}
+
+	/** BR-13: throws 409 CAPACITY_EXCEEDED with the days from today on that the lower capacity would overbook. */
+	public void checkCapacityReduction(Long employeeId, int capacityPercent) {
+		List<Map<String, Object>> overloaded = findDaysOverCapacity(employeeId, capacityPercent, LocalDate.now());
+		if (!overloaded.isEmpty()) {
+			throw capacityExceeded(
+					"Lowering capacity to " + capacityPercent + "% would leave existing allocations over it on",
 					overloaded);
 		}
 	}
@@ -130,6 +138,12 @@ public class CapacityService {
 			}
 		}
 		return load;
+	}
+
+	/** "{message} 3 days", with the days as details. */
+	private static BusinessException capacityExceeded(String message, List<Map<String, Object>> overloaded) {
+		String days = overloaded.size() == 1 ? "1 day" : overloaded.size() + " days";
+		return new BusinessException(HttpStatus.CONFLICT, CAPACITY_EXCEEDED, message + " " + days, overloaded);
 	}
 
 	/** Mon–Fri. Absence days (BR-14, stretch) will be skipped here later. */

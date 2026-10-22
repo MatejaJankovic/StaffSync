@@ -16,10 +16,17 @@ export interface UserAccount {
   lastName: string;
   role: Role;
   department: Department | null;
-  manager: { id: number; firstName: string; lastName: string } | null;
+  manager: UserRef | null;
   seniority: Seniority | null;
   capacityPercent: number;
   active: boolean;
+}
+
+/** Another user as an account refers to them, e.g. its resource manager. */
+export interface UserRef {
+  id: number;
+  firstName: string;
+  lastName: string;
 }
 
 /** An EMPLOYEE needs a department and an active RM as manager; other roles have no manager. */
