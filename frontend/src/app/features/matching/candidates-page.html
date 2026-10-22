@@ -1,0 +1,179 @@
+<section class="candidates">
+  <a mat-button [routerLink]="backLink()" class="candidates__back">
+    <mat-icon>arrow_back</mat-icon>
+    {{ request() ? 'Back to project' : 'My projects' }}
+  </a>
+
+  @switch (state()) {
+    @case ('loading') {
+      <p class="candidates__message">Loading request…</p>
+    }
+    @case ('notFound') {
+      <p class="candidates__message" role="alert">This request doesn’t exist.</p>
+    }
+    @case ('forbidden') {
+      <p class="candidates__message" role="alert">
+        Only the project manager who owns this project can see the candidates for its requests.
+      </p>
+    }
+    @case ('failed') {
+      <p class="candidates__message" role="alert">
+        Unable to load the request.
+        <button mat-button (click)="retry()">Retry</button>
+      </p>
+    }
+    @default {
+      @if (request(); as current) {
+        <header class="candidates__header">
+          <h1>Candidates for {{ current.title }}</h1>
+          <app-status-chip [status]="current.status" />
+        </header>
+
+        <dl class="candidates__request">
+          <div>
+            <dt>Seniority</dt>
+            <dd>{{ seniorityLabels[current.seniority] }}</dd>
+          </div>
+          <div>
+            <dt>Allocation</dt>
+            <dd>{{ current.allocationPercent }}%</dd>
+          </div>
+          <div>
+            <dt>Period</dt>
+            <dd>{{ period() }}</dd>
+          </div>
+          <div>
+            <dt>Headcount</dt>
+            <dd>{{ current.headcount }}</dd>
+          </div>
+          <div class="candidates__skills">
+            <dt>Required skills</dt>
+            <dd>
+              @for (skill of required(); track skill.skillId) {
+                <span class="candidates__skill">{{ skill.skillName }} ≥ {{ skill.minLevel }}</span>
+              } @empty {
+                None
+              }
+            </dd>
+          </div>
+          <div class="candidates__skills">
+            <dt>Nice to have</dt>
+            <dd>
+              @for (skill of niceToHave(); track skill.skillId) {
+                <span class="candidates__skill">{{ skill.skillName }} ≥ {{ skill.minLevel }}</span>
+              } @empty {
+                None
+              }
+            </dd>
+          </div>
+        </dl>
+
+        <!-- One live region, always there: screen readers announce what is added to it, but not
+             always a region that appears together with its content -->
+        <div class="candidates__notices" role="status">
+          @for (notice of notices(); track notice.allocationId) {
+            <div class="candidates__notice">
+              <mat-icon>warning</mat-icon>
+              <div class="candidates__notice-text">
+                <p class="candidates__notice-title">
+                  {{ notice.employeeName }} was proposed, with warnings
+                </p>
+                <ul>
+                  @for (warning of notice.warnings; track $index) {
+                    <li>{{ warning }}</li>
+                  }
+                </ul>
+                <p>
+                  The proposal is saved. The resource manager can’t approve it while this person has
+                  too little capacity.
+                </p>
+              </div>
+              <button
+                mat-icon-button
+                type="button"
+                [attr.aria-label]="'Dismiss the warnings for ' + notice.employeeName"
+                (click)="dismiss(notice)"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          }
+        </div>
+
+        @if (fetchCandidates(); as fetch) {
+          <app-paged-table
+            [columns]="columns"
+            [fetch]="fetch"
+            [emptyText]="emptyText"
+            [pageSize]="10"
+          >
+            <ng-template appPagedTableCell="candidate" let-row>
+              <div class="candidate__cell candidate__cell--name">
+                <div class="candidate__name">{{ row.fullName }}</div>
+                <div class="candidate__meta">{{ meta(row) }}</div>
+              </div>
+            </ng-template>
+
+            <ng-template appPagedTableCell="score" let-row>
+              <div class="candidate__cell">
+                <span class="candidate__score"
+                  >{{ row.score }}<span class="candidate__score-max">/100</span></span
+                >
+              </div>
+            </ng-template>
+
+            <ng-template appPagedTableCell="breakdown" let-row>
+              <dl class="candidate__cell candidate__breakdown">
+                @for (part of scoreParts(row); track part.label) {
+                  <div>
+                    <dt>{{ part.label }}</dt>
+                    <dd>
+                      {{ part.value }}<span class="candidate__breakdown-max">/{{ part.max }}</span>
+                    </dd>
+                    <span class="candidate__bar" aria-hidden="true">
+                      <span [style.width.%]="(part.value / part.max) * 100"></span>
+                    </span>
+                  </div>
+                }
+              </dl>
+            </ng-template>
+
+            <ng-template appPagedTableCell="notes" let-row>
+              <div class="candidate__cell">
+                @if (row.reasons.length) {
+                  <ul class="candidate__reasons" aria-label="Reasons">
+                    @for (reason of row.reasons; track $index) {
+                      <li>
+                        <mat-icon>check_circle</mat-icon>
+                        <span>{{ reason }}</span>
+                      </li>
+                    }
+                  </ul>
+                }
+                <app-warning-list class="candidate__warnings" [warnings]="row.warnings" />
+              </div>
+            </ng-template>
+
+            <ng-template appPagedTableCell="actions" let-row>
+              <div class="candidate__cell">
+                <button
+                  mat-flat-button
+                  type="button"
+                  [attr.aria-label]="'Propose ' + row.fullName"
+                  (click)="propose(row)"
+                >
+                  <mat-icon>person_add</mat-icon>
+                  Propose
+                </button>
+              </div>
+            </ng-template>
+          </app-paged-table>
+        } @else {
+          <p class="candidates__message" role="status">
+            A {{ statusWords() }} request takes no proposals, so there are no candidates to rank.
+          </p>
+        }
+      }
+    }
+  }
+</section>

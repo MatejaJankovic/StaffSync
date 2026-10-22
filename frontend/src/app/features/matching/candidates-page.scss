@@ -1,0 +1,189 @@
+.candidates {
+  padding: 24px;
+  max-width: 1100px;
+}
+
+.candidates__back {
+  margin: 0 0 8px -12px;
+}
+
+.candidates__header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0;
+  }
+}
+
+.candidates__request {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px 24px;
+  margin: 0 0 24px;
+
+  dt {
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-label-medium);
+  }
+
+  dd {
+    margin: 2px 0 0;
+    font: var(--mat-sys-body-large);
+  }
+}
+
+.candidates__skills {
+  grid-column: 1 / -1;
+}
+
+.candidates__skill {
+  display: inline-block;
+  margin: 0 8px 4px 0;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container-high);
+  font: var(--mat-sys-label-large);
+}
+
+.candidates__message {
+  color: var(--mat-sys-on-surface-variant);
+  margin: 0;
+}
+
+// The warning colors, as on the warning status chip and the warnings of a candidate
+.candidates__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 8px 12px 16px;
+  border-radius: 8px;
+  background: var(--app-warning-container);
+  color: var(--app-on-warning-container);
+}
+
+.candidates__notice-text {
+  flex: 1;
+
+  p {
+    margin: 0;
+  }
+
+  ul {
+    margin: 4px 0;
+    padding-left: 20px;
+  }
+}
+
+.candidates__notice-title {
+  font: var(--mat-sys-title-small);
+}
+
+// A row has several lines, so its content needs room above and below
+.candidate__cell {
+  display: block;
+  padding: 12px 0;
+}
+
+// The wide reasons column would squeeze the name into several lines
+.candidate__cell--name {
+  min-width: 180px;
+}
+
+.candidate__name {
+  font: var(--mat-sys-title-small);
+}
+
+.candidate__meta {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+.candidate__score {
+  display: inline-flex;
+  align-items: baseline;
+  padding: 4px 12px;
+  border-radius: 16px;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  font: var(--mat-sys-title-medium);
+}
+
+.candidate__score-max {
+  font: var(--mat-sys-label-small);
+  opacity: 0.75;
+}
+
+.candidate__breakdown {
+  display: grid;
+  gap: 6px;
+  min-width: 150px;
+  margin: 0;
+
+  > div {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 16px;
+  }
+
+  dt {
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-body-small);
+  }
+
+  dd {
+    margin: 0;
+    font: var(--mat-sys-label-large);
+  }
+}
+
+.candidate__breakdown-max {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+.candidate__bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--mat-sys-surface-container-highest);
+  overflow: hidden;
+
+  > span {
+    display: block;
+    height: 100%;
+    background: var(--mat-sys-primary);
+  }
+}
+
+// Laid out like the warnings below them (shared/warning-list), without the warning colors
+.candidate__reasons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 2px 0;
+    font: var(--mat-sys-body-medium);
+  }
+
+  mat-icon {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    color: var(--mat-sys-primary);
+  }
+}
+
+.candidate__reasons + .candidate__warnings {
+  margin-top: 8px;
+}

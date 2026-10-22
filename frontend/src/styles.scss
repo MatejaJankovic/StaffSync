@@ -17,6 +17,13 @@ html {
       density: 0,
     )
   );
+
+  // Material has no success or warning roles, so these use fixed colors. `light-dark()` resolves
+  // where the token is used, so they follow the color scheme like the `--mat-sys-*` colors
+  --app-success-container: light-dark(#d3f0da, #1f4a2c);
+  --app-on-success-container: light-dark(#0e5225, #b9efc6);
+  --app-warning-container: light-dark(#ffe9b8, #4d3a00);
+  --app-on-warning-container: light-dark(#5c4300, #ffe08f);
 }
 
 body {
