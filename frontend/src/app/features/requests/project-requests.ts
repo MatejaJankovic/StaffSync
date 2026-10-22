@@ -109,11 +109,11 @@ export class ProjectRequests {
   }
 
   protected canCancel(request: StaffingRequest): boolean {
-    return this.isOwner() && isCancellable(request);
+    return this.canChange() && isCancellable(request);
   }
 
   protected canFindCandidates(request: StaffingRequest): boolean {
-    return this.isOwner() && canFindCandidates(request);
+    return this.canChange() && canFindCandidates(request);
   }
 
   protected open(request: StaffingRequest): void {

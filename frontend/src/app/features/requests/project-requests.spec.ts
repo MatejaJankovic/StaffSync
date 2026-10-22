@@ -186,12 +186,15 @@ describe('ProjectRequests', () => {
     });
 
     it.each(['COMPLETED', 'CANCELLED'] as const)(
-      'cannot add or edit requests of a %s project',
+      'offers no action on the requests of a %s project',
       async (status) => {
         await open([request(1, 'Java Developer')], { project: { ...PROJECT, status } });
+        const row = rowOf('Java Developer');
 
         expect(newRequest()).toBeUndefined();
-        expect(action(rowOf('Java Developer'), 'Edit Java Developer')).toBeNull();
+        expect(action(row, 'Edit Java Developer')).toBeNull();
+        expect(action(row, 'Cancel Java Developer')).toBeNull();
+        expect(findCandidates(row)).toBeUndefined();
       },
     );
 

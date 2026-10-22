@@ -94,6 +94,8 @@ public class StaffingRequestService {
 		checkProjectOpen(request.getProject());
 		checkValues(body, request.getProject());
 		Map<Long, Skill> skills = resolveSkills(body.skills());
+		// TODO(#18, BR-3, BR-10): once the allocation table exists (#23), refuse to lower the headcount or to
+		// change the period or the allocation percentage while the request has active allocations
 
 		request.setTitle(body.title().trim());
 		request.setSeniority(body.seniority());
