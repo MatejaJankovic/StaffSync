@@ -97,10 +97,9 @@ public class AllocationService {
 
 		// Before saving, so the new allocation isn't counted in its own load
 		List<String> warnings = capacityWarnings(employee.getId(), startDate, endDate, percent);
-		User proposer = userRepository.findById(currentUser.id())
-			.orElseThrow(() -> new NotFoundException("User", currentUser.id()));
+		// checkOwner has shown that the project's PM is the current user, so they are the proposer
 		Allocation allocation = allocationRepository
-			.save(new Allocation(request, employee, percent, startDate, endDate, proposer));
+			.save(new Allocation(request, employee, percent, startDate, endDate, request.getProject().getPm()));
 		return new AllocationProposalDto(AllocationDto.from(allocation), warnings);
 	}
 
@@ -116,16 +115,9 @@ public class AllocationService {
 		if (from != null && to != null && from.isAfter(to)) {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_PERIOD", "From must not be after to");
 		}
+		Specification<Allocation> scope = roleScope(currentUser);
 		Specification<Allocation> filters = (root, query, cb) -> {
 			List<Predicate> predicates = new ArrayList<>();
-			switch (currentUser.role()) {
-				case EMPLOYEE -> predicates.add(cb.equal(root.get("employee").get("id"), currentUser.id()));
-				case PM -> predicates
-					.add(cb.equal(root.get("request").get("project").get("pm").get("id"), currentUser.id()));
-				case RM -> predicates.add(cb.equal(root.get("employee").get("manager").get("id"), currentUser.id()));
-				case ADMIN -> {
-				}
-			}
 			if (status != null) {
 				predicates.add(cb.equal(root.get("status"), status));
 			}
@@ -143,7 +135,21 @@ public class AllocationService {
 			}
 			return cb.and(predicates.toArray(Predicate[]::new));
 		};
-		return allocationRepository.findAll(filters, checkedSort(pageable)).map(AllocationDto::from);
+		return allocationRepository.findAll(scope.and(filters), checkedSort(pageable)).map(AllocationDto::from);
+	}
+
+	/**
+	 * What each role may see (§10). A switch expression, so a new role doesn't compile until it has a
+	 * scope here, and it runs before the query, so a principal without a role fails instead of seeing all.
+	 */
+	private static Specification<Allocation> roleScope(AuthUser currentUser) {
+		Long me = currentUser.id();
+		return switch (currentUser.role()) {
+			case EMPLOYEE -> (root, query, cb) -> cb.equal(root.get("employee").get("id"), me);
+			case PM -> (root, query, cb) -> cb.equal(root.get("request").get("project").get("pm").get("id"), me);
+			case RM -> (root, query, cb) -> cb.equal(root.get("employee").get("manager").get("id"), me);
+			case ADMIN -> (root, query, cb) -> cb.conjunction();
+		};
 	}
 
 	/** BR-4: only the PM who owns the request's project proposes candidates for it. */

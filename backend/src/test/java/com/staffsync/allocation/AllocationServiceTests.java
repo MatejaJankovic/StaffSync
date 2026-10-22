@@ -319,7 +319,6 @@ class AllocationServiceTests {
 	void aMissingNiceToHaveSkillDoesNotMatter() {
 		givenRequest();
 		when(userRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employee));
-		when(userRepository.findById(PM_ID)).thenReturn(Optional.of(pm));
 		when(employeeSkillRepository.findByUserIdOrderBySkillCategoryAscSkillNameAsc(EMPLOYEE_ID))
 			.thenReturn(List.of(new EmployeeSkill(employee, java, 4, 3), new EmployeeSkill(employee, spring, 3, 2)));
 		when(allocationRepository.save(any(Allocation.class))).thenAnswer(call -> call.getArgument(0));
@@ -376,6 +375,15 @@ class AllocationServiceTests {
 	// ---- search (the role scoping runs in the database, see AllocationControllerTests)
 
 	@Test
+	void searchFailsClosedForAPrincipalWithoutARole() {
+		AuthUser noRole = new AuthUser(5L, "odd@staffsync.local", null);
+
+		assertThatThrownBy(() -> allocationService.search(null, null, null, null, null, PageRequest.of(0, 20), noRole))
+			.isInstanceOf(NullPointerException.class);
+		verify(allocationRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+	}
+
+	@Test
 	void searchRejectsFromAfterTo() {
 		assertThatThrownBy(() -> allocationService.search(null, null, null, nov(20), nov(10), PageRequest.of(0, 20),
 				PM))
@@ -419,7 +427,6 @@ class AllocationServiceTests {
 	private void givenEligibleProposal() {
 		givenRequest();
 		givenEligibleEmployee();
-		when(userRepository.findById(PM_ID)).thenReturn(Optional.of(pm));
 		when(allocationRepository.save(any(Allocation.class))).thenAnswer(call -> call.getArgument(0));
 	}
 
