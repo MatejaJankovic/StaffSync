@@ -1,0 +1,35 @@
+.departments {
+  padding: 24px;
+  max-width: 720px;
+}
+
+.departments__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0;
+  }
+
+  // "Add department" is long enough to wrap next to the title on a narrow content area
+  button {
+    flex-shrink: 0;
+  }
+}
+
+.departments__table {
+  width: 100%;
+}
+
+.departments__actions {
+  width: 112px;
+  text-align: end;
+}
+
+.departments__message {
+  color: var(--mat-sys-on-surface-variant);
+}
