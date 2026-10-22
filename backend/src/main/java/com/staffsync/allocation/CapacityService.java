@@ -80,10 +80,12 @@ public class CapacityService {
 
 	/** BR-1: throws 409 CAPACITY_EXCEEDED with the overloaded days. Approve and change approval call this. */
 	public void checkCapacity(Long employeeId, LocalDate from, LocalDate to, int percent, Long excludeAllocationId) {
-		List<Map<String, Object>> overloaded = findOverloadedDays(employeeId, from, to, percent, excludeAllocationId, false);
+		List<Map<String, Object>> overloaded = findOverloadedDays(employeeId, from, to, percent, excludeAllocationId,
+				false);
 		if (!overloaded.isEmpty()) {
-			throw new BusinessException(HttpStatus.CONFLICT, CAPACITY_EXCEEDED,
-				"Capacity exceeded on " + overloaded.size() + " day(s)", overloaded);
+			String days = overloaded.size() == 1 ? "1 day" : overloaded.size() + " days";
+			throw new BusinessException(HttpStatus.CONFLICT, CAPACITY_EXCEEDED, "Capacity exceeded on " + days,
+					overloaded);
 		}
 	}
 
@@ -113,7 +115,7 @@ public class CapacityService {
 	}
 
 	/** Mon–Fri. Absence days (BR-14, stretch) will be skipped here later. */
-	boolean isWorkingDay(LocalDate day) {
+	private static boolean isWorkingDay(LocalDate day) {
 		DayOfWeek dow = day.getDayOfWeek();
 		return dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY;
 	}

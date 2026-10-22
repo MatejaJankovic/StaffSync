@@ -102,8 +102,11 @@ public class Allocation {
 		return status == AllocationStatus.CHANGE_PENDING;
 	}
 
-	/** Records a change request and moves the allocation to CHANGE_PENDING (BR-15). */
+	/** Records a change request and moves the allocation to CHANGE_PENDING (BR-15: only an APPROVED one). */
 	public void requestChange(int newPercent, LocalDate newStartDate, LocalDate newEndDate, String reason) {
+		if (status != AllocationStatus.APPROVED) {
+			throw new IllegalStateException("Only an APPROVED allocation can be changed, but it is " + status);
+		}
 		this.pendingPercent = newPercent;
 		this.pendingStartDate = newStartDate;
 		this.pendingEndDate = newEndDate;
@@ -113,6 +116,9 @@ public class Allocation {
 
 	/** Applies the pending values and goes back to APPROVED (RM approved the change). */
 	public void applyPendingChange() {
+		if (!hasPendingChange()) {
+			throw new IllegalStateException("There is no pending change to apply");
+		}
 		this.percent = pendingPercent;
 		this.startDate = pendingStartDate;
 		this.endDate = pendingEndDate;
