@@ -664,6 +664,26 @@ class AllocationControllerTests {
 	}
 
 	@Test
+	void aProposalForADeactivatedEmployeeCannotBeApproved() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		User marko = newEmployee("Marko", rm);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())), marko,
+				null, null, null));
+		// Deactivation only checks active allocations (BR-12), so the proposal is still there
+		marko.setActive(false);
+		userRepository.save(marko);
+
+		given().auth().oauth2(login(rm.getEmail()).token())
+			.when().post("/api/allocations/" + allocation + "/approve")
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("EMPLOYEE_INACTIVE"));
+		assertThat(allocationRepository.findById((long) allocation).orElseThrow().getStatus())
+			.isEqualTo(AllocationStatus.PROPOSED);
+	}
+
+	@Test
 	void approvingAnUnknownAllocationIs404AndWithoutATokenIs401() {
 		given().auth().oauth2(login(RM).token())
 			.when().post("/api/allocations/999999999/approve")

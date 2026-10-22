@@ -111,7 +111,8 @@ public class AllocationController {
 	@ApiResponse(responseCode = "409",
 			description = "Capacity exceeded (CAPACITY_EXCEEDED, with the overloaded days and loads in details, "
 					+ "BR-1), the allocation is not PROPOSED (BR-7), the request is not OPEN or PARTIALLY_FILLED, "
-					+ "or the project is COMPLETED or CANCELLED",
+					+ "the project is COMPLETED or CANCELLED, or the employee has been deactivated "
+					+ "(EMPLOYEE_INACTIVE)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('RM')")
 	@PostMapping("/{id}/approve")

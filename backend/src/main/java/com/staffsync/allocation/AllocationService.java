@@ -108,10 +108,10 @@ public class AllocationService {
 
 	/**
 	 * The RM approves a proposed allocation (§9: {@code PROPOSED → APPROVED}). The checks run in this order:
-	 * BR-5 (403), BR-7 (409), the request and project are still open (409), then the hard capacity check on
-	 * every working day of the period (409 CAPACITY_EXCEEDED, BR-1). Nothing is changed before the last check
-	 * passes, so a failed approval leaves the allocation {@code PROPOSED}. Then the request status is
-	 * recalculated (BR-10).
+	 * BR-5 (403), BR-7 (409), the request and project are still open (409), the employee is still active
+	 * (409), then the hard capacity check on every working day of the period (409 CAPACITY_EXCEEDED, BR-1).
+	 * Nothing is changed before the last check passes, so a failed approval leaves the allocation
+	 * {@code PROPOSED}. Then the request status is recalculated (BR-10).
 	 */
 	@Transactional
 	public AllocationDto approve(Long id, AuthUser currentUser) {
@@ -119,6 +119,7 @@ public class AllocationService {
 		User rm = checkResourceManager(allocation, currentUser);
 		checkPendingDecision(allocation);
 		checkOpen(allocation.getRequest(), "approvals");
+		checkEmployeeActive(allocation);
 		// A PROPOSED allocation is not active, so it isn't counted in its own load
 		capacityService.checkCapacity(allocation.getEmployee().getId(), allocation.getStartDate(),
 				allocation.getEndDate(), allocation.getPercent(), null);
@@ -252,6 +253,17 @@ public class AllocationService {
 			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS",
 					"Only a proposed allocation can be approved or rejected, but this one is "
 							+ allocation.getStatus().name().toLowerCase().replace('_', ' '));
+		}
+	}
+
+	/**
+	 * BR-12: deactivation only checks active allocations, so a proposal can outlive its employee. Approving it
+	 * would give a deactivated user an active allocation. Rejecting it is still allowed, to clear it.
+	 */
+	private static void checkEmployeeActive(Allocation allocation) {
+		if (!allocation.getEmployee().isActive()) {
+			throw new BusinessException(HttpStatus.CONFLICT, "EMPLOYEE_INACTIVE",
+					"A deactivated employee can't be allocated");
 		}
 	}
 

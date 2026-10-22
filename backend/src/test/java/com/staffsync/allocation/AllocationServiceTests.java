@@ -503,6 +503,16 @@ class AllocationServiceTests {
 				"PROJECT_CLOSED");
 	}
 
+	@Test
+	void aDeactivatedEmployeeCannotBeApproved() {
+		Allocation allocation = givenProposedAllocation();
+		employee.setActive(false);
+
+		assertDecisionFails(() -> allocationService.approve(ALLOCATION_ID, RM), HttpStatus.CONFLICT,
+				"EMPLOYEE_INACTIVE");
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.PROPOSED);
+	}
+
 	// ---- reject (US-10; the comment length, BR-6 / T-14, is Bean Validation, see AllocationControllerTests)
 
 	@Test
