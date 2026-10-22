@@ -1,3 +1,5 @@
+<!-- Do not add "Generated with Claude Code" or any other AI attribution line (see CONTRIBUTING.md). -->
+
 ## What
 <!-- One user story. What does this PR add or change? List its tasks, one commit each. -->
 

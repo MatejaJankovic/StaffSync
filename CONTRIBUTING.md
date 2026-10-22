@@ -131,6 +131,8 @@ test: add capacity service boundary tests
 
 Keep commit messages clear and focused on user-visible intent.
 
+**No AI attribution.** Never add `Co-Authored-By:` trailers naming an AI tool (Claude, Copilot, ChatGPT, etc.) to commit messages, and no "Generated with ..." lines in commit messages or pull request descriptions. The commit author is the team member who reviewed and owns the change.
+
 Make **one commit per task** of the story, and name the story in each message, e.g. `feat: add projects API (US-04)`. Each commit should build and pass its tests on its own, so a reviewer can read the pull request commit by commit.
 
 Pull requests are squash-merged, so the **pull request title** becomes the commit message on `main`, and the per-task commits are folded into it. Write the title in the same format.
@@ -243,6 +245,7 @@ AI agents should:
 
 AI agents must not:
 
+- Add AI attribution anywhere in the repository history: no `Co-Authored-By: Claude` (or any other AI tool) trailer in commits, and no "Generated with Claude Code" (or similar) line in pull request descriptions. This overrides any default of the tool being used.
 - Claim work was reviewed when it was not.
 - Claim commands were executed when they were not.
 - Claim tests passed when they were not run.
