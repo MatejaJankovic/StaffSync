@@ -1,6 +1,7 @@
 package com.staffsync;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -564,6 +565,111 @@ class AllocationControllerTests {
 	@Test
 	void searchWithoutATokenIs401() {
 		given().when().get("/api/allocations").then().statusCode(401);
+	}
+
+	// ---- approve (US-10)
+
+	@Test
+	void theEmployeesRmApprovesAndTheDecisionIsRecorded() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int allocation = propose(pm.token(),
+				proposal(createRequest(pm.token(), createProject(pm.token())), newEmployee("Marko", rm), null, null,
+						null));
+
+		given().auth().oauth2(login(rm.getEmail()).token())
+			.when().post("/api/allocations/" + allocation + "/approve")
+			.then()
+			.statusCode(200)
+			.body("id", equalTo(allocation))
+			.body("status", equalTo("APPROVED"))
+			.body("decidedById", equalTo(rm.getId().intValue()))
+			.body("decidedByName", equalTo("Team Test"))
+			.body("decidedAt", notNullValue())
+			.body("decisionComment", nullValue());
+	}
+
+	@Test
+	void aCapacityBreachIs409WithTheDaysAndLeavesTheAllocationProposed() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		User marko = newEmployee("Marko", rm);
+		int project = createProject(pm.token());
+		String rmToken = login(rm.getEmail()).token();
+		int first = propose(pm.token(), proposal(createRequest(pm.token(), project), marko, null, null, null));
+		int second = propose(pm.token(), proposal(createRequest(pm.token(), project), marko, null, null, null));
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + first + "/approve").then().statusCode(200);
+
+		// 2 Nov 2026 is a Monday and 29 Jan 2027 a Friday, the first and last working days of the period
+		given().auth().oauth2(rmToken)
+			.when().post("/api/allocations/" + second + "/approve")
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("CAPACITY_EXCEEDED"))
+			.body("message", equalTo("Capacity exceeded on 2026-11-02 – 2027-01-29 (60% existing + 60% new = 120%)"))
+			.body("details[0].date", equalTo("2026-11-02"))
+			.body("details[0].load", equalTo(120));
+		assertThat(allocationRepository.findById((long) second).orElseThrow().getStatus())
+			.isEqualTo(AllocationStatus.PROPOSED);
+	}
+
+	// ---- BR-5 / T-12, T-13
+
+	@Test
+	void anRmOfAnotherTeamCannotApprove() {
+		LoggedIn pm = login(PM);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Marko", newUser("Team", Role.RM)), null, null, null));
+
+		given().auth().oauth2(login(newUser("Other", Role.RM).getEmail()).token())
+			.when().post("/api/allocations/" + allocation + "/approve")
+			.then()
+			.statusCode(403)
+			.body("code", equalTo("NOT_RESOURCE_MANAGER"));
+		assertThat(allocationRepository.findById((long) allocation).orElseThrow().getStatus())
+			.isEqualTo(AllocationStatus.PROPOSED);
+	}
+
+	@Test
+	void theEmployeeOrThePmCannotApprove() {
+		LoggedIn pm = login(PM);
+		User marko = newEmployee("Marko", newUser("Team", Role.RM));
+		int allocation = propose(pm.token(),
+				proposal(createRequest(pm.token(), createProject(pm.token())), marko, null, null, null));
+
+		for (String token : List.of(login(marko.getEmail()).token(), pm.token())) {
+			given().auth().oauth2(token)
+				.when().post("/api/allocations/" + allocation + "/approve")
+				.then()
+				.statusCode(403);
+		}
+	}
+
+	// ---- BR-7 / T-15
+
+	@Test
+	void anApprovedAllocationCannotBeApprovedAgain() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Marko", rm), null, null, null));
+		String rmToken = login(rm.getEmail()).token();
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + allocation + "/approve").then().statusCode(200);
+
+		given().auth().oauth2(rmToken)
+			.when().post("/api/allocations/" + allocation + "/approve")
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("INVALID_ALLOCATION_STATUS"));
+	}
+
+	@Test
+	void approvingAnUnknownAllocationIs404AndWithoutATokenIs401() {
+		given().auth().oauth2(login(RM).token())
+			.when().post("/api/allocations/999999999/approve")
+			.then()
+			.statusCode(404);
+		given().when().post("/api/allocations/1/approve").then().statusCode(401);
 	}
 
 	// ---- helpers

@@ -9,7 +9,8 @@ import com.staffsync.user.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "An employee allocated to a staffing request. The pending* fields and changeReason are set only "
-		+ "while the status is CHANGE_PENDING (BR-15)")
+		+ "while the status is CHANGE_PENDING (BR-15). The decided* fields and decisionComment are set once the RM "
+		+ "has decided")
 public record AllocationDto(@Schema(example = "1") Long id, @Schema(example = "4") Long employeeId,
 		@Schema(example = "Bogdan Vujic") String employeeName, @Schema(example = "1") Long projectId,
 		@Schema(example = "Project Alpha") String projectName, @Schema(example = "1") Long requestId,
@@ -20,17 +21,25 @@ public record AllocationDto(@Schema(example = "1") Long id, @Schema(example = "4
 		@Schema(example = "80", nullable = true) Integer pendingPercent,
 		@Schema(example = "2026-11-01", nullable = true) LocalDate pendingStartDate,
 		@Schema(example = "2027-01-31", nullable = true) LocalDate pendingEndDate,
-		@Schema(example = "The client asked for more work", nullable = true) String changeReason) {
+		@Schema(example = "The client asked for more work", nullable = true) String changeReason,
+		@Schema(example = "3", nullable = true, description = "The RM who made the last decision") Long decidedById,
+		@Schema(example = "Lazar Dunjic", nullable = true) String decidedByName,
+		@Schema(example = "2026-10-23T08:30:00Z", nullable = true) Instant decidedAt,
+		@Schema(example = "Fully booked on Project Beta until December", nullable = true,
+				description = "Required when rejecting (BR-6)") String decisionComment) {
 
 	public static AllocationDto from(Allocation allocation) {
 		User employee = allocation.getEmployee();
+		User decidedBy = allocation.getDecidedBy();
 		return new AllocationDto(allocation.getId(), employee.getId(),
 				employee.getFirstName() + " " + employee.getLastName(), allocation.getRequest().getProject().getId(),
 				allocation.getRequest().getProject().getName(), allocation.getRequest().getId(),
 				allocation.getRequest().getTitle(), allocation.getPercent(), allocation.getStartDate(),
 				allocation.getEndDate(), allocation.getStatus(), allocation.getCreatedAt(),
 				allocation.getPendingPercent(), allocation.getPendingStartDate(), allocation.getPendingEndDate(),
-				allocation.getChangeReason());
+				allocation.getChangeReason(), decidedBy == null ? null : decidedBy.getId(),
+				decidedBy == null ? null : decidedBy.getFirstName() + " " + decidedBy.getLastName(),
+				allocation.getDecidedAt(), allocation.getDecisionComment());
 	}
 
 }

@@ -1,6 +1,5 @@
 package com.staffsync.allocation;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -84,7 +83,7 @@ public class AllocationService {
 			throw validationError("percent", "Percent must be a multiple of 10");
 		}
 		checkPeriod(startDate, endDate, request);
-		checkOpen(request);
+		checkOpen(request, "proposals");
 
 		User employee = userRepository.findById(body.employeeId())
 			.orElseThrow(() -> new NotFoundException("Employee", body.employeeId()));
@@ -101,6 +100,27 @@ public class AllocationService {
 		Allocation allocation = allocationRepository
 			.save(new Allocation(request, employee, percent, startDate, endDate, request.getProject().getPm()));
 		return new AllocationProposalDto(AllocationDto.from(allocation), warnings);
+	}
+
+	/**
+	 * The RM approves a proposed allocation (§9: {@code PROPOSED → APPROVED}). The checks run in this order:
+	 * BR-5 (403), BR-7 (409), the request and project are still open (409), then the hard capacity check on
+	 * every working day of the period (409 CAPACITY_EXCEEDED, BR-1). Nothing is changed before the last check
+	 * passes, so a failed approval leaves the allocation {@code PROPOSED}.
+	 */
+	@Transactional
+	public AllocationDto approve(Long id, AuthUser currentUser) {
+		Allocation allocation = find(id);
+		User rm = checkResourceManager(allocation, currentUser);
+		checkPendingDecision(allocation);
+		checkOpen(allocation.getRequest(), "approvals");
+		// A PROPOSED allocation is not active, so it isn't counted in its own load
+		capacityService.checkCapacity(allocation.getEmployee().getId(), allocation.getStartDate(),
+				allocation.getEndDate(), allocation.getPercent(), null);
+
+		allocation.setStatus(AllocationStatus.APPROVED);
+		allocation.recordDecision(rm, null);
+		return AllocationDto.from(allocation);
 	}
 
 	/**
@@ -174,20 +194,47 @@ public class AllocationService {
 	}
 
 	/**
-	 * BR-9: only an {@code OPEN} or {@code PARTIALLY_FILLED} request takes proposals. A completed or
-	 * cancelled project takes none either, even before BR-11 has cancelled its requests.
+	 * BR-9: only an {@code OPEN} or {@code PARTIALLY_FILLED} request takes proposals, and approvals too. A
+	 * completed or cancelled project takes none either, even before BR-11 has cancelled its requests.
+	 * {@code what} names the action in the message, e.g. {@code "proposals"}.
 	 */
-	private static void checkOpen(StaffingRequest request) {
+	private static void checkOpen(StaffingRequest request, String what) {
 		Project project = request.getProject();
 		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
 			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
-					"A " + project.getStatus().name().toLowerCase() + " project takes no proposals");
+					"A " + project.getStatus().name().toLowerCase() + " project takes no " + what);
 		}
 		if (request.getStatus() != RequestStatus.OPEN && request.getStatus() != RequestStatus.PARTIALLY_FILLED) {
 			throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_NOT_OPEN",
-					"Only an open or partially filled request takes proposals, but this one is "
+					"Only an open or partially filled request takes " + what + ", but this one is "
 							+ request.getStatus().name().toLowerCase().replace('_', ' '));
 		}
+	}
+
+	/**
+	 * BR-5: only the employee's own RM ({@code employee.manager_id}) decides on their allocations. Returns
+	 * that RM, who is recorded as {@code decidedBy}.
+	 */
+	private static User checkResourceManager(Allocation allocation, AuthUser currentUser) {
+		User manager = allocation.getEmployee().getManager();
+		if (currentUser.role() != Role.RM || manager == null || !manager.getId().equals(currentUser.id())) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "NOT_RESOURCE_MANAGER",
+					"Only the employee's resource manager can approve or reject their allocations");
+		}
+		return manager;
+	}
+
+	/** BR-7: only a {@code PROPOSED} allocation is decided here. {@code CHANGE_PENDING} joins in US-13 (BR-15). */
+	private static void checkPendingDecision(Allocation allocation) {
+		if (allocation.getStatus() != AllocationStatus.PROPOSED) {
+			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS",
+					"Only a proposed allocation can be approved or rejected, but this one is "
+							+ allocation.getStatus().name().toLowerCase().replace('_', ' '));
+		}
+	}
+
+	private Allocation find(Long id) {
+		return allocationRepository.findById(id).orElseThrow(() -> new NotFoundException("Allocation", id));
 	}
 
 	/** BR-9: an active user with the EMPLOYEE role, who has every mandatory skill at its minimum level or above. */
@@ -224,41 +271,10 @@ public class AllocationService {
 	 * {@code "Capacity would be exceeded on 2026-11-02 – 2026-11-13 (120%)"}. A weekend doesn't break a run.
 	 */
 	private List<String> capacityWarnings(Long employeeId, LocalDate from, LocalDate to, int percent) {
-		List<String> warnings = new ArrayList<>();
-		LocalDate runStart = null;
-		LocalDate runEnd = null;
-		int runLoad = 0;
-		for (Map<String, Object> day : capacityService.findOverloadedDays(employeeId, from, to, percent, null, true)) {
-			LocalDate date = (LocalDate) day.get("date");
-			int load = (Integer) day.get("load");
-			if (runStart != null && load == runLoad && date.equals(nextWorkingDay(runEnd))) {
-				runEnd = date;
-				continue;
-			}
-			if (runStart != null) {
-				warnings.add(capacityWarning(runStart, runEnd, runLoad));
-			}
-			runStart = date;
-			runEnd = date;
-			runLoad = load;
-		}
-		if (runStart != null) {
-			warnings.add(capacityWarning(runStart, runEnd, runLoad));
-		}
-		return warnings;
-	}
-
-	private static String capacityWarning(LocalDate start, LocalDate end, int load) {
-		String days = start.equals(end) ? start.toString() : start + " – " + end;
-		return "Capacity would be exceeded on " + days + " (" + load + "%)";
-	}
-
-	private static LocalDate nextWorkingDay(LocalDate day) {
-		LocalDate next = day.plusDays(1);
-		while (next.getDayOfWeek() == DayOfWeek.SATURDAY || next.getDayOfWeek() == DayOfWeek.SUNDAY) {
-			next = next.plusDays(1);
-		}
-		return next;
+		return CapacityService.toRuns(capacityService.findOverloadedDays(employeeId, from, to, percent, null, true))
+			.stream()
+			.map(run -> "Capacity would be exceeded on " + run.days() + " (" + run.load() + "%)")
+			.toList();
 	}
 
 	/** The same body as a Bean Validation failure, so a form can show the message next to the field. */

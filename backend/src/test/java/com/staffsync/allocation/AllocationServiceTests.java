@@ -3,8 +3,10 @@ package com.staffsync.allocation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -16,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
 import com.staffsync.allocation.dto.MissingSkill;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
@@ -36,6 +39,7 @@ import com.staffsync.user.Role;
 import com.staffsync.user.Seniority;
 import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,6 +73,12 @@ class AllocationServiceTests {
 	static final Long REQUEST_ID = 10L;
 
 	static final AuthUser PM = new AuthUser(PM_ID, "pm@staffsync.local", Role.PM);
+
+	static final Long RM_ID = 3L;
+
+	static final Long ALLOCATION_ID = 20L;
+
+	static final AuthUser RM = new AuthUser(RM_ID, "rm@staffsync.local", Role.RM);
 
 	@Mock
 	AllocationRepository allocationRepository;
@@ -372,6 +382,113 @@ class AllocationServiceTests {
 		verify(capacityService).findOverloadedDays(EMPLOYEE_ID, nov(15), nov(30), 40, null, true);
 	}
 
+	// ---- approve (US-10)
+
+	@Test
+	void theRmApprovesAndTheDecisionIsRecorded() {
+		Allocation allocation = givenProposedAllocation();
+
+		AllocationDto result = allocationService.approve(ALLOCATION_ID, RM);
+
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(allocation.getDecidedBy().getId()).isEqualTo(RM_ID);
+		assertThat(allocation.getDecidedAt()).isNotNull();
+		assertThat(allocation.getDecisionComment()).isNull();
+		assertThat(result.status()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(result.decidedById()).isEqualTo(RM_ID);
+		assertThat(result.decidedByName()).isEqualTo("First3 Last");
+	}
+
+	@Test
+	void approvalRunsTheHardCapacityCheckOnTheAllocationsPeriodAndPercent() {
+		givenProposedAllocation();
+
+		allocationService.approve(ALLOCATION_ID, RM);
+
+		// Active allocations only (BR-1), so the PROPOSED ones of other requests don't block it (BR-2)
+		verify(capacityService).checkCapacity(EMPLOYEE_ID, nov(1), LocalDate.of(2027, 1, 31), 60, null);
+	}
+
+	@Test
+	void aCapacityBreachLeavesTheAllocationProposed() {
+		Allocation allocation = givenProposedAllocation();
+		BusinessException exceeded = new BusinessException(HttpStatus.CONFLICT, CapacityService.CAPACITY_EXCEEDED,
+				"Capacity exceeded on 2026-11-02 (60% existing + 60% new = 120%)", List.of(day(2, 120)));
+		doThrow(exceeded).when(capacityService).checkCapacity(any(), any(), any(), anyInt(), any());
+
+		assertThatThrownBy(() -> allocationService.approve(ALLOCATION_ID, RM)).isSameAs(exceeded);
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.PROPOSED);
+		assertThat(allocation.getDecidedBy()).isNull();
+		assertThat(allocation.getDecidedAt()).isNull();
+	}
+
+	@Test
+	void anUnknownAllocationIsNotFound() {
+		when(allocationRepository.findById(ALLOCATION_ID)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> allocationService.approve(ALLOCATION_ID, RM)).isInstanceOf(NotFoundException.class);
+	}
+
+	// ---- BR-5 / T-12, T-13
+
+	@Test
+	void anRmOfAnotherTeamIsForbidden() {
+		givenProposedAllocation();
+		AuthUser otherRm = new AuthUser(9L, "other-rm@staffsync.local", Role.RM);
+
+		assertDecisionFails(() -> allocationService.approve(ALLOCATION_ID, otherRm), HttpStatus.FORBIDDEN,
+				"NOT_RESOURCE_MANAGER");
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = Role.class, names = { "EMPLOYEE", "PM", "ADMIN" })
+	void anotherRoleIsForbiddenEvenWithTheManagersId(Role role) {
+		givenProposedAllocation();
+
+		assertDecisionFails(() -> allocationService.approve(ALLOCATION_ID, new AuthUser(RM_ID, "x", role)),
+				HttpStatus.FORBIDDEN, "NOT_RESOURCE_MANAGER");
+	}
+
+	@Test
+	void anEmployeeWithoutAnRmCannotBeDecidedOn() {
+		givenProposedAllocation();
+		employee.setManager(null);
+
+		assertDecisionFails(() -> allocationService.approve(ALLOCATION_ID, RM), HttpStatus.FORBIDDEN,
+				"NOT_RESOURCE_MANAGER");
+	}
+
+	// ---- BR-7 / T-15
+
+	@ParameterizedTest
+	@EnumSource(value = AllocationStatus.class, names = "PROPOSED", mode = EnumSource.Mode.EXCLUDE)
+	void onlyAProposedAllocationCanBeApproved(AllocationStatus status) {
+		givenProposedAllocation().setStatus(status);
+
+		assertDecisionFails(() -> allocationService.approve(ALLOCATION_ID, RM), HttpStatus.CONFLICT,
+				"INVALID_ALLOCATION_STATUS");
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = RequestStatus.class, names = { "FILLED", "CANCELLED" })
+	void aFilledOrCancelledRequestTakesNoApprovals(RequestStatus status) {
+		givenProposedAllocation();
+		request.setStatus(status);
+
+		assertDecisionFails(() -> allocationService.approve(ALLOCATION_ID, RM), HttpStatus.CONFLICT,
+				"REQUEST_NOT_OPEN");
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = ProjectStatus.class, names = { "COMPLETED", "CANCELLED" })
+	void aClosedProjectTakesNoApprovals(ProjectStatus status) {
+		givenProposedAllocation();
+		project.setStatus(status);
+
+		assertDecisionFails(() -> allocationService.approve(ALLOCATION_ID, RM), HttpStatus.CONFLICT,
+				"PROJECT_CLOSED");
+	}
+
 	// ---- search (the role scoping runs in the database, see AllocationControllerTests)
 
 	@Test
@@ -428,6 +545,27 @@ class AllocationServiceTests {
 		givenRequest();
 		givenEligibleEmployee();
 		when(allocationRepository.save(any(Allocation.class))).thenAnswer(call -> call.getArgument(0));
+	}
+
+	/** The employee's RM is {@link #RM}, and the allocation is the request's 60% over its whole period. */
+	private Allocation givenProposedAllocation() {
+		employee.setManager(user(RM_ID, Role.RM));
+		Allocation allocation = new Allocation(request, employee, 60, nov(1), LocalDate.of(2027, 1, 31), pm);
+		ReflectionTestUtils.setField(allocation, "id", ALLOCATION_ID);
+		when(allocationRepository.findById(ALLOCATION_ID)).thenReturn(Optional.of(allocation));
+		return allocation;
+	}
+
+	/** A failed decision changes nothing: the capacity isn't checked and no decision is recorded. */
+	private void assertDecisionFails(ThrowingCallable decision, HttpStatus status, String code) {
+		assertThatThrownBy(decision).isInstanceOfSatisfying(BusinessException.class, ex -> {
+			assertThat(ex.getStatus()).isEqualTo(status);
+			assertThat(ex.getCode()).isEqualTo(code);
+		});
+		verify(capacityService, never()).checkCapacity(any(), any(), any(), anyInt(), any());
+		Allocation allocation = allocationRepository.findById(ALLOCATION_ID).orElseThrow();
+		assertThat(allocation.getDecidedBy()).isNull();
+		assertThat(allocation.getDecidedAt()).isNull();
 	}
 
 	private Allocation savedAllocation() {

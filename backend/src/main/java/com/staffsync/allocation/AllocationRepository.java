@@ -3,6 +3,7 @@ package com.staffsync.allocation;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,8 +18,13 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 
 	// The DTO shows the employee, the request and the project, so they are loaded with the allocation
 	@Override
-	@EntityGraph(attributePaths = { "employee", "request", "request.project" })
+	@EntityGraph(attributePaths = { "employee", "request", "request.project", "decidedBy" })
 	Page<Allocation> findAll(Specification<Allocation> spec, Pageable pageable);
+
+	// Approve and reject check the employee's RM (BR-5) and the project (BR-9), and return the DTO
+	@Override
+	@EntityGraph(attributePaths = { "employee", "employee.manager", "request", "request.project" })
+	Optional<Allocation> findById(Long id);
 
 	/**
 	 * The employee's allocations in the given statuses whose period overlaps {@code [from, to]}
