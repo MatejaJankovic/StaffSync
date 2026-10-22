@@ -526,6 +526,22 @@ describe('CandidatesPage', () => {
       expect(names()).toEqual(['Marko Marković']);
     });
 
+    it('adds the notice to a live region that is there before the first proposal, so it is announced', async () => {
+      await open();
+      await respond();
+      const region = el().querySelector('[role="status"].candidates__notices');
+      expect(region).toBeTruthy();
+      expect(region!.children).toHaveLength(0);
+
+      await propose('Jelena Petrović', proposalFor(JELENA, ['Capacity would be exceeded']), [
+        MARKO,
+      ]);
+
+      expect(el().querySelector('[role="status"].candidates__notices')).toBe(region);
+      expect(region!.querySelectorAll('.candidates__notice')).toHaveLength(1);
+      expect(notices()[0].getAttribute('role')).toBeNull();
+    });
+
     it('keeps a notice per proposal, and dismisses them one at a time', async () => {
       await open();
       await respond();

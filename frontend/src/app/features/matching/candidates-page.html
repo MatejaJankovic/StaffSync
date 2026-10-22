@@ -68,33 +68,37 @@
           </div>
         </dl>
 
-        @for (notice of notices(); track notice.allocationId) {
-          <div class="candidates__notice" role="status">
-            <mat-icon>warning</mat-icon>
-            <div class="candidates__notice-text">
-              <p class="candidates__notice-title">
-                {{ notice.employeeName }} was proposed, with warnings
-              </p>
-              <ul>
-                @for (warning of notice.warnings; track $index) {
-                  <li>{{ warning }}</li>
-                }
-              </ul>
-              <p>
-                The proposal is saved. The resource manager can’t approve it while this person has
-                too little capacity.
-              </p>
+        <!-- One live region, always there: screen readers announce what is added to it, but not
+             always a region that appears together with its content -->
+        <div class="candidates__notices" role="status">
+          @for (notice of notices(); track notice.allocationId) {
+            <div class="candidates__notice">
+              <mat-icon>warning</mat-icon>
+              <div class="candidates__notice-text">
+                <p class="candidates__notice-title">
+                  {{ notice.employeeName }} was proposed, with warnings
+                </p>
+                <ul>
+                  @for (warning of notice.warnings; track $index) {
+                    <li>{{ warning }}</li>
+                  }
+                </ul>
+                <p>
+                  The proposal is saved. The resource manager can’t approve it while this person has
+                  too little capacity.
+                </p>
+              </div>
+              <button
+                mat-icon-button
+                type="button"
+                [attr.aria-label]="'Dismiss the warnings for ' + notice.employeeName"
+                (click)="dismiss(notice)"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
             </div>
-            <button
-              mat-icon-button
-              type="button"
-              [attr.aria-label]="'Dismiss the warnings for ' + notice.employeeName"
-              (click)="dismiss(notice)"
-            >
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-        }
+          }
+        </div>
 
         @if (fetchCandidates(); as fetch) {
           <app-paged-table
