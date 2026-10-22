@@ -68,6 +68,34 @@
           </div>
         </dl>
 
+        @for (notice of notices(); track notice.allocationId) {
+          <div class="candidates__notice" role="status">
+            <mat-icon>warning</mat-icon>
+            <div class="candidates__notice-text">
+              <p class="candidates__notice-title">
+                {{ notice.employeeName }} was proposed, with warnings
+              </p>
+              <ul>
+                @for (warning of notice.warnings; track $index) {
+                  <li>{{ warning }}</li>
+                }
+              </ul>
+              <p>
+                The proposal is saved. The resource manager can’t approve it while this person has
+                too little capacity.
+              </p>
+            </div>
+            <button
+              mat-icon-button
+              type="button"
+              [attr.aria-label]="'Dismiss the warnings for ' + notice.employeeName"
+              (click)="dismiss(notice)"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        }
+
         @if (fetchCandidates(); as fetch) {
           <app-paged-table
             [columns]="columns"
@@ -76,7 +104,7 @@
             [pageSize]="10"
           >
             <ng-template appPagedTableCell="candidate" let-row>
-              <div class="candidate__cell">
+              <div class="candidate__cell candidate__cell--name">
                 <div class="candidate__name">{{ row.fullName }}</div>
                 <div class="candidate__meta">{{ meta(row) }}</div>
               </div>
@@ -128,6 +156,20 @@
                     }
                   </ul>
                 }
+              </div>
+            </ng-template>
+
+            <ng-template appPagedTableCell="actions" let-row>
+              <div class="candidate__cell">
+                <button
+                  mat-flat-button
+                  type="button"
+                  [attr.aria-label]="'Propose ' + row.fullName"
+                  (click)="propose(row)"
+                >
+                  <mat-icon>person_add</mat-icon>
+                  Propose
+                </button>
               </div>
             </ng-template>
           </app-paged-table>

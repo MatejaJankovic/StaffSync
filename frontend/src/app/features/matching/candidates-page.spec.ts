@@ -2,11 +2,15 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
+import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
+import { Notifications } from '../../core/error/notifications';
+import { AllocationProposal } from '../allocations/allocation.models';
 import { RequestStatus, StaffingRequest } from '../requests/request.models';
 import { Candidate } from './candidate.models';
 import { CandidatesPage } from './candidates-page';
+import { ProposeDialog } from './propose-dialog';
 
 // §4 step 2: the demo request
 const REQUEST: StaffingRequest = {
@@ -61,12 +65,42 @@ const JELENA: Candidate = {
 const REQUEST_URL = '/api/requests/9';
 const CANDIDATES_URL = '/api/requests/9/candidates?page=0&size=10';
 
+/** What `POST /api/allocations` answers when `candidate` is proposed for the demo request. */
+function proposalFor(candidate: Candidate, warnings: string[] = []): AllocationProposal {
+  return {
+    allocation: {
+      id: 100 + candidate.employeeId,
+      employeeId: candidate.employeeId,
+      employeeName: candidate.fullName,
+      projectId: 5,
+      projectName: 'Project Alpha',
+      requestId: 9,
+      requestTitle: 'Java Developer',
+      percent: 60,
+      startDate: '2026-11-01',
+      endDate: '2027-01-31',
+      status: 'PROPOSED',
+      createdAt: '2026-10-22T09:15:30Z',
+      pendingPercent: null,
+      pendingStartDate: null,
+      pendingEndDate: null,
+      changeReason: null,
+    },
+    warnings,
+  };
+}
+
 describe('CandidatesPage', () => {
   let fixture: ComponentFixture<CandidatesPage>;
   let httpMock: HttpTestingController;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+  let dialogOpen: ReturnType<typeof vi.spyOn>;
+  let success: ReturnType<typeof vi.spyOn>;
+  /** What the Propose dialog closes with: the proposal, or nothing when the PM cancels. */
+  let dialogResult: AllocationProposal | undefined;
 
   async function open(id = '9'): Promise<void> {
+    dialogResult = undefined;
     params = new BehaviorSubject(convertToParamMap({ id }));
     await TestBed.configureTestingModule({
       imports: [CandidatesPage],
@@ -82,6 +116,10 @@ describe('CandidatesPage', () => {
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
+    dialogOpen = vi
+      .spyOn(TestBed.inject(MatDialog), 'open')
+      .mockImplementation(() => ({ afterClosed: () => of(dialogResult) }) as never);
+    success = vi.spyOn(TestBed.inject(Notifications), 'success').mockReturnValue(undefined);
     fixture = TestBed.createComponent(CandidatesPage);
     fixture.detectChanges();
   }
@@ -147,6 +185,30 @@ describe('CandidatesPage', () => {
 
   function backLink(): HTMLAnchorElement {
     return el().querySelector<HTMLAnchorElement>('a.candidates__back')!;
+  }
+
+  function proposeButton(name: string): HTMLButtonElement | null {
+    return el().querySelector<HTMLButtonElement>(`button[aria-label="Propose ${name}"]`);
+  }
+
+  function notices(): HTMLElement[] {
+    return [...el().querySelectorAll<HTMLElement>('.candidates__notice')];
+  }
+
+  /**
+   * The PM clicks Propose on `name`. The dialog closes with `result`, and the table loads the
+   * candidates again; `remaining` is what the API then answers.
+   */
+  async function propose(
+    name: string,
+    result: AllocationProposal | undefined,
+    remaining: Candidate[],
+  ): Promise<void> {
+    dialogResult = result;
+    proposeButton(name)!.click();
+    await settle();
+    answer(remaining);
+    await settle();
   }
 
   it('shows the request: title, status, seniority, allocation, period, headcount and skills', async () => {
@@ -415,6 +477,126 @@ describe('CandidatesPage', () => {
 
       expect(backLink().getAttribute('href')).toBe('/projects');
       expect(backLink().textContent).toContain('My projects');
+    });
+  });
+
+  describe('proposing a candidate', () => {
+    it('has a Propose button on every candidate', async () => {
+      await open();
+
+      await respond();
+
+      expect(proposeButton('Marko Marković')?.textContent).toContain('Propose');
+      expect(proposeButton('Jelena Petrović')?.textContent).toContain('Propose');
+    });
+
+    it('opens the Propose dialog with the request and the candidate', async () => {
+      await open();
+      await respond();
+
+      await propose('Jelena Petrović', undefined, [MARKO, JELENA]);
+
+      expect(dialogOpen).toHaveBeenCalledTimes(1);
+      expect(dialogOpen.mock.calls[0][0]).toBe(ProposeDialog);
+      expect(dialogOpen.mock.calls[0][1]).toMatchObject({
+        data: { request: REQUEST, candidate: JELENA },
+      });
+    });
+
+    it('thanks the PM with a snackbar, and the proposed person drops off the list', async () => {
+      await open();
+      await respond();
+
+      await propose('Marko Marković', proposalFor(MARKO), [JELENA]);
+
+      expect(success).toHaveBeenCalledWith('Marko Marković proposed');
+      expect(names()).toEqual(['Jelena Petrović']);
+      expect(notices()).toHaveLength(0);
+    });
+
+    it('keeps the soft-booking warnings on the page, instead of a snackbar (BR-2)', async () => {
+      await open();
+      await respond();
+      const warning = 'Capacity would be exceeded on 2026-11-02 – 2026-11-13 (120%)';
+
+      await propose('Jelena Petrović', proposalFor(JELENA, [warning]), [MARKO]);
+
+      expect(success).not.toHaveBeenCalled();
+      expect(notices()).toHaveLength(1);
+      expect(notices()[0].textContent).toContain('Jelena Petrović was proposed, with warnings');
+      expect(texts(notices()[0], 'li')).toEqual([warning]);
+      expect(notices()[0].textContent).toContain('can’t approve it while');
+      expect(names()).toEqual(['Marko Marković']);
+    });
+
+    it('keeps a notice per proposal, and dismisses them one at a time', async () => {
+      await open();
+      await respond();
+      await propose('Marko Marković', proposalFor(MARKO, ['Capacity would be exceeded (110%)']), [
+        JELENA,
+      ]);
+      await propose(
+        'Jelena Petrović',
+        proposalFor(JELENA, ['Capacity would be exceeded (120%)']),
+        [],
+      );
+      expect(
+        notices().map((notice) =>
+          notice.querySelector('.candidates__notice-title')?.textContent?.trim(),
+        ),
+      ).toEqual([
+        'Marko Marković was proposed, with warnings',
+        'Jelena Petrović was proposed, with warnings',
+      ]);
+
+      el()
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="Dismiss the warnings for Marko Marković"]',
+        )!
+        .click();
+      await settle();
+
+      expect(notices()).toHaveLength(1);
+      expect(notices()[0].textContent).toContain('Jelena Petrović');
+    });
+
+    it('explains the empty list once everyone who matches has been proposed', async () => {
+      await open();
+      await respond(REQUEST, [MARKO]);
+
+      await propose('Marko Marković', proposalFor(MARKO), []);
+
+      expect(names()).toEqual([]);
+      expect(el().textContent).toContain('everyone who does is already proposed or staffed');
+    });
+
+    it('loads the list again when the PM cancels, in case a failed proposal left it out of date', async () => {
+      await open();
+      await respond();
+
+      await propose('Marko Marković', undefined, [MARKO]);
+
+      expect(success).not.toHaveBeenCalled();
+      expect(notices()).toHaveLength(0);
+      expect(names()).toEqual(['Marko Marković']);
+    });
+
+    it('forgets the notices when another request is opened', async () => {
+      await open();
+      await respond();
+      await propose('Jelena Petrović', proposalFor(JELENA, ['Capacity would be exceeded (120%)']), [
+        MARKO,
+      ]);
+      expect(notices()).toHaveLength(1);
+
+      params.next(convertToParamMap({ id: '10' }));
+      await settle();
+      httpMock.expectOne('/api/requests/10').flush({ ...REQUEST, id: 10, title: 'QA Engineer' });
+      await settle();
+      answer([MARKO], '/api/requests/10/candidates?page=0&size=10');
+      await settle();
+
+      expect(notices()).toHaveLength(0);
     });
   });
 
