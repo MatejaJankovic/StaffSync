@@ -1,0 +1,27 @@
+<section class="home">
+  <h1>Home</h1>
+
+  @switch (state()) {
+    @case ('loading') {
+      <p class="home__message">Loading your overview…</p>
+    }
+    @case ('failed') {
+      <p class="home__message" role="alert">
+        Unable to load your overview.
+        <button mat-button (click)="load()">Retry</button>
+      </p>
+    }
+    @default {
+      <div class="home__cards">
+        @for (card of cards(); track card.key) {
+          <app-stat-card
+            [value]="card.value"
+            [label]="card.label"
+            [caption]="caption(card)"
+            [link]="card.link"
+          />
+        }
+      </div>
+    }
+  }
+</section>
