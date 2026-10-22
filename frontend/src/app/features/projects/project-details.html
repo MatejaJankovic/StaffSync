@@ -61,8 +61,7 @@
 
         <section class="project__section" aria-labelledby="project-team">
           <h2 id="project-team">Team</h2>
-          <!-- US-08 (#31) embeds the allocations team panel here, e.g. <app-team-panel [projectId]="current.id" /> -->
-          <p class="project__placeholder">The project team will appear here.</p>
+          <app-team-panel [project]="current" />
         </section>
       }
     }

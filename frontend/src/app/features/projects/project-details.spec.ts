@@ -79,6 +79,10 @@ describe('ProjectDetails', () => {
     for (const call of httpMock.match(`${PROJECTS_URL}/${id}/requests?page=0&size=10`)) {
       call.flush({ content: [], page: { size: 10, number: 0, totalElements: 0, totalPages: 0 } });
     }
+    // and the team panel loads the project's allocations
+    for (const call of httpMock.match(`/api/allocations?projectId=${id}&page=0&size=10`)) {
+      call.flush({ content: [], page: { size: 10, number: 0, totalElements: 0, totalPages: 0 } });
+    }
     await settle();
   }
 
@@ -109,13 +113,14 @@ describe('ProjectDetails', () => {
     expect(el().textContent).toContain('No description');
   });
 
-  it('has a section for staffing requests and one for the team, ready for US-05 and US-08', async () => {
+  it('has a section for staffing requests and one for the team', async () => {
     await open();
 
     await respond();
 
     const headings = [...el().querySelectorAll('h2')].map((h) => h.textContent?.trim());
     expect(headings).toEqual(['Staffing requests', 'Team']);
+    expect(el().querySelector('#project-team + app-team-panel')).toBeTruthy();
     expect(el().querySelector('.project__status-action')).toBeTruthy();
   });
 
