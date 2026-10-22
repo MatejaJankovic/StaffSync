@@ -22,6 +22,7 @@ import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
 import com.staffsync.allocation.dto.MissingSkill;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
+import com.staffsync.allocation.dto.RejectAllocationRequest;
 import com.staffsync.auth.AuthUser;
 import com.staffsync.common.BusinessException;
 import com.staffsync.common.NotFoundException;
@@ -489,6 +490,42 @@ class AllocationServiceTests {
 				"PROJECT_CLOSED");
 	}
 
+	// ---- reject (US-10; the comment length, BR-6 / T-14, is Bean Validation, see AllocationControllerTests)
+
+	@Test
+	void theRmRejectsWithACommentAndTheDecisionIsRecorded() {
+		Allocation allocation = givenProposedAllocation();
+
+		AllocationDto result = allocationService.reject(ALLOCATION_ID, rejection(), RM);
+
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.REJECTED);
+		assertThat(allocation.getDecidedBy().getId()).isEqualTo(RM_ID);
+		assertThat(allocation.getDecidedAt()).isNotNull();
+		assertThat(allocation.getDecisionComment()).isEqualTo("Fully booked on Project Beta until December");
+		assertThat(result.decisionComment()).isEqualTo("Fully booked on Project Beta until December");
+		// A proposal was never active, so neither the capacity nor the request status is touched
+		assertThat(request.getStatus()).isEqualTo(RequestStatus.OPEN);
+		verify(capacityService, never()).checkCapacity(any(), any(), any(), anyInt(), any());
+	}
+
+	@Test
+	void anRmOfAnotherTeamCannotReject() {
+		givenProposedAllocation();
+		AuthUser otherRm = new AuthUser(9L, "other-rm@staffsync.local", Role.RM);
+
+		assertDecisionFails(() -> allocationService.reject(ALLOCATION_ID, rejection(), otherRm),
+				HttpStatus.FORBIDDEN, "NOT_RESOURCE_MANAGER");
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = AllocationStatus.class, names = "PROPOSED", mode = EnumSource.Mode.EXCLUDE)
+	void onlyAProposedAllocationCanBeRejected(AllocationStatus status) {
+		givenProposedAllocation().setStatus(status);
+
+		assertDecisionFails(() -> allocationService.reject(ALLOCATION_ID, rejection(), RM), HttpStatus.CONFLICT,
+				"INVALID_ALLOCATION_STATUS");
+	}
+
 	// ---- search (the role scoping runs in the database, see AllocationControllerTests)
 
 	@Test
@@ -581,6 +618,10 @@ class AllocationServiceTests {
 				assertThat(ex.getCode()).isEqualTo(code);
 			});
 		verify(allocationRepository, never()).save(any());
+	}
+
+	static RejectAllocationRequest rejection() {
+		return new RejectAllocationRequest("Fully booked on Project Beta until December");
 	}
 
 	static ProposeAllocationRequest body(Integer percent, LocalDate start, LocalDate end) {

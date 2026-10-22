@@ -672,6 +672,92 @@ class AllocationControllerTests {
 		given().when().post("/api/allocations/1/approve").then().statusCode(401);
 	}
 
+	// ---- reject (US-10)
+
+	@Test
+	void theEmployeesRmRejectsWithAComment() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Marko", rm), null, null, null));
+
+		given().auth().oauth2(login(rm.getEmail()).token()).contentType(ContentType.JSON)
+			.body(Map.of("comment", "Fully booked on Project Beta until December"))
+			.when().post("/api/allocations/" + allocation + "/reject")
+			.then()
+			.statusCode(200)
+			.body("status", equalTo("REJECTED"))
+			.body("decidedById", equalTo(rm.getId().intValue()))
+			.body("decidedAt", notNullValue())
+			.body("decisionComment", equalTo("Fully booked on Project Beta until December"));
+	}
+
+	// ---- BR-6 / T-14
+
+	@ParameterizedTest
+	@ValueSource(strings = { "", "          ", "Too short" })
+	void aBlankOrShortCommentIs400AndTheAllocationStaysProposed(String comment) {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Marko", rm), null, null, null));
+
+		given().auth().oauth2(login(rm.getEmail()).token()).contentType(ContentType.JSON)
+			.body(Map.of("comment", comment))
+			.when().post("/api/allocations/" + allocation + "/reject")
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("VALIDATION_ERROR"))
+			.body("details.field", hasItem("comment"));
+		assertThat(allocationRepository.findById((long) allocation).orElseThrow().getStatus())
+			.isEqualTo(AllocationStatus.PROPOSED);
+	}
+
+	@Test
+	void aMissingCommentIs400() {
+		given().auth().oauth2(login(RM).token()).contentType(ContentType.JSON).body(Map.of())
+			.when().post("/api/allocations/1/reject")
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("VALIDATION_ERROR"))
+			.body("details.field", hasItem("comment"));
+	}
+
+	// ---- BR-5, BR-7 on reject
+
+	@Test
+	void anRmOfAnotherTeamCannotReject() {
+		LoggedIn pm = login(PM);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Marko", newUser("Team", Role.RM)), null, null, null));
+
+		given().auth().oauth2(login(newUser("Other", Role.RM).getEmail()).token()).contentType(ContentType.JSON)
+			.body(Map.of("comment", "Fully booked on Project Beta until December"))
+			.when().post("/api/allocations/" + allocation + "/reject")
+			.then()
+			.statusCode(403)
+			.body("code", equalTo("NOT_RESOURCE_MANAGER"));
+	}
+
+	@Test
+	void aRejectedAllocationCannotBeDecidedAgain() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Marko", rm), null, null, null));
+		String rmToken = login(rm.getEmail()).token();
+		Map<String, String> body = Map.of("comment", "Fully booked on Project Beta until December");
+		given().auth().oauth2(rmToken).contentType(ContentType.JSON).body(body)
+			.when().post("/api/allocations/" + allocation + "/reject").then().statusCode(200);
+
+		given().auth().oauth2(rmToken).contentType(ContentType.JSON).body(body)
+			.when().post("/api/allocations/" + allocation + "/reject")
+			.then().statusCode(409).body("code", equalTo("INVALID_ALLOCATION_STATUS"));
+		given().auth().oauth2(rmToken)
+			.when().post("/api/allocations/" + allocation + "/approve")
+			.then().statusCode(409).body("code", equalTo("INVALID_ALLOCATION_STATUS"));
+	}
+
 	// ---- helpers
 
 	private record Scenario(LoggedIn pmA, LoggedIn pmB, User rm, User ena, User filip, int projectA, int projectB,

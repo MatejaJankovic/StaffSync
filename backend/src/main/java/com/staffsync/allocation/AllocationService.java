@@ -11,6 +11,7 @@ import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
 import com.staffsync.allocation.dto.MissingSkill;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
+import com.staffsync.allocation.dto.RejectAllocationRequest;
 import com.staffsync.auth.AuthUser;
 import com.staffsync.common.BusinessException;
 import com.staffsync.common.ErrorResponse.FieldViolation;
@@ -120,6 +121,22 @@ public class AllocationService {
 
 		allocation.setStatus(AllocationStatus.APPROVED);
 		allocation.recordDecision(rm, null);
+		return AllocationDto.from(allocation);
+	}
+
+	/**
+	 * The RM rejects a proposed allocation (§9: {@code PROPOSED → REJECTED}) with a comment, whose length
+	 * (BR-6) is checked on the request body. Same checks as approve: BR-5 (403), then BR-7 (409). The request
+	 * status doesn't change, because a proposal was never active (BR-10).
+	 */
+	@Transactional
+	public AllocationDto reject(Long id, RejectAllocationRequest body, AuthUser currentUser) {
+		Allocation allocation = find(id);
+		User rm = checkResourceManager(allocation, currentUser);
+		checkPendingDecision(allocation);
+
+		allocation.setStatus(AllocationStatus.REJECTED);
+		allocation.recordDecision(rm, body.comment());
 		return AllocationDto.from(allocation);
 	}
 

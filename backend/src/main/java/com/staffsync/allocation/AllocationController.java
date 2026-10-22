@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
+import com.staffsync.allocation.dto.RejectAllocationRequest;
 import com.staffsync.auth.AuthUser;
 import com.staffsync.common.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -116,6 +117,28 @@ public class AllocationController {
 	@PostMapping("/{id}/approve")
 	public AllocationDto approve(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
 		return allocationService.approve(id, user);
+	}
+
+	@Operation(summary = "Reject a proposed allocation (the employee's RM)",
+			description = "A comment of at least 10 characters is required (BR-6). The allocation becomes REJECTED "
+					+ "with decidedBy, decidedAt and decisionComment set, and can't be decided again. The request's "
+					+ "status doesn't change")
+	@ApiResponse(responseCode = "200", description = "Rejected")
+	@ApiResponse(responseCode = "400", description = "The comment is missing, blank, or shorter than 10 characters (BR-6)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not the employee's resource manager (BR-5)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No allocation with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409", description = "The allocation is not PROPOSED (BR-7)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('RM')")
+	@PostMapping("/{id}/reject")
+	public AllocationDto reject(@PathVariable Long id, @Valid @RequestBody RejectAllocationRequest request,
+			@AuthenticationPrincipal AuthUser user) {
+		return allocationService.reject(id, request, user);
 	}
 
 }
