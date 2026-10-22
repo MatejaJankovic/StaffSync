@@ -59,6 +59,12 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 			@Param("from") LocalDate from, @Param("to") LocalDate to,
 			@Param("statuses") Collection<AllocationStatus> statuses);
 
+	/** BR-10: how many of the request's allocations are in the given statuses (the active ones, BR-16). */
+	long countByRequestIdAndStatusIn(Long requestId, Collection<AllocationStatus> statuses);
+
+	/** T-19: the proposals that are cancelled once the request is filled. */
+	List<Allocation> findByRequestIdAndStatus(Long requestId, AllocationStatus status);
+
 	/** The employees who have an allocation in one of the given statuses on the request, whatever its period. */
 	@Query("""
 			select distinct a.employee.id from Allocation a

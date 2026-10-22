@@ -672,6 +672,65 @@ class AllocationControllerTests {
 		given().when().post("/api/allocations/1/approve").then().statusCode(401);
 	}
 
+	// ---- BR-10 / T-19, T-36
+
+	@Test
+	void approvalsFillTheRequestAndTheRemainingProposalsAreCancelled() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		int ana = propose(pm.token(), proposal(request, newEmployee("Ana", rm), null, null, null));
+		int boris = propose(pm.token(), proposal(request, newEmployee("Boris", rm), null, null, null));
+		int cedo = propose(pm.token(), proposal(request, newEmployee("Cedo", rm), null, null, null));
+		String rmToken = login(rm.getEmail()).token();
+
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + ana + "/approve").then().statusCode(200);
+		assertThat(requestStatus(request)).isEqualTo(RequestStatus.PARTIALLY_FILLED);
+		assertThat(allocationStatus(cedo)).isEqualTo(AllocationStatus.PROPOSED);
+
+		// Headcount 2
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + boris + "/approve").then().statusCode(200);
+		assertThat(requestStatus(request)).isEqualTo(RequestStatus.FILLED);
+		assertThat(allocationStatus(cedo)).isEqualTo(AllocationStatus.CANCELLED);
+		given().auth().oauth2(rmToken)
+			.when().post("/api/allocations/" + cedo + "/approve")
+			.then().statusCode(409).body("code", equalTo("INVALID_ALLOCATION_STATUS"));
+	}
+
+	@Test
+	void aChangePendingAllocationCountsAsActiveSoTheRequestIsFilled() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		int ana = propose(pm.token(), proposal(request, newEmployee("Ana", rm), null, null, null));
+		int boris = propose(pm.token(), proposal(request, newEmployee("Boris", rm), null, null, null));
+		String rmToken = login(rm.getEmail()).token();
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + ana + "/approve").then().statusCode(200);
+		// There is no change request endpoint yet (US-13)
+		setAllocationStatus(ana, AllocationStatus.CHANGE_PENDING);
+
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + boris + "/approve").then().statusCode(200);
+
+		assertThat(requestStatus(request)).isEqualTo(RequestStatus.FILLED);
+	}
+
+	@Test
+	void aRejectionDoesNotChangeTheRequestStatus() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		int ana = propose(pm.token(), proposal(request, newEmployee("Ana", rm), null, null, null));
+		int boris = propose(pm.token(), proposal(request, newEmployee("Boris", rm), null, null, null));
+		String rmToken = login(rm.getEmail()).token();
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + ana + "/approve").then().statusCode(200);
+
+		given().auth().oauth2(rmToken).contentType(ContentType.JSON)
+			.body(Map.of("comment", "Fully booked on Project Beta until December"))
+			.when().post("/api/allocations/" + boris + "/reject").then().statusCode(200);
+
+		assertThat(requestStatus(request)).isEqualTo(RequestStatus.PARTIALLY_FILLED);
+	}
+
 	// ---- reject (US-10)
 
 	@Test
@@ -770,6 +829,14 @@ class AllocationControllerTests {
 		Allocation allocation = allocationRepository.findById((long) id).orElseThrow();
 		allocation.setStatus(status);
 		allocationRepository.save(allocation);
+	}
+
+	private AllocationStatus allocationStatus(int id) {
+		return allocationRepository.findById((long) id).orElseThrow().getStatus();
+	}
+
+	private RequestStatus requestStatus(int id) {
+		return requestRepository.findById((long) id).orElseThrow().getStatus();
 	}
 
 	private Map<String, Object> proposal(int request, User employee, Integer percent, String start, String end) {

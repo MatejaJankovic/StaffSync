@@ -96,6 +96,9 @@ class AllocationServiceTests {
 	@Mock
 	CapacityService capacityService;
 
+	@Mock
+	RequestStatusService requestStatusService;
+
 	@InjectMocks
 	AllocationService allocationService;
 
@@ -411,6 +414,15 @@ class AllocationServiceTests {
 	}
 
 	@Test
+	void approvalRecalculatesTheRequestStatus() {
+		givenProposedAllocation();
+
+		allocationService.approve(ALLOCATION_ID, RM);
+
+		verify(requestStatusService).recalculate(REQUEST_ID);
+	}
+
+	@Test
 	void aCapacityBreachLeavesTheAllocationProposed() {
 		Allocation allocation = givenProposedAllocation();
 		BusinessException exceeded = new BusinessException(HttpStatus.CONFLICT, CapacityService.CAPACITY_EXCEEDED,
@@ -421,6 +433,7 @@ class AllocationServiceTests {
 		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.PROPOSED);
 		assertThat(allocation.getDecidedBy()).isNull();
 		assertThat(allocation.getDecidedAt()).isNull();
+		verify(requestStatusService, never()).recalculate(any());
 	}
 
 	@Test
@@ -506,6 +519,7 @@ class AllocationServiceTests {
 		// A proposal was never active, so neither the capacity nor the request status is touched
 		assertThat(request.getStatus()).isEqualTo(RequestStatus.OPEN);
 		verify(capacityService, never()).checkCapacity(any(), any(), any(), anyInt(), any());
+		verify(requestStatusService, never()).recalculate(any());
 	}
 
 	@Test
@@ -600,6 +614,7 @@ class AllocationServiceTests {
 			assertThat(ex.getCode()).isEqualTo(code);
 		});
 		verify(capacityService, never()).checkCapacity(any(), any(), any(), anyInt(), any());
+		verify(requestStatusService, never()).recalculate(any());
 		Allocation allocation = allocationRepository.findById(ALLOCATION_ID).orElseThrow();
 		assertThat(allocation.getDecidedBy()).isNull();
 		assertThat(allocation.getDecidedAt()).isNull();

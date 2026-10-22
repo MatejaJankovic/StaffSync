@@ -55,14 +55,17 @@ public class AllocationService {
 
 	private final CapacityService capacityService;
 
+	private final RequestStatusService requestStatusService;
+
 	public AllocationService(AllocationRepository allocationRepository, StaffingRequestRepository requestRepository,
 			UserRepository userRepository, EmployeeSkillRepository employeeSkillRepository,
-			CapacityService capacityService) {
+			CapacityService capacityService, RequestStatusService requestStatusService) {
 		this.allocationRepository = allocationRepository;
 		this.requestRepository = requestRepository;
 		this.userRepository = userRepository;
 		this.employeeSkillRepository = employeeSkillRepository;
 		this.capacityService = capacityService;
+		this.requestStatusService = requestStatusService;
 	}
 
 	/**
@@ -107,7 +110,8 @@ public class AllocationService {
 	 * The RM approves a proposed allocation (§9: {@code PROPOSED → APPROVED}). The checks run in this order:
 	 * BR-5 (403), BR-7 (409), the request and project are still open (409), then the hard capacity check on
 	 * every working day of the period (409 CAPACITY_EXCEEDED, BR-1). Nothing is changed before the last check
-	 * passes, so a failed approval leaves the allocation {@code PROPOSED}.
+	 * passes, so a failed approval leaves the allocation {@code PROPOSED}. Then the request status is
+	 * recalculated (BR-10).
 	 */
 	@Transactional
 	public AllocationDto approve(Long id, AuthUser currentUser) {
@@ -121,6 +125,7 @@ public class AllocationService {
 
 		allocation.setStatus(AllocationStatus.APPROVED);
 		allocation.recordDecision(rm, null);
+		requestStatusService.recalculate(allocation.getRequest().getId());
 		return AllocationDto.from(allocation);
 	}
 
