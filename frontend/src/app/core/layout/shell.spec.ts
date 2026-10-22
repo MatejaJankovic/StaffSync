@@ -1,9 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
 import { Role } from '../auth/auth.models';
 import { AuthService } from '../auth/auth.service';
+import { ChangePasswordDialog } from '../auth/change-password-dialog';
 import { menuFor } from './menu';
 import { Shell } from './shell';
 
@@ -66,5 +68,19 @@ describe('Shell', () => {
     item!.click();
 
     expect(logout).toHaveBeenCalled();
+  });
+
+  it('opens the Change password dialog from the user menu', async () => {
+    const el = await render('EMPLOYEE');
+    const open = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue(undefined as never);
+
+    el.querySelector<HTMLButtonElement>('.shell__user')!.click();
+    await fixture.whenStable();
+    const item = [...document.querySelectorAll<HTMLButtonElement>('[mat-menu-item]')].find((b) =>
+      b.textContent?.includes('Change password'),
+    );
+    item!.click();
+
+    expect(open).toHaveBeenCalledWith(ChangePasswordDialog, expect.anything());
   });
 });

@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
 import { User } from './auth.models';
-import { AuthService, LOGIN_URL, ME_URL } from './auth.service';
+import { AuthService, LOGIN_URL, ME_URL, PASSWORD_URL } from './auth.service';
 
 const USER: User = {
   id: 2,
@@ -115,6 +115,20 @@ describe('AuthService', () => {
 
     expect(auth.isLoggedIn()).toBe(true);
     expect(localStorage.getItem('staffsync.token')).toBe('jwt-token');
+  });
+
+  it('changePassword PUTs the old and new password', () => {
+    const auth = setup();
+    let done = false;
+    auth
+      .changePassword({ oldPassword: 'Temporary1!', newPassword: 'NewPassword1!' })
+      .subscribe(() => (done = true));
+
+    const req = httpMock.expectOne({ method: 'PUT', url: PASSWORD_URL });
+    expect(req.request.body).toEqual({ oldPassword: 'Temporary1!', newPassword: 'NewPassword1!' });
+    req.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(done).toBe(true);
   });
 
   it('restoreSession keeps the session on a server error', async () => {
