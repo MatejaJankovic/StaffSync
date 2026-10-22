@@ -3,10 +3,11 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom, map, Observable, tap } from 'rxjs';
 import { skipErrorSnackbar } from '../error/error.interceptor';
-import { LoginResponse, User } from './auth.models';
+import { ChangePasswordRequest, LoginResponse, User } from './auth.models';
 
 export const LOGIN_URL = '/api/auth/login';
 export const ME_URL = '/api/auth/me';
+export const PASSWORD_URL = '/api/auth/password';
 
 const TOKEN_KEY = 'staffsync.token';
 const USER_KEY = 'staffsync.user';
@@ -32,6 +33,11 @@ export class AuthService {
       tap(({ token, user }) => this.setSession(token, user)),
       map(({ user }) => user),
     );
+  }
+
+  changePassword(request: ChangePasswordRequest): Observable<void> {
+    // The Change password dialog shows its own error message
+    return this.http.put<void>(PASSWORD_URL, request, { context: skipErrorSnackbar() });
   }
 
   logout(): void {
