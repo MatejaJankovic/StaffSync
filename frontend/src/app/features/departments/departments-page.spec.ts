@@ -171,6 +171,24 @@ describe('DepartmentsPage', () => {
     );
     expect(notifications.success).not.toHaveBeenCalled();
   });
+
+  it('drops a department that someone else already deleted (404)', async () => {
+    await loadDepartments();
+    closeDialogWith(true);
+
+    clickButton('Delete Sales');
+    httpMock
+      .expectOne({ method: 'DELETE', url: `${DEPARTMENTS_URL}/2` })
+      .flush(
+        { code: 'NOT_FOUND', message: 'Department 2 not found' },
+        { status: 404, statusText: 'Not Found' },
+      );
+    await fixture.whenStable();
+
+    expect(names()).toEqual(['Design', 'Engineering']);
+    expect(notifications.error).toHaveBeenCalledWith('Department 2 not found');
+    expect(notifications.success).not.toHaveBeenCalled();
+  });
 });
 
 describe('Departments route', () => {

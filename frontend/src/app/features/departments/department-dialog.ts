@@ -52,7 +52,7 @@ export interface DepartmentDialogData {
       </mat-dialog-content>
 
       <mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close>Cancel</button>
+        <button mat-button type="button" mat-dialog-close [disabled]="saving()">Cancel</button>
         <button mat-flat-button type="submit" [disabled]="saving()">Save</button>
       </mat-dialog-actions>
     </form>
@@ -94,6 +94,9 @@ export class DepartmentDialog {
     const request = { name: this.form.getRawValue().name.trim() };
 
     this.saving.set(true);
+    // Escape or a click outside would close the dialog before the answer arrives, and the page
+    // would never learn that the department was saved
+    this.dialogRef.disableClose = true;
     const call = this.department
       ? this.departments.update(this.department.id, request)
       : this.departments.create(request);
@@ -101,7 +104,10 @@ export class DepartmentDialog {
     call.subscribe({
       next: (saved) => this.dialogRef.close(saved),
       // The global error snackbar has shown the message, so the form only becomes editable again
-      error: () => this.saving.set(false),
+      error: () => {
+        this.dialogRef.disableClose = false;
+        this.saving.set(false);
+      },
     });
   }
 }

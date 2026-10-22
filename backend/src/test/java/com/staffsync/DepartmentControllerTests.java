@@ -10,12 +10,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.staffsync.department.Department;
+import com.staffsync.department.DepartmentRepository;
+import com.staffsync.user.Role;
+import com.staffsync.user.User;
+import com.staffsync.user.UserRepository;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
@@ -32,6 +38,12 @@ class DepartmentControllerTests {
 
 	@LocalServerPort
 	int port;
+
+	@Autowired
+	DepartmentRepository departmentRepository;
+
+	@Autowired
+	UserRepository userRepository;
 
 	@BeforeEach
 	void setUp() {
@@ -62,15 +74,19 @@ class DepartmentControllerTests {
 		int second = createDepartment(token, "Order-B-" + suffix);
 		int first = createDepartment(token, "Order-A-" + suffix);
 
-		List<Integer> ids = given().auth().oauth2(token)
-			.when().get("/api/departments")
-			.then().statusCode(200)
-			.extract().jsonPath().getList("id");
+		try {
+			List<Integer> ids = given().auth().oauth2(token)
+				.when().get("/api/departments")
+				.then().statusCode(200)
+				.extract().jsonPath().getList("id");
 
-		assertThat(ids).containsSubsequence(first, second);
-
-		deleteDepartment(token, first);
-		deleteDepartment(token, second);
+			assertThat(ids).containsSubsequence(first, second);
+		}
+		finally {
+			// Also when the assertion fails, so the rows don't leak into the other tests
+			deleteDepartment(token, first);
+			deleteDepartment(token, second);
+		}
 	}
 
 	@ParameterizedTest
@@ -164,18 +180,21 @@ class DepartmentControllerTests {
 		String name = uniqueName();
 		int id = createDepartment(token, name);
 
-		given().auth().oauth2(token).contentType(ContentType.JSON)
-			.body(Map.of("name", "ENGINEERING"))
-			.when().put("/api/departments/" + id)
-			.then().statusCode(409).body("code", equalTo("DEPARTMENT_NAME_TAKEN"));
+		try {
+			given().auth().oauth2(token).contentType(ContentType.JSON)
+				.body(Map.of("name", "ENGINEERING"))
+				.when().put("/api/departments/" + id)
+				.then().statusCode(409).body("code", equalTo("DEPARTMENT_NAME_TAKEN"));
 
-		// Saving the same name again, or only changing its case, is not a duplicate of itself
-		given().auth().oauth2(token).contentType(ContentType.JSON)
-			.body(Map.of("name", name.toUpperCase()))
-			.when().put("/api/departments/" + id)
-			.then().statusCode(200).body("name", equalTo(name.toUpperCase()));
-
-		deleteDepartment(token, id);
+			// Saving the same name again, or only changing its case, is not a duplicate of itself
+			given().auth().oauth2(token).contentType(ContentType.JSON)
+				.body(Map.of("name", name.toUpperCase()))
+				.when().put("/api/departments/" + id)
+				.then().statusCode(200).body("name", equalTo(name.toUpperCase()));
+		}
+		finally {
+			deleteDepartment(token, id);
+		}
 	}
 
 	@Test
@@ -196,6 +215,30 @@ class DepartmentControllerTests {
 		given().auth().oauth2(token)
 			.when().get("/api/departments/" + engineering)
 			.then().statusCode(200);
+	}
+
+	/** The decision of US-17: a deactivated user still belongs to their department, so it can't be deleted. */
+	@Test
+	void deletingADepartmentWithOnlyADeactivatedUserIs409() {
+		String token = tokenFor(ADMIN);
+		Department department = departmentRepository.save(new Department(uniqueName()));
+		User user = new User("inactive-" + UUID.randomUUID() + "@staffsync.local", "not-a-real-hash", "Former",
+				"Employee", Role.EMPLOYEE);
+		user.setDepartment(department);
+		user.setActive(false);
+		user = userRepository.save(user);
+
+		try {
+			given().auth().oauth2(token)
+				.when().delete("/api/departments/" + department.getId())
+				.then()
+				.statusCode(409)
+				.body("code", equalTo("DEPARTMENT_IN_USE"));
+		}
+		finally {
+			userRepository.delete(user);
+			departmentRepository.delete(department);
+		}
 	}
 
 	@Test
@@ -223,6 +266,24 @@ class DepartmentControllerTests {
 			.body(Map.of("name", name))
 			.when().post("/api/departments")
 			.then().statusCode(400);
+	}
+
+	@Test
+	void renamingWithAnInvalidNameIs400() {
+		String token = tokenFor(ADMIN);
+		int id = createDepartment(token, uniqueName());
+
+		try {
+			for (String invalid : List.of("   ", "x".repeat(101), "a\nb")) {
+				given().auth().oauth2(token).contentType(ContentType.JSON)
+					.body(Map.of("name", invalid))
+					.when().put("/api/departments/" + id)
+					.then().statusCode(400).body("code", equalTo("VALIDATION_ERROR"));
+			}
+		}
+		finally {
+			deleteDepartment(token, id);
+		}
 	}
 
 	@Test

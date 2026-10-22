@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -74,14 +75,21 @@ export class DepartmentsPage implements OnInit {
       )
       .subscribe({
         next: () => {
-          this.departments.update((departments) =>
-            departments.filter((d) => d.id !== department.id),
-          );
+          this.removeFromList(department);
           this.notifications.success(`Deleted ${department.name}`);
         },
-        // The global error snackbar has shown why, and the department stays in the list
-        error: () => undefined,
+        // The global error snackbar has shown why. The department stays in the list, unless it
+        // is already gone (404): someone else deleted it, so the stale row would never go away
+        error: (err: unknown) => {
+          if (err instanceof HttpErrorResponse && err.status === 404) {
+            this.removeFromList(department);
+          }
+        },
       });
+  }
+
+  private removeFromList(department: Department): void {
+    this.departments.update((departments) => departments.filter((d) => d.id !== department.id));
   }
 
   private openDialog(data: DepartmentDialogData, message: string): void {
