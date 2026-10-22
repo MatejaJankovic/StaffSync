@@ -1,0 +1,211 @@
+package com.staffsync.allocation;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import com.staffsync.allocation.dto.AllocationDto;
+import com.staffsync.allocation.dto.AllocationProposalDto;
+import com.staffsync.allocation.dto.MissingSkill;
+import com.staffsync.allocation.dto.ProposeAllocationRequest;
+import com.staffsync.auth.AuthUser;
+import com.staffsync.common.BusinessException;
+import com.staffsync.common.ErrorResponse.FieldViolation;
+import com.staffsync.common.GlobalExceptionHandler;
+import com.staffsync.common.NotFoundException;
+import com.staffsync.employeeskill.EmployeeSkill;
+import com.staffsync.employeeskill.EmployeeSkillRepository;
+import com.staffsync.project.Project;
+import com.staffsync.project.ProjectStatus;
+import com.staffsync.request.RequestSkill;
+import com.staffsync.request.RequestStatus;
+import com.staffsync.request.StaffingRequest;
+import com.staffsync.request.StaffingRequestRepository;
+import com.staffsync.user.Role;
+import com.staffsync.user.User;
+import com.staffsync.user.UserRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class AllocationService {
+
+	private final AllocationRepository allocationRepository;
+
+	private final StaffingRequestRepository requestRepository;
+
+	private final UserRepository userRepository;
+
+	private final EmployeeSkillRepository employeeSkillRepository;
+
+	private final CapacityService capacityService;
+
+	public AllocationService(AllocationRepository allocationRepository, StaffingRequestRepository requestRepository,
+			UserRepository userRepository, EmployeeSkillRepository employeeSkillRepository,
+			CapacityService capacityService) {
+		this.allocationRepository = allocationRepository;
+		this.requestRepository = requestRepository;
+		this.userRepository = userRepository;
+		this.employeeSkillRepository = employeeSkillRepository;
+		this.capacityService = capacityService;
+	}
+
+	/**
+	 * Proposes an employee for a staffing request: the allocation starts {@code PROPOSED} (§9), and the
+	 * percent and period default to the request's. The checks run in this order: BR-4 (403), BR-3 (400),
+	 * the project and request are open (409, BR-9), the employee is eligible (400, BR-9), no overlap on the
+	 * same request (409, BR-8). Going over capacity only adds a warning (BR-2): approval enforces it (BR-1).
+	 */
+	@Transactional
+	public AllocationProposalDto propose(ProposeAllocationRequest body, AuthUser currentUser) {
+		StaffingRequest request = requestRepository.findById(body.requestId())
+			.orElseThrow(() -> new NotFoundException("Staffing request", body.requestId()));
+		checkOwner(request.getProject(), currentUser);
+
+		int percent = body.percent() != null ? body.percent() : request.getAllocationPercent();
+		LocalDate startDate = body.startDate() != null ? body.startDate() : request.getStartDate();
+		LocalDate endDate = body.endDate() != null ? body.endDate() : request.getEndDate();
+		if (percent % 10 != 0) {
+			throw validationError("percent", "Percent must be a multiple of 10");
+		}
+		checkPeriod(startDate, endDate, request);
+		checkOpen(request);
+
+		User employee = userRepository.findById(body.employeeId())
+			.orElseThrow(() -> new NotFoundException("Employee", body.employeeId()));
+		checkEligible(employee, request);
+		if (allocationRepository.existsOverlappingOnRequest(request.getId(), employee.getId(), startDate, endDate,
+				AllocationStatus.ACTIVE_OR_PROPOSED)) {
+			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_OVERLAP",
+					"This employee is already proposed or allocated on this request in an overlapping period");
+		}
+
+		// Before saving, so the new allocation isn't counted in its own load
+		List<String> warnings = capacityWarnings(employee.getId(), startDate, endDate, percent);
+		User proposer = userRepository.findById(currentUser.id())
+			.orElseThrow(() -> new NotFoundException("User", currentUser.id()));
+		Allocation allocation = allocationRepository
+			.save(new Allocation(request, employee, percent, startDate, endDate, proposer));
+		return new AllocationProposalDto(AllocationDto.from(allocation), warnings);
+	}
+
+	/** BR-4: only the PM who owns the request's project proposes candidates for it. */
+	private static void checkOwner(Project project, AuthUser currentUser) {
+		if (!project.getPm().getId().equals(currentUser.id())) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER",
+					"Only the project manager who owns this project can propose employees for its requests");
+		}
+	}
+
+	/** BR-3: {@code startDate ≤ endDate}, and the period is inside the request's. */
+	private static void checkPeriod(LocalDate startDate, LocalDate endDate, StaffingRequest request) {
+		if (startDate.isAfter(endDate)) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_PERIOD",
+					"Start date must not be after end date");
+		}
+		if (startDate.isBefore(request.getStartDate()) || endDate.isAfter(request.getEndDate())) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "ALLOCATION_OUTSIDE_REQUEST",
+					"The allocation period must be inside the request period (" + request.getStartDate() + " to "
+							+ request.getEndDate() + ")");
+		}
+	}
+
+	/**
+	 * BR-9: only an {@code OPEN} or {@code PARTIALLY_FILLED} request takes proposals. A completed or
+	 * cancelled project takes none either, even before BR-11 has cancelled its requests.
+	 */
+	private static void checkOpen(StaffingRequest request) {
+		Project project = request.getProject();
+		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
+			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
+					"A " + project.getStatus().name().toLowerCase() + " project takes no proposals");
+		}
+		if (request.getStatus() != RequestStatus.OPEN && request.getStatus() != RequestStatus.PARTIALLY_FILLED) {
+			throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_NOT_OPEN",
+					"Only an open or partially filled request takes proposals, but this one is "
+							+ request.getStatus().name().toLowerCase().replace('_', ' '));
+		}
+	}
+
+	/** BR-9: an active user with the EMPLOYEE role, who has every mandatory skill at its minimum level or above. */
+	private void checkEligible(User employee, StaffingRequest request) {
+		if (!employee.isActive() || employee.getRole() != Role.EMPLOYEE) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "EMPLOYEE_NOT_ELIGIBLE",
+					"Only an active user with the EMPLOYEE role can be proposed");
+		}
+		Map<Long, Integer> levels = employeeSkillRepository
+			.findByUserIdOrderBySkillCategoryAscSkillNameAsc(employee.getId())
+			.stream()
+			.collect(Collectors.toMap(skill -> skill.getSkill().getId(), EmployeeSkill::getLevel));
+
+		List<MissingSkill> missing = new ArrayList<>();
+		for (RequestSkill required : request.getSkills()) {
+			Integer level = levels.get(required.getSkill().getId());
+			if (required.isMandatory() && (level == null || level < required.getMinLevel())) {
+				missing.add(new MissingSkill(required.getSkill().getId(), required.getSkill().getName(),
+						required.getMinLevel(), level));
+			}
+		}
+		if (!missing.isEmpty()) {
+			String names = missing.stream()
+				.map(skill -> skill.skillName() + " (level " + skill.minLevel() + " or more)")
+				.collect(Collectors.joining(", "));
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "MISSING_MANDATORY_SKILLS",
+					"The employee doesn't have every required skill: " + names, missing);
+		}
+	}
+
+	/**
+	 * BR-2 soft booking: the days on which active + {@code PROPOSED} allocations + this one go over the
+	 * employee's capacity, as one warning per run of consecutive working days with the same total, e.g.
+	 * {@code "Capacity would be exceeded on 2026-11-02 – 2026-11-13 (120%)"}. A weekend doesn't break a run.
+	 */
+	private List<String> capacityWarnings(Long employeeId, LocalDate from, LocalDate to, int percent) {
+		List<String> warnings = new ArrayList<>();
+		LocalDate runStart = null;
+		LocalDate runEnd = null;
+		int runLoad = 0;
+		for (Map<String, Object> day : capacityService.findOverloadedDays(employeeId, from, to, percent, null, true)) {
+			LocalDate date = (LocalDate) day.get("date");
+			int load = (Integer) day.get("load");
+			if (runStart != null && load == runLoad && date.equals(nextWorkingDay(runEnd))) {
+				runEnd = date;
+				continue;
+			}
+			if (runStart != null) {
+				warnings.add(capacityWarning(runStart, runEnd, runLoad));
+			}
+			runStart = date;
+			runEnd = date;
+			runLoad = load;
+		}
+		if (runStart != null) {
+			warnings.add(capacityWarning(runStart, runEnd, runLoad));
+		}
+		return warnings;
+	}
+
+	private static String capacityWarning(LocalDate start, LocalDate end, int load) {
+		String days = start.equals(end) ? start.toString() : start + " – " + end;
+		return "Capacity would be exceeded on " + days + " (" + load + "%)";
+	}
+
+	private static LocalDate nextWorkingDay(LocalDate day) {
+		LocalDate next = day.plusDays(1);
+		while (next.getDayOfWeek() == DayOfWeek.SATURDAY || next.getDayOfWeek() == DayOfWeek.SUNDAY) {
+			next = next.plusDays(1);
+		}
+		return next;
+	}
+
+	/** The same body as a Bean Validation failure, so a form can show the message next to the field. */
+	private static BusinessException validationError(String field, String message) {
+		return new BusinessException(HttpStatus.BAD_REQUEST, GlobalExceptionHandler.VALIDATION_ERROR,
+				"Some fields are invalid", List.of(new FieldViolation(field, message)));
+	}
+
+}

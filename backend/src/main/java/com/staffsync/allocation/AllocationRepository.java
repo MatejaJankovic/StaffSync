@@ -27,4 +27,20 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long> {
 			@Param("to") LocalDate to, @Param("statuses") Collection<AllocationStatus> statuses,
 			@Param("excludeId") Long excludeId);
 
+	/**
+	 * BR-8: whether the employee already has an allocation in the given statuses on this request whose
+	 * period overlaps {@code [from, to]} (both ends inclusive).
+	 */
+	@Query("""
+			select count(a) > 0 from Allocation a
+			where a.request.id = :requestId
+			  and a.employee.id = :employeeId
+			  and a.status in :statuses
+			  and a.startDate <= :to
+			  and a.endDate >= :from
+			""")
+	boolean existsOverlappingOnRequest(@Param("requestId") Long requestId, @Param("employeeId") Long employeeId,
+			@Param("from") LocalDate from, @Param("to") LocalDate to,
+			@Param("statuses") Collection<AllocationStatus> statuses);
+
 }
