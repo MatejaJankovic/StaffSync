@@ -22,6 +22,7 @@ import com.staffsync.employeeskill.EmployeeSkillRepository;
 import com.staffsync.matching.dto.CandidateDto;
 import com.staffsync.project.Project;
 import com.staffsync.request.RequestSkill;
+import com.staffsync.request.RequestStatus;
 import com.staffsync.request.StaffingRequest;
 import com.staffsync.request.StaffingRequestRepository;
 import com.staffsync.user.Role;
@@ -80,12 +81,14 @@ public class MatchingService {
 
 	/**
 	 * One page of the ranked candidates of a request. BR-4: only the PM who owns the request's project.
+	 * BR-9: only for an open or partially filled request, the only ones that take a proposal.
 	 * The order is always by score, so the page's own sort is ignored.
 	 */
 	public Page<CandidateDto> getCandidates(Long requestId, AuthUser currentUser, Pageable pageable) {
 		StaffingRequest request = requestRepository.findById(requestId)
 			.orElseThrow(() -> new NotFoundException("Staffing request", requestId));
 		checkOwner(request.getProject(), currentUser);
+		checkOpen(request);
 
 		List<CandidateDto> ranked = rank(request);
 		int from = (int) Math.min(pageable.getOffset(), ranked.size());
@@ -93,8 +96,12 @@ public class MatchingService {
 		return new PageImpl<>(ranked.subList(from, to), pageable, ranked.size());
 	}
 
-	/** Every employee who passes the filter, best first. Ties go to the higher exact score, then the lower id. */
-	public List<CandidateDto> rank(StaffingRequest request) {
+	/**
+	 * Every employee who passes the filter, best first. Ties go to the higher exact score, then the lower id.
+	 * The whole ranking is computed on every call and then cut into a page. That is intended: there are about
+	 * 30 employees (§12), and it keeps the order stable across pages.
+	 */
+	List<CandidateDto> rank(StaffingRequest request) {
 		// Step 1: the filter. Whoever is already proposed or staffed on this request can't be a candidate again
 		Set<Long> alreadyOnRequest = new HashSet<>(
 				allocationRepository.findEmployeeIdsByRequestAndStatuses(request.getId(),
@@ -193,6 +200,10 @@ public class MatchingService {
 	/**
 	 * The share of the working days of the request on which the free capacity covers the requested percent,
 	 * × 40. A period without a working day has nothing to fall short on, so it scores in full.
+	 * <p>
+	 * One {@code CapacityService} call, so one query, per candidate: fine for the same reason as §7's day-by-day
+	 * walk. The free capacity counts APPROVED and CHANGE_PENDING allocations only (§7), so an employee who is
+	 * only PROPOSED elsewhere still shows as free. A soft-booking warning like BR-2's could be added later.
 	 */
 	private double availabilityScore(StaffingRequest request, User employee, List<String> warnings) {
 		SortedMap<LocalDate, Integer> free = new TreeMap<>(
@@ -256,6 +267,19 @@ public class MatchingService {
 
 	private static int round(double value) {
 		return (int) Math.round(value);
+	}
+
+	/**
+	 * BR-9: a cancelled or filled request takes no proposal, so ranking candidates for it would only lead to
+	 * buttons that answer 409. Same code as proposing.
+	 */
+	private static void checkOpen(StaffingRequest request) {
+		RequestStatus status = request.getStatus();
+		if (status != RequestStatus.OPEN && status != RequestStatus.PARTIALLY_FILLED) {
+			throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_NOT_OPEN",
+					"Candidates are only ranked for an open or partially filled request, but this one is "
+							+ status.name().toLowerCase().replace('_', ' '));
+		}
 	}
 
 	/** BR-4. */

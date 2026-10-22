@@ -32,6 +32,7 @@ import com.staffsync.employeeskill.EmployeeSkill;
 import com.staffsync.employeeskill.EmployeeSkillRepository;
 import com.staffsync.matching.dto.CandidateDto;
 import com.staffsync.project.Project;
+import com.staffsync.request.RequestStatus;
 import com.staffsync.request.StaffingRequest;
 import com.staffsync.request.StaffingRequestRepository;
 import com.staffsync.skill.Skill;
@@ -44,6 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -541,6 +543,49 @@ class MatchingServiceTests {
 				assertThat(ex.getCode()).isEqualTo("NOT_PROJECT_OWNER");
 			});
 		verifyNoInteractions(userRepository, employeeSkillRepository, allocationRepository, capacityService);
+	}
+
+	// BR-9
+	@ParameterizedTest
+	@EnumSource(value = RequestStatus.class, names = { "FILLED", "CANCELLED" })
+	void aFilledOrCancelledRequestHasNoCandidates(RequestStatus status) {
+		StaffingRequest request = demoRequest();
+		request.setStatus(status);
+		when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
+		AuthUser pm = new AuthUser(PM_ID, "pm@staffsync.local", Role.PM);
+
+		assertThatThrownBy(() -> matchingService.getCandidates(REQUEST_ID, pm, PageRequest.of(0, 20)))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+				assertThat(ex.getCode()).isEqualTo("REQUEST_NOT_OPEN");
+				assertThat(ex.getMessage()).endsWith("but this one is " + status.name().toLowerCase());
+			});
+		verifyNoInteractions(userRepository, employeeSkillRepository, allocationRepository, capacityService);
+	}
+
+	// BR-9
+	@ParameterizedTest
+	@EnumSource(value = RequestStatus.class, names = { "OPEN", "PARTIALLY_FILLED" })
+	void anOpenOrPartiallyFilledRequestHasCandidates(RequestStatus status) {
+		StaffingRequest request = demoRequest();
+		request.setStatus(status);
+		AuthUser pm = new AuthUser(PM_ID, "pm@staffsync.local", Role.PM);
+		when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
+		givenCandidates(List.of());
+
+		assertThat(matchingService.getCandidates(REQUEST_ID, pm, PageRequest.of(0, 20)).getTotalElements()).isZero();
+	}
+
+	@Test
+	void theOwnerIsCheckedBeforeTheStatusSoAnotherPmLearnsNothingAboutIt() {
+		StaffingRequest request = demoRequest();
+		request.setStatus(RequestStatus.CANCELLED);
+		when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
+		AuthUser otherPm = new AuthUser(PM_ID + 1, "other@staffsync.local", Role.PM);
+
+		assertThatThrownBy(() -> matchingService.getCandidates(REQUEST_ID, otherPm, PageRequest.of(0, 20)))
+			.isInstanceOfSatisfying(BusinessException.class,
+					ex -> assertThat(ex.getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
 	}
 
 	@Test

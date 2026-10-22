@@ -23,6 +23,7 @@ import com.staffsync.department.Department;
 import com.staffsync.department.DepartmentRepository;
 import com.staffsync.employeeskill.EmployeeSkill;
 import com.staffsync.employeeskill.EmployeeSkillRepository;
+import com.staffsync.request.RequestStatus;
 import com.staffsync.request.StaffingRequest;
 import com.staffsync.request.StaffingRequestRepository;
 import com.staffsync.skill.Skill;
@@ -99,7 +100,7 @@ class MatchingControllerTests {
 	// ---- the §4 demo
 
 	@Test
-	void ranksMarkoAbove85JelenaAt67ForTheDemoRequest() {
+	void ranksMarkoAt85AboveJelenaAt67ForTheDemoRequest() {
 		Skills skills = newSkills();
 		LoggedIn pm = login(PM);
 		int project = createProject(pm.token());
@@ -327,6 +328,45 @@ class MatchingControllerTests {
 		}
 	}
 
+	// BR-9
+	@Test
+	void aFilledOrCancelledRequestIs409AndAPartiallyFilledOneHasCandidates() {
+		Skills skills = newSkills();
+		LoggedIn pm = login(PM);
+		int request = createRequest(pm.token(), createProject(pm.token()), skills);
+		User candidate = capableEmployee("Candidate", skills);
+
+		for (RequestStatus status : List.of(RequestStatus.FILLED, RequestStatus.CANCELLED)) {
+			setRequestStatus(request, status);
+			given().auth().oauth2(pm.token())
+				.when().get(CANDIDATES, request)
+				.then()
+				.statusCode(409)
+				.body("code", equalTo("REQUEST_NOT_OPEN"))
+				.body("message", endsWith("but this one is " + status.name().toLowerCase()));
+		}
+		setRequestStatus(request, RequestStatus.PARTIALLY_FILLED);
+		given().auth().oauth2(pm.token())
+			.when().get(CANDIDATES, request)
+			.then()
+			.statusCode(200)
+			.body("content.employeeId", equalTo(List.of(id(candidate))));
+	}
+
+	@Test
+	void anotherPmGets403EvenWhenTheRequestIsCancelled() {
+		Skills skills = newSkills();
+		LoggedIn owner = login(PM);
+		int request = createRequest(owner.token(), createProject(owner.token()), skills);
+		setRequestStatus(request, RequestStatus.CANCELLED);
+
+		given().auth().oauth2(newPm().token())
+			.when().get(CANDIDATES, request)
+			.then()
+			.statusCode(403)
+			.body("code", equalTo("NOT_PROJECT_OWNER"));
+	}
+
 	@Test
 	void withoutATokenItIs401() {
 		given()
@@ -360,6 +400,7 @@ class MatchingControllerTests {
 			.body("paths.'/api/requests/{id}/candidates'.get.responses", hasKey("401"))
 			.body("paths.'/api/requests/{id}/candidates'.get.responses", hasKey("403"))
 			.body("paths.'/api/requests/{id}/candidates'.get.responses", hasKey("404"))
+			.body("paths.'/api/requests/{id}/candidates'.get.responses", hasKey("409"))
 			.body("paths.'/api/requests/{id}/candidates'.get.responses.'200'.content.values()[0].schema.'$ref'",
 					endsWith("/PagedModelCandidateDto"))
 			.body("components.schemas.PagedModelCandidateDto.properties.content.items.'$ref'",
@@ -415,6 +456,13 @@ class MatchingControllerTests {
 		Allocation allocation = new Allocation(request, employee, percent, start, end, pm);
 		allocation.setStatus(status);
 		return allocationRepository.save(allocation);
+	}
+
+	/** The status is calculated from the allocations (BR-10), which are not built yet, so tests set it directly. */
+	private void setRequestStatus(int id, RequestStatus status) {
+		StaffingRequest request = requestRepository.findById((long) id).orElseThrow();
+		request.setStatus(status);
+		requestRepository.save(request);
 	}
 
 	private static int id(User user) {

@@ -34,7 +34,9 @@ public class MatchingController {
 	@Operation(summary = "Rank the candidates for a staffing request (PM who owns the project)",
 			description = """
 					Returns the employees who are active, have every required skill at its minimum level, and \
-					are not yet proposed or staffed on this request, best first.
+					are not yet proposed or staffed on this request, best first. Only an OPEN or PARTIALLY_FILLED \
+					request has candidates (BR-9): for a FILLED or CANCELLED one the answer is 409, because it \
+					takes no proposal.
 
 					**Score, 0 to 100:** skills (50) + availability (40) + seniority (10).
 					- *Skills:* each requested skill matches 0.7 at its minimum level and 0.1 more per level above \
@@ -58,6 +60,8 @@ public class MatchingController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "404", description = "No request with this id",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409", description = "The request is FILLED or CANCELLED, so it takes no proposal "
+			+ "(BR-9)", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('PM')")
 	@GetMapping("/api/requests/{id}/candidates")
 	public Page<CandidateDto> candidates(@PathVariable Long id, @ParameterObject @PageableDefault Pageable pageable,
