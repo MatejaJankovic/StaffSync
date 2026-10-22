@@ -67,7 +67,10 @@ export const routes: Routes = [
       menuRoute('employees'),
       // Admin
       menuRoute('admin/users'),
-      menuRoute('admin/departments'),
+      menuRoute('admin/departments', {
+        loadComponent: () =>
+          import('./features/departments/departments-page').then((m) => m.DepartmentsPage),
+      }),
       // Lazy, so the Material table and dialogs stay out of the initial bundle
       menuRoute('admin/skills', {
         loadComponent: () => import('./features/skills/skills-page').then((m) => m.SkillsPage),
