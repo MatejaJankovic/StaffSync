@@ -1,0 +1,53 @@
+@if (canChange()) {
+  <div class="project-requests__toolbar">
+    <a mat-flat-button [routerLink]="newRequestLink()">
+      <mat-icon>add</mat-icon>
+      New request
+    </a>
+  </div>
+}
+
+<app-paged-table
+  [columns]="columns"
+  [fetch]="fetch()"
+  [emptyText]="emptyText()"
+  [pageSize]="10"
+  clickableRows
+  (rowClick)="open($event)"
+>
+  <ng-template appPagedTableCell="status" let-row>
+    <app-status-chip [status]="row.status" />
+  </ng-template>
+
+  <ng-template appPagedTableCell="actions" let-row>
+    <!-- The row opens the details, so a click on an action must not reach it -->
+    <div class="project-requests__actions">
+      @if (canFindCandidates(row)) {
+        <a mat-button [routerLink]="candidatesLink(row)" (click)="$event.stopPropagation()">
+          <mat-icon>person_search</mat-icon>
+          Find candidates
+        </a>
+      }
+      @if (canEdit(row)) {
+        <a
+          mat-icon-button
+          [routerLink]="editLink(row)"
+          [attr.aria-label]="'Edit ' + row.title"
+          (click)="$event.stopPropagation()"
+        >
+          <mat-icon>edit</mat-icon>
+        </a>
+      }
+      @if (canCancel(row)) {
+        <button
+          mat-icon-button
+          type="button"
+          [attr.aria-label]="'Cancel ' + row.title"
+          (click)="$event.stopPropagation(); cancel(row)"
+        >
+          <mat-icon>cancel</mat-icon>
+        </button>
+      }
+    </div>
+  </ng-template>
+</app-paged-table>

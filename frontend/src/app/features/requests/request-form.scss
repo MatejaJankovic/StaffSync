@@ -1,0 +1,84 @@
+.request-form {
+  padding: 24px;
+  max-width: 800px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0 0 4px;
+  }
+
+  h2 {
+    font: var(--mat-sys-title-medium);
+    margin: 0 0 8px;
+  }
+}
+
+.request-form__back {
+  margin: 0 0 8px -12px;
+}
+
+.request-form__project,
+.request-form__hint,
+.request-form__message {
+  color: var(--mat-sys-on-surface-variant);
+  margin: 0 0 16px;
+}
+
+.request-form__wide {
+  width: 100%;
+}
+
+.request-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+
+  mat-form-field {
+    flex: 1 1 180px;
+  }
+}
+
+.request-form__skills {
+  border-top: 1px solid var(--mat-sys-outline-variant);
+  padding-top: 16px;
+  margin-top: 8px;
+}
+
+.request-form__skill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 16px;
+}
+
+.request-form__skill-select {
+  flex: 1 1 240px;
+}
+
+.request-form__level {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.request-form__level-label {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+}
+
+.request-form__error {
+  color: var(--mat-sys-error);
+  font: var(--mat-sys-body-small);
+}
+
+.request-form__remove {
+  margin-top: 4px;
+}
+
+.request-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}

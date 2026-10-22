@@ -1,0 +1,16 @@
+:host {
+  display: block;
+}
+
+.project-requests__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.project-requests__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
