@@ -7,8 +7,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.staffsync.allocation.dto.AllocationChangeDto;
 import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
+import com.staffsync.allocation.dto.ChangeAllocationRequest;
 import com.staffsync.allocation.dto.MissingSkill;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
 import com.staffsync.allocation.dto.RejectAllocationRequest;
@@ -44,6 +46,9 @@ public class AllocationService {
 	/** The properties a list can be sorted by. Anything else is a 400, not a 500 from the query. */
 	private static final Set<String> SORTABLE = Set.of("id", "percent", "startDate", "endDate", "status",
 			"createdAt");
+
+	/** The shortest rejection comment (BR-6) or change reason (BR-15), without the surrounding spaces. */
+	private static final int MIN_TEXT_LENGTH = 10;
 
 	private final AllocationRepository allocationRepository;
 
@@ -92,14 +97,10 @@ public class AllocationService {
 		User employee = userRepository.findById(body.employeeId())
 			.orElseThrow(() -> new NotFoundException("Employee", body.employeeId()));
 		checkEligible(employee, request);
-		if (allocationRepository.existsOverlappingOnRequest(request.getId(), employee.getId(), startDate, endDate,
-				AllocationStatus.ACTIVE_OR_PROPOSED)) {
-			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_OVERLAP",
-					"This employee is already proposed or allocated on this request in an overlapping period");
-		}
+		checkNoOverlap(request, employee, startDate, endDate, null);
 
 		// Before saving, so the new allocation isn't counted in its own load
-		List<String> warnings = capacityWarnings(employee.getId(), startDate, endDate, percent);
+		List<String> warnings = capacityWarnings(employee.getId(), startDate, endDate, percent, null);
 		// checkOwner has shown that the project's PM is the current user, so they are the proposer
 		Allocation allocation = allocationRepository
 			.save(new Allocation(request, employee, percent, startDate, endDate, request.getProject().getPm()));
@@ -107,10 +108,11 @@ public class AllocationService {
 	}
 
 	/**
-	 * The RM approves a proposed allocation (§9: {@code PROPOSED → APPROVED}). The checks run in this order:
-	 * BR-5 (403), BR-7 (409), the request and project are still open (409), the employee is still active
-	 * (409), then the hard capacity check on every working day of the period (409 CAPACITY_EXCEEDED, BR-1).
-	 * Nothing is changed before the last check passes, so a failed approval leaves the allocation
+	 * The RM approves a proposed allocation (§9: {@code PROPOSED → APPROVED}) or a pending change
+	 * ({@code CHANGE_PENDING → APPROVED}, see {@link #approveChange}). For a proposal the checks run in this
+	 * order: BR-5 (403), BR-7 (409), the request and project are still open (409), the employee is still
+	 * active (409), then the hard capacity check on every working day of the period (409 CAPACITY_EXCEEDED,
+	 * BR-1). Nothing is changed before the last check passes, so a failed approval leaves the allocation
 	 * {@code PROPOSED}. Then the request status is recalculated (BR-10).
 	 */
 	@Transactional
@@ -118,6 +120,9 @@ public class AllocationService {
 		Allocation allocation = find(id);
 		User rm = checkResourceManager(allocation, currentUser);
 		checkPendingDecision(allocation);
+		if (allocation.hasPendingChange()) {
+			return approveChange(allocation, rm);
+		}
 		checkOpen(allocation.getRequest(), "approvals");
 		checkEmployeeActive(allocation);
 		// A PROPOSED allocation is not active, so it isn't counted in its own load
@@ -131,22 +136,56 @@ public class AllocationService {
 	}
 
 	/**
-	 * The RM rejects a proposed allocation (§9: {@code PROPOSED → REJECTED}) with a comment of at least 10
+	 * The RM approves a pending change (BR-15, §9: {@code CHANGE_PENDING → APPROVED} with the new values).
+	 * After BR-5 and BR-7 in {@link #approve}: the project is still open (409), the employee is still active
+	 * (409), a change that moves the start date isn't approved once the allocation has started (409
+	 * ALLOCATION_ALREADY_STARTED, BR-15), then BR-1 for the new percent and period without this allocation's
+	 * current values, which they replace (§7, the 60% → 70% example). The request isn't checked for being open: a change on a
+	 * {@code FILLED} request is normal, because the allocation counts as active while it waits (BR-16, T-36).
+	 * <p>
+	 * T-30: on 409 CAPACITY_EXCEEDED (or ALLOCATION_ALREADY_STARTED) nothing changes, as for a proposal. The allocation stays
+	 * {@code CHANGE_PENDING} with its current values in force, so the RM can still approve it once capacity
+	 * frees up or reject it, and the PM can withdraw it. Otherwise the pending values are applied, the decision
+	 * is recorded, and the request status is recalculated (BR-10), which keeps a {@code FILLED} request filled.
+	 */
+	private AllocationDto approveChange(Allocation allocation, User rm) {
+		checkProjectOpen(allocation.getRequest().getProject(), "approvals");
+		checkEmployeeActive(allocation);
+		// T-32 again: the change may have been requested before the start and decided after it
+		if (hasStarted(allocation) && !allocation.getPendingStartDate().equals(allocation.getStartDate())) {
+			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_ALREADY_STARTED",
+					"Allocation has already started (on " + allocation.getStartDate()
+							+ "), so a change that moves its start date can't be approved");
+		}
+		capacityService.checkCapacity(allocation.getEmployee().getId(), allocation.getPendingStartDate(),
+				allocation.getPendingEndDate(), allocation.getPendingPercent(), allocation.getId());
+
+		allocation.applyPendingChange();
+		allocation.recordDecision(rm, null);
+		requestStatusService.recalculate(allocation.getRequest().getId());
+		return AllocationDto.from(allocation);
+	}
+
+	/**
+	 * The RM rejects a proposed allocation (§9: {@code PROPOSED → REJECTED}) or a pending change
+	 * ({@code CHANGE_PENDING → APPROVED} with the current values, BR-15, T-34), with a comment of at least 10
 	 * characters without the surrounding spaces (BR-6, 400). Then BR-5 (403) and BR-7 (409), as for approve.
-	 * The request status doesn't change, because a proposal was never active (BR-10).
+	 * The request status doesn't change: a proposal was never active, and a rejected change leaves the
+	 * allocation active with the values it had (BR-10, BR-16).
 	 */
 	@Transactional
 	public AllocationDto reject(Long id, RejectAllocationRequest body, AuthUser currentUser) {
-		// Bean Validation counts the spaces too, so "  Too short " would pass it
-		String comment = body.comment().trim();
-		if (comment.length() < 10) {
-			throw validationError("comment", "Comment must be between 10 and 1000 characters");
-		}
+		String comment = requireText(body.comment(), "comment", "Comment");
 		Allocation allocation = find(id);
 		User rm = checkResourceManager(allocation, currentUser);
 		checkPendingDecision(allocation);
 
-		allocation.setStatus(AllocationStatus.REJECTED);
+		if (allocation.hasPendingChange()) {
+			allocation.clearPendingChange();
+		}
+		else {
+			allocation.setStatus(AllocationStatus.REJECTED);
+		}
 		allocation.recordDecision(rm, comment);
 		return AllocationDto.from(allocation);
 	}
@@ -170,6 +209,76 @@ public class AllocationService {
 
 		allocation.setStatus(AllocationStatus.CANCELLED);
 		requestStatusService.recalculate(allocation.getRequest().getId());
+		return AllocationDto.from(allocation);
+	}
+
+	/**
+	 * The PM asks to change the percent and/or the period of an approved allocation (BR-15, §9:
+	 * {@code APPROVED → CHANGE_PENDING}). A value left out keeps its current one, but at least one must
+	 * change. The checks run in this order: the reason has 10 characters without the surrounding spaces
+	 * (400), BR-4 (403), the project is still open (409), the allocation is {@code APPROVED} (409, and
+	 * {@code CHANGE_ALREADY_PENDING} when a change already waits, T-31) and hasn't ended, i.e. its
+	 * {@code endDate} is not before today (409, T-33), the percent is a step of 10 and something changes
+	 * (400), the start date stays the same once the allocation has started (400, T-32), BR-3 (400), and the
+	 * new period doesn't overlap another allocation of the employee on the same request (409, BR-8).
+	 * "Started" is the same as for {@link #cancel}: an allocation starts on its start date, so it has
+	 * started once its {@code startDate} is today or earlier.
+	 * <p>
+	 * The current values stay in force until the RM decides (BR-16), so neither capacity nor the
+	 * request status changes. Going over capacity with the new values only adds a warning (BR-2):
+	 * approving the change enforces it (BR-1).
+	 */
+	@Transactional
+	public AllocationChangeDto requestChange(Long id, ChangeAllocationRequest body, AuthUser currentUser) {
+		String reason = requireText(body.reason(), "reason", "Reason");
+		Allocation allocation = find(id);
+		StaffingRequest request = allocation.getRequest();
+		checkOwner(request.getProject(), currentUser, "request changes to its allocations");
+		checkProjectOpen(request.getProject(), "change requests");
+		checkChangeable(allocation);
+
+		int percent = body.percent() != null ? body.percent() : allocation.getPercent();
+		LocalDate startDate = body.startDate() != null ? body.startDate() : allocation.getStartDate();
+		LocalDate endDate = body.endDate() != null ? body.endDate() : allocation.getEndDate();
+		if (percent % 10 != 0) {
+			throw validationError("percent", "Percent must be a multiple of 10");
+		}
+		if (percent == allocation.getPercent() && startDate.equals(allocation.getStartDate())
+				&& endDate.equals(allocation.getEndDate())) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "NO_CHANGE",
+					"The change must give a different percent, start date or end date");
+		}
+		if (hasStarted(allocation) && !startDate.equals(allocation.getStartDate())) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "ALLOCATION_ALREADY_STARTED",
+					"Allocation has already started (on " + allocation.getStartDate()
+							+ "), so its start date can't change");
+		}
+		checkPeriod(startDate, endDate, request);
+		checkNoOverlap(request, allocation.getEmployee(), startDate, endDate, allocation.getId());
+
+		// Without this allocation's current values, which the new ones would replace
+		List<String> warnings = capacityWarnings(allocation.getEmployee().getId(), startDate, endDate, percent,
+				allocation.getId());
+		allocation.requestChange(percent, startDate, endDate, reason);
+		return new AllocationChangeDto(AllocationDto.from(allocation), warnings);
+	}
+
+	/**
+	 * The PM withdraws the change waiting for the RM (BR-15, T-35, §9: {@code CHANGE_PENDING → APPROVED}).
+	 * The allocation keeps its current values. The checks run in this order: BR-4 (403), a change is
+	 * pending (409). Neither capacity nor the request status changes, because the allocation was active
+	 * with these values all along (BR-16).
+	 */
+	@Transactional
+	public AllocationDto withdrawChange(Long id, AuthUser currentUser) {
+		Allocation allocation = find(id);
+		checkOwner(allocation.getRequest().getProject(), currentUser, "withdraw changes to its allocations");
+		if (!allocation.hasPendingChange()) {
+			throw new BusinessException(HttpStatus.CONFLICT, "NO_PENDING_CHANGE",
+					"There is no pending change to withdraw, the allocation is " + label(allocation.getStatus()));
+		}
+
+		allocation.clearPendingChange();
 		return AllocationDto.from(allocation);
 	}
 
@@ -223,8 +332,9 @@ public class AllocationService {
 	}
 
 	/**
-	 * BR-4: only the PM who owns the project proposes candidates for its requests and cancels its
-	 * allocations. {@code what} names the action in the message, e.g. {@code "cancel its allocations"}.
+	 * BR-4: only the PM who owns the project proposes candidates for its requests, cancels its allocations
+	 * and requests changes to them. {@code what} names the action in the message, e.g.
+	 * {@code "cancel its allocations"}.
 	 */
 	private static void checkOwner(Project project, AuthUser currentUser, String what) {
 		if (!project.getPm().getId().equals(currentUser.id())) {
@@ -243,6 +353,19 @@ public class AllocationService {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "ALLOCATION_OUTSIDE_REQUEST",
 					"The allocation period must be inside the request period (" + request.getStartDate() + " to "
 							+ request.getEndDate() + ")");
+		}
+	}
+
+	/**
+	 * BR-8: the employee has no other proposed or active allocation on this request in an overlapping period.
+	 * {@code excludeAllocationId} leaves out the allocation being changed (BR-15), {@code null} for a new one.
+	 */
+	private void checkNoOverlap(StaffingRequest request, User employee, LocalDate startDate, LocalDate endDate,
+			Long excludeAllocationId) {
+		if (allocationRepository.existsOverlappingOnRequest(request.getId(), employee.getId(), startDate, endDate,
+				AllocationStatus.ACTIVE_OR_PROPOSED, excludeAllocationId)) {
+			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_OVERLAP",
+					"This employee is already proposed or allocated on this request in an overlapping period");
 		}
 	}
 
@@ -284,11 +407,11 @@ public class AllocationService {
 		return manager;
 	}
 
-	/** BR-7: only a {@code PROPOSED} allocation is decided here. {@code CHANGE_PENDING} joins in US-13 (BR-15). */
+	/** BR-7: only a {@code PROPOSED} allocation or a pending change ({@code CHANGE_PENDING}, BR-15) is decided. */
 	private static void checkPendingDecision(Allocation allocation) {
-		if (allocation.getStatus() != AllocationStatus.PROPOSED) {
+		if (allocation.getStatus() != AllocationStatus.PROPOSED && !allocation.hasPendingChange()) {
 			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS",
-					"Only a proposed allocation can be approved or rejected, but this one is "
+					"Only a proposed allocation or a pending change can be approved or rejected, but this one is "
 							+ label(allocation.getStatus()));
 		}
 	}
@@ -306,10 +429,38 @@ public class AllocationService {
 					"Only a proposed or approved allocation can be cancelled, but this one is "
 							+ label(status));
 		}
-		if (status == AllocationStatus.APPROVED && !allocation.getStartDate().isAfter(LocalDate.now())) {
+		if (status == AllocationStatus.APPROVED && hasStarted(allocation)) {
 			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_ALREADY_STARTED",
 					"Allocation has already started (on " + allocation.getStartDate() + "), so it can't be cancelled");
 		}
+	}
+
+	/**
+	 * BR-15: only an {@code APPROVED} allocation that hasn't ended can be changed (T-33), and only one change
+	 * waits at a time (T-31). It has ended once its {@code endDate} is before today: the end date is still a
+	 * working day of it.
+	 */
+	private static void checkChangeable(Allocation allocation) {
+		if (allocation.hasPendingChange()) {
+			throw new BusinessException(HttpStatus.CONFLICT, "CHANGE_ALREADY_PENDING",
+					"A change to this allocation is already waiting for the resource manager");
+		}
+		if (allocation.getStatus() != AllocationStatus.APPROVED) {
+			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS",
+					"Only an approved allocation can be changed, but this one is " + label(allocation.getStatus()));
+		}
+		if (allocation.getEndDate().isBefore(LocalDate.now())) {
+			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_ENDED",
+					"Allocation ended on " + allocation.getEndDate() + ", so it can't be changed");
+		}
+	}
+
+	/**
+	 * An allocation starts on its start date, so it has started once that is today or earlier. Cancel (US-12)
+	 * and change requests (BR-15) both use this, so they agree on what "started" means.
+	 */
+	private static boolean hasStarted(Allocation allocation) {
+		return !allocation.getStartDate().isAfter(LocalDate.now());
 	}
 
 	/**
@@ -359,12 +510,27 @@ public class AllocationService {
 	 * BR-2 soft booking: the days on which active + {@code PROPOSED} allocations + this one go over the
 	 * employee's capacity, as one warning per run of consecutive working days with the same total, e.g.
 	 * {@code "Capacity would be exceeded on 2026-11-02 – 2026-11-13 (120%)"}. A weekend doesn't break a run.
+	 * {@code excludeAllocationId} leaves out the allocation being changed (BR-15), {@code null} for a new one.
 	 */
-	private List<String> capacityWarnings(Long employeeId, LocalDate from, LocalDate to, int percent) {
-		return CapacityService.toRuns(capacityService.findOverloadedDays(employeeId, from, to, percent, null, true))
+	private List<String> capacityWarnings(Long employeeId, LocalDate from, LocalDate to, int percent,
+			Long excludeAllocationId) {
+		return CapacityService
+			.toRuns(capacityService.findOverloadedDays(employeeId, from, to, percent, excludeAllocationId, true))
 			.stream()
 			.map(run -> "Capacity would be exceeded on " + run.days() + " (" + run.load() + "%)")
 			.toList();
+	}
+
+	/**
+	 * A rejection comment (BR-6) or change reason (BR-15), trimmed. Bean Validation counts the spaces too, so
+	 * {@code "  Too short "} passes it and is only caught here, as a 400 on {@code field}.
+	 */
+	private static String requireText(String value, String field, String name) {
+		String text = value.trim();
+		if (text.length() < MIN_TEXT_LENGTH) {
+			throw validationError(field, name + " must be between 10 and 1000 characters");
+		}
+		return text;
 	}
 
 	/** The same body as a Bean Validation failure, so a form can show the message next to the field. */

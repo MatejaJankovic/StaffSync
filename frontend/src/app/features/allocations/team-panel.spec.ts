@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { of } from 'rxjs';
 import { Role } from '../../core/auth/auth.models';
 import { AuthService } from '../../core/auth/auth.service';
@@ -10,13 +11,19 @@ import { Notifications } from '../../core/error/notifications';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import { toIsoDate } from '../../shared/dates';
 import { Project } from '../projects/project.models';
+import { StaffingRequest } from '../requests/request.models';
 import {
   Allocation,
+  AllocationChange,
   AllocationStatus,
   formatPendingChange,
+  hasPendingChange,
+  hasStarted,
   isCancellable,
+  isChangeable,
   isWithdrawable,
 } from './allocation.models';
+import { ChangeRequestDialog } from './change-request-dialog';
 import { TeamPanel } from './team-panel';
 
 // Relative to when the tests run, because whether an allocation has started depends on today
@@ -224,9 +231,10 @@ describe('TeamPanel', () => {
 
     it('names the request in the action, as one employee can be on two requests (BR-8)', async () => {
       await open([
-        allocation(1, 'Marko Markovic', 'APPROVED', { startDate: LATER }),
+        allocation(1, 'Marko Markovic', 'APPROVED', { startDate: LATER, endDate: LATER }),
         allocation(2, 'Marko Markovic', 'APPROVED', {
           startDate: LATER,
+          endDate: LATER,
           requestTitle: 'Tech Lead',
         }),
       ]);
@@ -235,7 +243,9 @@ describe('TeamPanel', () => {
         button.getAttribute('aria-label'),
       );
       expect(labels).toEqual([
+        'Request a change for Marko Markovic on Java Developer',
         'Cancel Marko Markovic on Java Developer',
+        'Request a change for Marko Markovic on Tech Lead',
         'Cancel Marko Markovic on Tech Lead',
       ]);
     });
@@ -244,12 +254,17 @@ describe('TeamPanel', () => {
       ['today', TODAY],
       ['earlier', EARLIER],
     ])('offers no Cancel on an approved allocation that started %s', async (_when, startDate) => {
-      await open([allocation(1, 'Marko Markovic', 'APPROVED', { startDate })]);
+      await open([allocation(1, 'Marko Markovic', 'APPROVED', { startDate, endDate: LATER })]);
 
-      expect(rowOf('Marko Markovic').querySelectorAll('button')).toHaveLength(0);
+      const marko = rowOf('Marko Markovic');
+      expect(action(marko, 'Cancel Marko Markovic on Java Developer')).toBeNull();
+      // It can still be changed (US-13)
+      expect(
+        [...marko.querySelectorAll('button')].map((button) => button.textContent?.trim()),
+      ).toEqual(['Request change']);
     });
 
-    it.each<AllocationStatus>(['CHANGE_PENDING', 'REJECTED', 'CANCELLED'])(
+    it.each<AllocationStatus>(['REJECTED', 'CANCELLED'])(
       'offers no action on a %s allocation',
       async (status) => {
         await open([allocation(1, 'Marko Markovic', status, { startDate: LATER })]);
@@ -339,6 +354,213 @@ describe('TeamPanel', () => {
     });
   });
 
+  describe('request and withdraw a change (US-13), for the PM who owns the project', () => {
+    const REQUEST: StaffingRequest = {
+      id: 1,
+      projectId: 5,
+      title: 'Java Developer',
+      seniority: 'MEDIOR',
+      allocationPercent: 60,
+      startDate: '2026-11-01',
+      endDate: '2027-01-31',
+      headcount: 2,
+      status: 'FILLED',
+      createdAt: '2026-10-21T09:15:30Z',
+      skills: [],
+    };
+
+    let openDialog: ReturnType<typeof vi.spyOn>;
+
+    /** The dialog is tested on its own, so here it only closes with this result. */
+    function dialogClosesWith(result: AllocationChange | undefined): void {
+      openDialog = vi
+        .spyOn(TestBed.inject(MatDialog), 'open')
+        .mockReturnValue({ afterClosed: () => of(result) } as MatDialogRef<unknown>);
+    }
+
+    function changeOf(warnings: string[] = []): AllocationChange {
+      return {
+        allocation: allocation(1, 'Marko Markovic', 'CHANGE_PENDING', {
+          endDate: LATER,
+          pendingPercent: 80,
+          pendingStartDate: '2026-11-01',
+          pendingEndDate: LATER,
+          changeReason: 'The client asked for more work',
+        }),
+        warnings,
+      };
+    }
+
+    const MARKO_APPROVED = (): Allocation =>
+      allocation(1, 'Marko Markovic', 'APPROVED', { endDate: LATER });
+
+    async function requestChange(): Promise<void> {
+      action(
+        rowOf('Marko Markovic'),
+        'Request a change for Marko Markovic on Java Developer',
+      )!.click();
+      await settle();
+      httpMock.expectOne({ method: 'GET', url: '/api/requests/1' }).flush(REQUEST);
+      await settle();
+    }
+
+    it('offers Request change on an approved allocation, even one that has started', async () => {
+      await open([
+        allocation(1, 'Marko Markovic', 'APPROVED', { startDate: EARLIER, endDate: LATER }),
+      ]);
+
+      expect(
+        action(
+          rowOf('Marko Markovic'),
+          'Request a change for Marko Markovic on Java Developer',
+        )?.textContent?.trim(),
+      ).toBe('Request change');
+    });
+
+    it('offers no Request change on an approved allocation that has ended', async () => {
+      await open([
+        allocation(1, 'Marko Markovic', 'APPROVED', { startDate: EARLIER, endDate: EARLIER }),
+      ]);
+
+      expect(rowOf('Marko Markovic').querySelectorAll('button')).toHaveLength(0);
+    });
+
+    it('offers only Withdraw change on a change that waits for the RM', async () => {
+      // Not Cancel either, even before the start: the change is withdrawn first (US-12)
+      await open([
+        allocation(1, 'Marko Markovic', 'CHANGE_PENDING', { startDate: LATER, pendingPercent: 80 }),
+      ]);
+
+      const buttons = [...rowOf('Marko Markovic').querySelectorAll('button')];
+      expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+        'Withdraw the change for Marko Markovic on Java Developer',
+      ]);
+      expect(buttons[0].textContent?.trim()).toBe('Withdraw change');
+    });
+
+    it('opens the dialog with the allocation and its request, then reloads and says so', async () => {
+      await open([MARKO_APPROVED()]);
+      const change = changeOf();
+      dialogClosesWith(change);
+
+      await requestChange();
+
+      expect(openDialog).toHaveBeenCalledWith(ChangeRequestDialog, {
+        data: { allocation: MARKO_APPROVED(), request: REQUEST },
+        width: '520px',
+      });
+      answer([change.allocation]);
+      await settle();
+      expect(success).toHaveBeenCalledWith('Change requested');
+      expect(rowOf('Marko Markovic').textContent).toContain('60% → 80% pending');
+      // The request's status doesn't change (BR-16), so the page needn't load it again
+      expect(changed).not.toHaveBeenCalled();
+      expect(el().querySelector('.team-panel__notice')).toBeNull();
+    });
+
+    it('keeps the warnings of a change request on the panel until they are dismissed (BR-2)', async () => {
+      await open([MARKO_APPROVED()]);
+      dialogClosesWith(changeOf(['Capacity would be exceeded on 2026-11-02 – 2026-11-13 (110%)']));
+
+      await requestChange();
+      answer([changeOf().allocation]);
+      await settle();
+
+      const notice = el().querySelector<HTMLElement>('[role="status"] .team-panel__notice')!;
+      expect(notice.textContent).toContain(
+        'A change for Marko Markovic was requested, with warnings',
+      );
+      expect(notice.textContent).toContain(
+        'Capacity would be exceeded on 2026-11-02 – 2026-11-13 (110%)',
+      );
+      expect(success).not.toHaveBeenCalled();
+
+      notice
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="Dismiss the warnings for Marko Markovic"]',
+        )!
+        .click();
+      await settle();
+      expect(el().querySelector('.team-panel__notice')).toBeNull();
+    });
+
+    it('changes nothing when the PM closes the dialog without requesting', async () => {
+      await open([MARKO_APPROVED()]);
+      dialogClosesWith(undefined);
+
+      await requestChange();
+
+      httpMock.expectNone(LIST_URL);
+      expect(success).not.toHaveBeenCalled();
+    });
+
+    it('asks before withdrawing a change, then withdraws it and reloads the team', async () => {
+      await open([allocation(1, 'Marko Markovic', 'CHANGE_PENDING', { pendingPercent: 80 })]);
+
+      action(
+        rowOf('Marko Markovic'),
+        'Withdraw the change for Marko Markovic on Java Developer',
+      )!.click();
+      await settle();
+
+      expect(confirm).toHaveBeenCalledWith({
+        title: 'Withdraw change?',
+        message:
+          'The change waiting for approval is dropped, and Marko Markovic stays at 60% on Java Developer for 1 Nov 2026 – 31 Jan 2027.',
+        confirmText: 'Withdraw change',
+        cancelText: 'Keep',
+        destructive: true,
+      });
+      const approved = allocation(1, 'Marko Markovic', 'APPROVED');
+      httpMock
+        .expectOne({ method: 'DELETE', url: '/api/allocations/1/change-request' })
+        .flush(approved);
+      await settle();
+      answer([approved]);
+      await settle();
+      expect(success).toHaveBeenCalledWith('Change withdrawn');
+      expect(rowOf('Marko Markovic').querySelector('app-status-chip')?.textContent?.trim()).toBe(
+        'Approved',
+      );
+    });
+
+    it('keeps the change when the PM does not confirm', async () => {
+      await open([allocation(1, 'Marko Markovic', 'CHANGE_PENDING', { pendingPercent: 80 })]);
+      confirm.mockReturnValue(of(false));
+
+      action(
+        rowOf('Marko Markovic'),
+        'Withdraw the change for Marko Markovic on Java Developer',
+      )!.click();
+      await settle();
+
+      httpMock.expectNone({ method: 'DELETE', url: '/api/allocations/1/change-request' });
+      expect(success).not.toHaveBeenCalled();
+    });
+
+    it('reloads the team after a failed withdrawal, and leaves the message to the error snackbar', async () => {
+      await open([allocation(1, 'Marko Markovic', 'CHANGE_PENDING', { pendingPercent: 80 })]);
+
+      action(
+        rowOf('Marko Markovic'),
+        'Withdraw the change for Marko Markovic on Java Developer',
+      )!.click();
+      await settle();
+      httpMock
+        .expectOne({ method: 'DELETE', url: '/api/allocations/1/change-request' })
+        .flush(
+          { code: 'NO_PENDING_CHANGE', message: 'There is no pending change to withdraw' },
+          { status: 409, statusText: 'Conflict' },
+        );
+      await settle();
+
+      // the RM may have decided in the meantime
+      answer([allocation(1, 'Marko Markovic', 'APPROVED')]);
+      await settle();
+      expect(success).not.toHaveBeenCalled();
+    });
+  });
+
   describe('withdraw and cancel, for everyone else', () => {
     it.each<[string, number, Role]>([
       ['another PM', 8, 'PM'],
@@ -373,6 +595,45 @@ describe('TeamPanel', () => {
         expect(rowOf('Jelena Jovic').querySelectorAll('button')).toHaveLength(0);
       },
     );
+  });
+});
+
+describe('hasStarted', () => {
+  it('is true on the start date and after it, as on the server', () => {
+    expect(hasStarted({ startDate: '2026-10-23' }, '2026-10-23')).toBe(true);
+    expect(hasStarted({ startDate: '2026-10-22' }, '2026-10-23')).toBe(true);
+  });
+
+  it('is false before the start date', () => {
+    expect(hasStarted({ startDate: '2026-10-24' }, '2026-10-23')).toBe(false);
+  });
+});
+
+describe('isChangeable', () => {
+  it('is true for an approved allocation up to and on its end date', () => {
+    expect(isChangeable({ status: 'APPROVED', endDate: '2026-10-24' }, '2026-10-23')).toBe(true);
+    expect(isChangeable({ status: 'APPROVED', endDate: '2026-10-23' }, '2026-10-23')).toBe(true);
+  });
+
+  it('is false once it has ended (T-33)', () => {
+    expect(isChangeable({ status: 'APPROVED', endDate: '2026-10-22' }, '2026-10-23')).toBe(false);
+  });
+
+  it.each<AllocationStatus>(['PROPOSED', 'CHANGE_PENDING', 'REJECTED', 'CANCELLED'])(
+    'is false for a %s allocation (T-31, T-33)',
+    (status) => {
+      expect(isChangeable({ status, endDate: '2026-10-24' }, '2026-10-23')).toBe(false);
+    },
+  );
+});
+
+describe('hasPendingChange', () => {
+  it.each<[AllocationStatus, boolean]>([
+    ['CHANGE_PENDING', true],
+    ['APPROVED', false],
+    ['PROPOSED', false],
+  ])('is %s → %s', (status, expected) => {
+    expect(hasPendingChange({ status })).toBe(expected);
   });
 });
 

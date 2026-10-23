@@ -47,6 +47,28 @@ export interface AllocationProposal {
   warnings: string[];
 }
 
+/**
+ * What a PM sends to change an approved allocation (`POST /api/allocations/{id}/change-request`,
+ * BR-15). The dialog always sends all three values, so the ones it doesn't change stay as they are.
+ */
+export interface AllocationChangePayload {
+  /** 10 to 100, in steps of 10 */
+  percent: number;
+  /** `yyyy-MM-dd`. Must stay the same once the allocation has started */
+  startDate: string;
+  /** `yyyy-MM-dd`, inside the period of the request (BR-3) */
+  endDate: string;
+  /** 10 to 1000 characters */
+  reason: string;
+}
+
+/** The allocation, now CHANGE_PENDING, with the soft-booking warnings for the new values (BR-2). */
+export interface AllocationChange {
+  allocation: Allocation;
+  /** Empty when the employee has enough capacity. A warning never blocks the change request. */
+  warnings: string[];
+}
+
 /** What `GET /api/allocations` filters by, on top of what the caller's role may see. */
 export interface AllocationFilters {
   status?: AllocationStatus;
@@ -71,6 +93,33 @@ export function isCancellable(
   today: string = toIsoDate(new Date()),
 ): boolean {
   return allocation.status === 'APPROVED' && allocation.startDate > today;
+}
+
+/**
+ * An allocation starts on its start date, so on that day it has started, as on the server. Its start
+ * date can't change from then on (BR-15, T-32). `today` is `yyyy-MM-dd`.
+ */
+export function hasStarted(
+  allocation: Pick<Allocation, 'startDate'>,
+  today: string = toIsoDate(new Date()),
+): boolean {
+  return allocation.startDate <= today;
+}
+
+/**
+ * The PM can request a change to an approved allocation that hasn't ended (BR-15, T-33). It ends
+ * after its end date, so on that day a change is still possible, as on the server.
+ */
+export function isChangeable(
+  allocation: Pick<Allocation, 'status' | 'endDate'>,
+  today: string = toIsoDate(new Date()),
+): boolean {
+  return allocation.status === 'APPROVED' && allocation.endDate >= today;
+}
+
+/** The change waiting for the RM can be withdrawn by the PM (BR-15, T-35). */
+export function hasPendingChange(allocation: Pick<Allocation, 'status'>): boolean {
+  return allocation.status === 'CHANGE_PENDING';
 }
 
 /**

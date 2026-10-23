@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { Page, PageQuery, toPageParams } from '../../core/api/page';
 import {
   Allocation,
+  AllocationChange,
+  AllocationChangePayload,
   AllocationFilters,
   AllocationProposal,
   ProposeAllocationPayload,
@@ -14,7 +16,7 @@ export const ALLOCATIONS_URL = '/api/allocations';
 /**
  * Talks to the allocations API. The search is filtered by role on the server: an Employee gets
  * their own allocations, a PM those on their projects, an RM those of their team, an Admin all.
- * Only the PM who owns the project proposes and cancels.
+ * Only the PM who owns the project proposes, cancels and requests changes.
  */
 @Injectable({ providedIn: 'root' })
 export class AllocationService {
@@ -36,6 +38,25 @@ export class AllocationService {
    */
   cancel(id: number): Observable<Allocation> {
     return this.http.post<Allocation>(`${ALLOCATIONS_URL}/${id}/cancel`, null);
+  }
+
+  /**
+   * Asks the RM to change an approved allocation (BR-15): it becomes CHANGE_PENDING, its current
+   * values stay in force until the RM decides (BR-16), and the answer lists the soft-booking warnings
+   * for the new values (BR-2). The API answers 400 (BR-3, the start of a started allocation, nothing
+   * changes), 403 (BR-4) and 409 (the status, a change already pending), and the error snackbar
+   * shows its message.
+   */
+  requestChange(id: number, payload: AllocationChangePayload): Observable<AllocationChange> {
+    return this.http.post<AllocationChange>(`${ALLOCATIONS_URL}/${id}/change-request`, payload);
+  }
+
+  /**
+   * Withdraws the change waiting for the RM: the allocation goes back to APPROVED with its current
+   * values (BR-15). The API answers 403 (BR-4) and 409 (no change is pending).
+   */
+  withdrawChange(id: number): Observable<Allocation> {
+    return this.http.delete<Allocation>(`${ALLOCATIONS_URL}/${id}/change-request`);
   }
 
   list(query: PageQuery, filters: AllocationFilters = {}): Observable<Page<Allocation>> {

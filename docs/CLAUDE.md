@@ -649,7 +649,7 @@ QA ne čeka da developeri završe, nego radi paralelno sa njima:
 | T-27 | Auth | Pogrešna lozinka | 401, bez otkrivanja da li email postoji |
 | T-28 | Upload *(stretch)* | Fajl > 5 MB ili `.exe` | 400 |
 | T-29 | BR-15 | Izmena 60% → 80% kada ima kapaciteta, RM odobri | 200, APPROVED sa 80% |
-| T-30 | BR-15, BR-1 | Izmena koja prelazi kapacitet, RM pokuša da odobri | 409, alokacija ostaje APPROVED sa starim vrednostima |
+| T-30 | BR-15, BR-1 | Izmena koja prelazi kapacitet, RM pokuša da odobri | 409, alokacija ostaje CHANGE_PENDING: važe stare vrednosti, a izmena i dalje čeka odluku RM-a |
 | T-31 | BR-15 | Nova izmena dok prethodna čeka | 409 |
 | T-32 | BR-15 | Promena `startDate` za alokaciju koja je već počela | 400 |
 | T-33 | BR-15 | Zahtev za izmenu PROPOSED, REJECTED ili završene alokacije | 409 |

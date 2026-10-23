@@ -1,5 +1,7 @@
-import { Component, computed, inject, input, output, viewChild } from '@angular/core';
+import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { filter, switchMap } from 'rxjs';
 import { PageQuery } from '../../core/api/page';
 import { AuthService } from '../../core/auth/auth.service';
@@ -10,13 +12,24 @@ import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-tab
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
 import { formatPeriod, isEditable, Project } from '../projects/project.models';
+import { RequestService } from '../requests/request.service';
 import {
   Allocation,
+  AllocationChange,
   formatPendingChange,
+  hasPendingChange,
   isCancellable,
+  isChangeable,
   isWithdrawable,
 } from './allocation.models';
 import { AllocationService } from './allocation.service';
+import { ChangeRequestDialog, ChangeRequestDialogData } from './change-request-dialog';
+
+/** The warnings of a change request (BR-2), kept on the panel until the PM dismisses them. */
+interface ChangeNotice {
+  employeeName: string;
+  warnings: string[];
+}
 
 /**
  * The team of a project, for *Project details*: who is proposed or allocated, on which request, at
@@ -30,13 +43,17 @@ import { AllocationService } from './allocation.service';
  * allocation that hasn't started yet (US-12). Both change the request's status on the server (BR-10), so `changed` tells
  * the page to load it again.
  *
+ * The PM can also request a change to an approved allocation that hasn't ended, and withdraw a change
+ * that is still waiting for the RM (US-13, BR-15). Neither changes the request's status, because the
+ * allocation stays active with its current values until the RM decides (BR-16).
+ *
  * ```html
  * <app-team-panel [project]="project" (changed)="requests().reload()" />
  * ```
  */
 @Component({
   selector: 'app-team-panel',
-  imports: [MatButtonModule, PagedTable, PagedTableCell, StatusChip],
+  imports: [MatButtonModule, MatIconModule, PagedTable, PagedTableCell, StatusChip],
   templateUrl: './team-panel.html',
   styleUrl: './team-panel.scss',
 })
@@ -47,7 +64,9 @@ export class TeamPanel {
   readonly changed = output<Allocation>();
 
   private readonly allocations = inject(AllocationService);
+  private readonly requests = inject(RequestService);
   private readonly auth = inject(AuthService);
+  private readonly dialog = inject(MatDialog);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly notifications = inject(Notifications);
 
@@ -65,9 +84,11 @@ export class TeamPanel {
     { key: 'startDate', header: 'Period', sortable: true, value: formatPeriod },
     { key: 'status', header: 'Status', sortable: true },
     { key: 'pendingChange', header: 'Pending change', value: formatPendingChange },
-    // US-13 adds Request change to these actions
     { key: 'actions', header: '' },
   ];
+
+  /** The last change request that came back with warnings, until the PM dismisses it. */
+  protected readonly changeNotice = signal<ChangeNotice | null>(null);
 
   // Only the id, so editing the project doesn't reload the list
   private readonly projectId = computed(() => this.project().id);
@@ -107,6 +128,80 @@ export class TeamPanel {
 
   protected canCancel(allocation: Allocation): boolean {
     return this.canChange() && isCancellable(allocation);
+  }
+
+  protected canRequestChange(allocation: Allocation): boolean {
+    return this.canChange() && isChangeable(allocation);
+  }
+
+  protected canWithdrawChange(allocation: Allocation): boolean {
+    return this.canChange() && hasPendingChange(allocation);
+  }
+
+  /**
+   * Loads the request first, because the new period must stay inside it (BR-3). The dialog stays open
+   * on an API error, so the list is only loaded again once a change has been requested.
+   */
+  protected requestChange(allocation: Allocation): void {
+    this.requests
+      .get(allocation.requestId)
+      .pipe(
+        switchMap((request) =>
+          this.dialog
+            .open<ChangeRequestDialog, ChangeRequestDialogData, AllocationChange>(
+              ChangeRequestDialog,
+              { data: { allocation, request }, width: '520px' },
+            )
+            .afterClosed(),
+        ),
+      )
+      .subscribe((change) => {
+        if (!change) {
+          return;
+        }
+        this.table().reload();
+        this.changeRequested(allocation, change);
+      });
+  }
+
+  protected withdrawChange(allocation: Allocation): void {
+    this.confirmDialog
+      .confirm({
+        title: 'Withdraw change?',
+        message: `The change waiting for approval is dropped, and ${allocation.employeeName} stays at ${allocation.percent}% on ${allocation.requestTitle} for ${formatPeriod(allocation)}.`,
+        confirmText: 'Withdraw change',
+        cancelText: 'Keep',
+        destructive: true,
+      })
+      .pipe(
+        filter(Boolean),
+        switchMap(() => this.allocations.withdrawChange(allocation.id)),
+      )
+      .subscribe({
+        next: () => {
+          this.table().reload();
+          this.notifications.success('Change withdrawn');
+        },
+        // The error snackbar already shows the API's message, e.g. the RM has decided in the meantime
+        error: () => this.table().reload(),
+      });
+  }
+
+  protected dismissChangeNotice(): void {
+    this.changeNotice.set(null);
+  }
+
+  /**
+   * A clean change request gets a snackbar. One with warnings (BR-2) gets a notice that stays until it
+   * is dismissed, because the RM can't approve the change while the capacity is short (BR-1).
+   */
+  private changeRequested(allocation: Allocation, { warnings }: AllocationChange): void {
+    if (warnings.length === 0) {
+      this.changeNotice.set(null);
+      this.notifications.success('Change requested');
+      return;
+    }
+    this.changeNotice.set({ employeeName: allocation.employeeName, warnings });
   }
 
   protected withdraw(allocation: Allocation): void {
