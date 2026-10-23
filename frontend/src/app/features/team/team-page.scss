@@ -26,27 +26,6 @@
   min-width: 160px;
 }
 
-.team__load-label {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  margin-top: 4px;
-  font: var(--mat-sys-body-small);
-}
-
-.team__status {
-  font-weight: 500;
-}
-
-// Over capacity: the bar and its label show the error color, and the label says it in words
-.team__bar--over {
-  --mat-progress-bar-active-indicator-color: var(--mat-sys-error);
-}
-
-.team__bar--over + .team__load-label .team__status {
-  color: var(--mat-sys-error);
-}
-
 .team__message {
   color: var(--mat-sys-on-surface-variant);
 }

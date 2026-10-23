@@ -1,8 +1,8 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSortModule, Sort, SortDirection } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
+import { CapacityBar } from '../../shared/capacity-bar/capacity-bar';
 import { SENIORITY_LABELS } from '../profile/profile.models';
 import { fullName } from '../users/user.models';
 import { TeamMember } from './team.models';
@@ -21,11 +21,10 @@ const usage = (member: TeamMember) =>
  * RM page: the team with today's load (US-21). Sorted by load from the lowest by default, so the
  * people free today (0%) come first and the overloaded ones last; a click on a header resorts.
  * "Free today", not "Bench": the Home card that links here counts the bench as 0% all week (§11).
- * The load bar is a stand-in until the shared `capacity-bar` (#59) is ready.
  */
 @Component({
   selector: 'app-team-page',
-  imports: [MatButtonModule, MatProgressBarModule, MatSortModule, MatTableModule],
+  imports: [CapacityBar, MatButtonModule, MatSortModule, MatTableModule],
   templateUrl: './team-page.html',
   styleUrl: './team-page.scss',
 })
@@ -71,7 +70,7 @@ export class TeamPage implements OnInit {
     });
   }
 
-  // Clearing the sort (a third click) goes back to the default, so the bench is first again
+  // Clearing the sort (a third click) goes back to the default: the people free today first
   protected sortBy(sort: Sort): void {
     this.sort.set(
       sort.direction
@@ -82,11 +81,6 @@ export class TeamPage implements OnInit {
 
   protected seniority(member: TeamMember): string {
     return member.seniority ? SENIORITY_LABELS[member.seniority] : '—';
-  }
-
-  /** How full the bar is, capped at 100 so an overbooked member's bar stays in its cell. */
-  protected barValue(member: TeamMember): number {
-    return Math.min(100, Math.round(usage(member) * 100));
   }
 
   protected status(member: TeamMember): string | null {

@@ -122,7 +122,7 @@ describe('TeamPage', () => {
       '40% / 50%',
       '120% / 100% Over capacity',
     ]);
-    const bars = [...el().querySelectorAll('mat-progress-bar')];
+    const bars = [...el().querySelectorAll('app-capacity-bar mat-progress-bar')];
     expect(bars.map((bar) => bar.getAttribute('aria-valuenow'))).toEqual([
       '0',
       '0',
@@ -130,13 +130,13 @@ describe('TeamPage', () => {
       '80',
       '100',
     ]);
-    expect(bars.map((bar) => bar.classList.contains('team__bar--over'))).toEqual([
-      false,
-      false,
-      false,
-      false,
-      true,
-    ]);
+    // The shared capacity-bar (#59) colors by the share of each member's own capacity
+    const tones = [...el().querySelectorAll('app-capacity-bar')].map((bar) =>
+      ['free', 'nearly-full', 'full'].find((tone) =>
+        bar.classList.contains(`capacity-bar--${tone}`),
+      ),
+    );
+    expect(tones).toEqual(['free', 'free', 'free', 'nearly-full', 'full']);
   });
 
   it('puts the most loaded first after a click on Load today, and sorts by name on Name', async () => {
