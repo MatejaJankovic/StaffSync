@@ -26,7 +26,7 @@ function member(
   };
 }
 
-// In API order (by last name). By load: Zoric and Babic are on the bench, Petrovic is 50% full,
+// In API order (by last name). By load: Zoric and Babic are free today, Petrovic is 50% full,
 // Ilic is 80% full (40% of 50%), and Kovac is over capacity
 const TEAM: TeamMember[] = [
   member(1, 'Ena', 'Babic', 0),
@@ -99,7 +99,7 @@ describe('TeamPage', () => {
     expect(column('department')).toEqual(['—']);
   });
 
-  it('sorts by load from the lowest by default, so the bench comes first', async () => {
+  it('sorts by load from the lowest by default, so the people free today come first', async () => {
     await flush();
 
     expect(column('name')).toEqual([
@@ -111,12 +111,13 @@ describe('TeamPage', () => {
     ]);
   });
 
-  it('labels the bench and an overloaded member in words, not only with color', async () => {
+  it('labels a member free today and an overloaded member in words, not only with color', async () => {
     await flush();
 
+    // Not "Bench": on Home that means 0% all week, and someone free today may start tomorrow
     expect(column('load')).toEqual([
-      '0% / 100% Bench',
-      '0% / 100% Bench',
+      '0% / 100% Free today',
+      '0% / 100% Free today',
       '50% / 100%',
       '40% / 50%',
       '120% / 100% Over capacity',

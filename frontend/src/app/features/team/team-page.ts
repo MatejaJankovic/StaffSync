@@ -19,7 +19,8 @@ const usage = (member: TeamMember) =>
 
 /**
  * RM page: the team with today's load (US-21). Sorted by load from the lowest by default, so the
- * people on the bench (0%) come first and the overloaded ones last; a click on a header resorts.
+ * people free today (0%) come first and the overloaded ones last; a click on a header resorts.
+ * "Free today", not "Bench": the Home card that links here counts the bench as 0% all week (§11).
  * The load bar is a stand-in until the shared `capacity-bar` (#59) is ready.
  */
 @Component({
@@ -90,7 +91,7 @@ export class TeamPage implements OnInit {
 
   protected status(member: TeamMember): string | null {
     if (member.load === 0) {
-      return 'Bench';
+      return 'Free today';
     }
     return member.load > member.capacityPercent ? 'Over capacity' : null;
   }
