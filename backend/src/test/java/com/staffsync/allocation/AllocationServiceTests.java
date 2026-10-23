@@ -355,7 +355,7 @@ class AllocationServiceTests {
 		givenRequest();
 		givenEligibleEmployee();
 		when(allocationRepository.existsOverlappingOnRequest(REQUEST_ID, EMPLOYEE_ID, nov(1),
-				LocalDate.of(2027, 1, 31), AllocationStatus.ACTIVE_OR_PROPOSED))
+				LocalDate.of(2027, 1, 31), AllocationStatus.ACTIVE_OR_PROPOSED, null))
 			.thenReturn(true);
 
 		assertRejected(body(null, null, null), HttpStatus.CONFLICT, "ALLOCATION_OVERLAP");
@@ -908,6 +908,28 @@ class AllocationServiceTests {
 		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
 
 		assertChangeFails(change(null, null, today().plusDays(9)), PM, HttpStatus.BAD_REQUEST, "INVALID_PERIOD");
+	}
+
+	// ---- BR-8 on change requests
+
+	@Test
+	void aNewPeriodOverlappingAnotherAllocationOnTheSameRequestIsAConflict() {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+		when(allocationRepository.existsOverlappingOnRequest(REQUEST_ID, EMPLOYEE_ID, today().plusDays(10),
+				today().plusDays(90), AllocationStatus.ACTIVE_OR_PROPOSED, ALLOCATION_ID))
+			.thenReturn(true);
+
+		assertChangeFails(change(null, null, today().plusDays(90)), PM, HttpStatus.CONFLICT, "ALLOCATION_OVERLAP");
+	}
+
+	@Test
+	void theOverlapCheckLeavesOutTheAllocationBeingChanged() {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+
+		allocationService.requestChange(ALLOCATION_ID, change(80, null, today().plusDays(50)), PM);
+
+		verify(allocationRepository).existsOverlappingOnRequest(REQUEST_ID, EMPLOYEE_ID, today().plusDays(10),
+				today().plusDays(50), AllocationStatus.ACTIVE_OR_PROPOSED, ALLOCATION_ID);
 	}
 
 	// ---- BR-2 on change requests

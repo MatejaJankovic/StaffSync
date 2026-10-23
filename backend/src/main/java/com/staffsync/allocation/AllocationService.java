@@ -94,11 +94,7 @@ public class AllocationService {
 		User employee = userRepository.findById(body.employeeId())
 			.orElseThrow(() -> new NotFoundException("Employee", body.employeeId()));
 		checkEligible(employee, request);
-		if (allocationRepository.existsOverlappingOnRequest(request.getId(), employee.getId(), startDate, endDate,
-				AllocationStatus.ACTIVE_OR_PROPOSED)) {
-			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_OVERLAP",
-					"This employee is already proposed or allocated on this request in an overlapping period");
-		}
+		checkNoOverlap(request, employee, startDate, endDate, null);
 
 		// Before saving, so the new allocation isn't counted in its own load
 		List<String> warnings = capacityWarnings(employee.getId(), startDate, endDate, percent, null);
@@ -217,7 +213,8 @@ public class AllocationService {
 	 * (400), BR-4 (403), the project is still open (409), the allocation is {@code APPROVED} (409, and
 	 * {@code CHANGE_ALREADY_PENDING} when a change already waits, T-31) and hasn't ended, i.e. its
 	 * {@code endDate} is not before today (409, T-33), the percent is a step of 10 and something changes
-	 * (400), the start date stays the same once the allocation has started (400, T-32), and BR-3 (400).
+	 * (400), the start date stays the same once the allocation has started (400, T-32), BR-3 (400), and the
+	 * new period doesn't overlap another allocation of the employee on the same request (409, BR-8).
 	 * "Started" is the same as for {@link #cancel}: an allocation starts on its start date, so it has
 	 * started once its {@code startDate} is today or earlier.
 	 * <p>
@@ -255,6 +252,7 @@ public class AllocationService {
 							+ "), so its start date can't change");
 		}
 		checkPeriod(startDate, endDate, request);
+		checkNoOverlap(request, allocation.getEmployee(), startDate, endDate, allocation.getId());
 
 		// Without this allocation's current values, which the new ones would replace
 		List<String> warnings = capacityWarnings(allocation.getEmployee().getId(), startDate, endDate, percent,
@@ -353,6 +351,19 @@ public class AllocationService {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "ALLOCATION_OUTSIDE_REQUEST",
 					"The allocation period must be inside the request period (" + request.getStartDate() + " to "
 							+ request.getEndDate() + ")");
+		}
+	}
+
+	/**
+	 * BR-8: the employee has no other proposed or active allocation on this request in an overlapping period.
+	 * {@code excludeAllocationId} leaves out the allocation being changed (BR-15), {@code null} for a new one.
+	 */
+	private void checkNoOverlap(StaffingRequest request, User employee, LocalDate startDate, LocalDate endDate,
+			Long excludeAllocationId) {
+		if (allocationRepository.existsOverlappingOnRequest(request.getId(), employee.getId(), startDate, endDate,
+				AllocationStatus.ACTIVE_OR_PROPOSED, excludeAllocationId)) {
+			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_OVERLAP",
+					"This employee is already proposed or allocated on this request in an overlapping period");
 		}
 	}
 

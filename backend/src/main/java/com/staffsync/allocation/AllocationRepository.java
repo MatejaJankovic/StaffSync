@@ -45,7 +45,8 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 
 	/**
 	 * BR-8: whether the employee already has an allocation in the given statuses on this request whose
-	 * period overlaps {@code [from, to]} (both ends inclusive).
+	 * period overlaps {@code [from, to]} (both ends inclusive). The allocation with {@code excludeId} is left
+	 * out, so a change (BR-15) doesn't overlap itself; pass {@code null} to keep all.
 	 */
 	@Query("""
 			select count(a) > 0 from Allocation a
@@ -54,10 +55,11 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 			  and a.status in :statuses
 			  and a.startDate <= :to
 			  and a.endDate >= :from
+			  and (:excludeId is null or a.id <> :excludeId)
 			""")
 	boolean existsOverlappingOnRequest(@Param("requestId") Long requestId, @Param("employeeId") Long employeeId,
 			@Param("from") LocalDate from, @Param("to") LocalDate to,
-			@Param("statuses") Collection<AllocationStatus> statuses);
+			@Param("statuses") Collection<AllocationStatus> statuses, @Param("excludeId") Long excludeId);
 
 	/** BR-10: how many of the request's allocations are in the given statuses (the active ones, BR-16). */
 	long countByRequestIdAndStatusIn(Long requestId, Collection<AllocationStatus> statuses);

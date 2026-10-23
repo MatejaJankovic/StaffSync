@@ -195,8 +195,9 @@ public class AllocationController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "409",
 			description = "A change is already pending (CHANGE_ALREADY_PENDING), the allocation is not APPROVED "
-					+ "(INVALID_ALLOCATION_STATUS), it has ended (ALLOCATION_ENDED), or the project is completed or "
-					+ "cancelled (PROJECT_CLOSED)",
+					+ "(INVALID_ALLOCATION_STATUS), it has ended (ALLOCATION_ENDED), the project is completed or "
+					+ "cancelled (PROJECT_CLOSED), or the new period overlaps another allocation of the employee on "
+					+ "the same request (ALLOCATION_OVERLAP, BR-8)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('PM')")
 	@PostMapping("/{id}/change-request")
