@@ -747,6 +747,167 @@ class UserControllerTests {
 			.then().statusCode(200).body("find { it.key == 'averageLoad' }.value", equalTo("27%"));
 	}
 
+	// ---- US-16: availability
+
+	@Test
+	void availabilityGivesTheSection7LoadAndFreeCapacityPerWorkingDay() {
+		User marko = newEmployee("Marko", newDepartment(), rm());
+		allocate(marko, 60, LocalDate.of(2026, 11, 1), LocalDate.of(2026, 12, 15), AllocationStatus.APPROVED);
+		allocate(marko, 30, LocalDate.of(2026, 11, 10), LocalDate.of(2026, 12, 31), AllocationStatus.APPROVED);
+
+		// Nov 5–20 has 12 working days: Nov 5, 6 and 9 with A only, Nov 10–20 with A and B. No weekends
+		given().auth().oauth2(tokenFor(PM))
+			.queryParam("from", "2026-11-05").queryParam("to", "2026-11-20")
+			.when().get("/api/users/{id}/availability", marko.getId())
+			.then()
+			.statusCode(200)
+			.body("employeeId", equalTo(marko.getId().intValue()))
+			.body("capacityPercent", equalTo(100))
+			.body("from", equalTo("2026-11-05"))
+			.body("to", equalTo("2026-11-20"))
+			.body("days.date", contains("2026-11-05", "2026-11-06", "2026-11-09", "2026-11-10", "2026-11-11",
+					"2026-11-12", "2026-11-13", "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20"))
+			.body("days.load", contains(60, 60, 60, 90, 90, 90, 90, 90, 90, 90, 90, 90))
+			.body("days.free", contains(40, 40, 40, 10, 10, 10, 10, 10, 10, 10, 10, 10));
+	}
+
+	@Test
+	void availabilityCountsOnlyActiveAllocationsAgainstTheEmployeesOwnCapacity() {
+		User employee = newEmployee("Part", newDepartment(), rm());
+		employee.setCapacityPercent(50);
+		userRepository.save(employee);
+		LocalDate monday = LocalDate.of(2026, 11, 2);
+		// A pending change counts with its current values (BR-16); proposals, rejections and cancellations don't
+		allocate(employee, 20, monday, monday, AllocationStatus.APPROVED);
+		allocate(employee, 10, monday, monday, AllocationStatus.CHANGE_PENDING);
+		allocate(employee, 30, monday, monday, AllocationStatus.PROPOSED);
+		allocate(employee, 30, monday, monday, AllocationStatus.REJECTED);
+		allocate(employee, 30, monday, monday, AllocationStatus.CANCELLED);
+
+		given().auth().oauth2(tokenFor(RM))
+			.queryParam("from", "2026-11-02").queryParam("to", "2026-11-02")
+			.when().get("/api/users/{id}/availability", employee.getId())
+			.then()
+			.statusCode(200)
+			.body("capacityPercent", equalTo(50))
+			.body("days.load", contains(30))
+			.body("days.free", contains(20));
+	}
+
+	@Test
+	void anEmployeeSeesTheirOwnAvailability() {
+		User employee = newEmployee("Own", newDepartment(), rm());
+
+		given().auth().oauth2(tokenFor(employee.getEmail()))
+			.queryParam("from", "2026-11-02").queryParam("to", "2026-11-06")
+			.when().get("/api/users/{id}/availability", employee.getId())
+			.then().statusCode(200).body("days.free", everyItem(equalTo(100)));
+	}
+
+	@Test
+	void aPendingChangeCountsWithItsCurrentValuesNotThePendingOnes() {
+		User employee = newEmployee("Pending", newDepartment(), rm());
+		// 40% for Nov 2–6, with a change to 80% until Nov 13 waiting for the RM (BR-15)
+		Allocation allocation = allocate(employee, 40, LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 6),
+				AllocationStatus.APPROVED);
+		allocation.requestChange(80, LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 13), "Scope grew");
+		allocationRepository.save(allocation);
+
+		// BR-16: until the change is approved, Nov 2–6 stay at 40% and Nov 9–13 stay free
+		given().auth().oauth2(tokenFor(PM))
+			.queryParam("from", "2026-11-02").queryParam("to", "2026-11-13")
+			.when().get("/api/users/{id}/availability", employee.getId())
+			.then()
+			.statusCode(200)
+			.body("days.load", contains(40, 40, 40, 40, 40, 0, 0, 0, 0, 0))
+			.body("days.free", contains(60, 60, 60, 60, 60, 100, 100, 100, 100, 100));
+	}
+
+	@Test
+	void anRmWhoIsNotTheEmployeesManagerSeesTheirAvailabilityToo() {
+		// §10 grants any RM; BR-5 scopes decisions to the employee's own RM, not reading capacity
+		User employee = newEmployee("Other", newDepartment(), rm());
+		User otherRm = newUser("Other", Role.RM);
+
+		given().auth().oauth2(tokenFor(otherRm.getEmail()))
+			.queryParam("from", "2026-11-02").queryParam("to", "2026-11-06")
+			.when().get("/api/users/{id}/availability", employee.getId())
+			.then().statusCode(200).body("days.free", everyItem(equalTo(100)));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { ADMIN, "bogdan_employee@staffsync.local" })
+	void noOneElseSeesAnEmployeesAvailability(String email) {
+		User employee = newEmployee("Private", newDepartment(), rm());
+
+		given().auth().oauth2(tokenFor(email))
+			.queryParam("from", "2026-11-02").queryParam("to", "2026-11-06")
+			.when().get("/api/users/{id}/availability", employee.getId())
+			.then().statusCode(403);
+	}
+
+	@Test
+	void availabilityWithoutTokenIs401() {
+		given().queryParam("from", "2026-11-02").queryParam("to", "2026-11-06")
+			.when().get("/api/users/{id}/availability", rm().getId())
+			.then().statusCode(401);
+	}
+
+	@Test
+	void availabilityNeedsFromAndTo() {
+		String token = tokenFor(PM);
+		Long id = rm().getId();
+
+		// Spring MVC rejects a missing or malformed query parameter, so the code is the status name (§10)
+		given().auth().oauth2(token)
+			.queryParam("to", "2026-11-06")
+			.when().get("/api/users/{id}/availability", id)
+			.then().statusCode(400).body("code", equalTo("BAD_REQUEST"));
+		given().auth().oauth2(token)
+			.queryParam("from", "next monday").queryParam("to", "2026-11-06")
+			.when().get("/api/users/{id}/availability", id)
+			.then().statusCode(400).body("code", equalTo("BAD_REQUEST"));
+	}
+
+	@Test
+	void availabilityFromAfterToIs400() {
+		given().auth().oauth2(tokenFor(PM))
+			.queryParam("from", "2026-11-06").queryParam("to", "2026-11-02")
+			.when().get("/api/users/{id}/availability", rm().getId())
+			.then().statusCode(400).body("code", equalTo("INVALID_PERIOD"));
+	}
+
+	@Test
+	void availabilityIsAtMostAYear() {
+		String token = tokenFor(PM);
+		Long id = rm().getId();
+
+		given().auth().oauth2(token)
+			.queryParam("from", "2026-11-02").queryParam("to", "2027-11-02")
+			.when().get("/api/users/{id}/availability", id)
+			.then().statusCode(200);
+		given().auth().oauth2(token)
+			.queryParam("from", "2026-11-02").queryParam("to", "2027-11-03")
+			.when().get("/api/users/{id}/availability", id)
+			.then().statusCode(400).body("code", equalTo("INVALID_PERIOD"));
+	}
+
+	@Test
+	void availabilityOfAWeekendHasNoDays() {
+		given().auth().oauth2(tokenFor(PM))
+			.queryParam("from", "2026-11-07").queryParam("to", "2026-11-08")
+			.when().get("/api/users/{id}/availability", rm().getId())
+			.then().statusCode(200).body("days.size()", equalTo(0));
+	}
+
+	@Test
+	void availabilityOfAnUnknownUserIs404() {
+		given().auth().oauth2(tokenFor(PM))
+			.queryParam("from", "2026-11-02").queryParam("to", "2026-11-06")
+			.when().get("/api/users/{id}/availability", Long.MAX_VALUE)
+			.then().statusCode(404);
+	}
+
 	// ---- helpers
 
 	/** The user's own fields with a new capacity, as the *Edit* dialog sends them. */
@@ -759,7 +920,8 @@ class UserControllerTests {
 	}
 
 	/** Allocation transitions belong to US-10 and US-12, so tests save the allocation with its status. */
-	private void allocate(User employee, int percent, LocalDate start, LocalDate end, AllocationStatus status) {
+	private Allocation allocate(User employee, int percent, LocalDate start, LocalDate end,
+			AllocationStatus status) {
 		User pm = userRepository.findByEmailIgnoreCase(PM).orElseThrow();
 		Project project = projectRepository
 			.save(new Project("Project-" + UUID.randomUUID(), "Acme", null, start, end, pm));
@@ -767,7 +929,7 @@ class UserControllerTests {
 			.save(new StaffingRequest(project, "Developer", Seniority.MEDIOR, percent, start, end, 1));
 		Allocation allocation = new Allocation(request, employee, percent, start, end, pm);
 		allocation.setStatus(status);
-		allocationRepository.save(allocation);
+		return allocationRepository.save(allocation);
 	}
 
 	private Map<String, Object> employeeBody(String email) {

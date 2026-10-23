@@ -4,7 +4,7 @@ import { EMPTY, expand, Observable, reduce } from 'rxjs';
 import { Page, PageQuery, toPageParams } from '../../core/api/page';
 import { Role } from '../../core/auth/auth.models';
 import { skipErrorSnackbar } from '../../core/error/error.interceptor';
-import { CreateUserRequest, UpdateUserRequest, UserAccount } from './user.models';
+import { Availability, CreateUserRequest, UpdateUserRequest, UserAccount } from './user.models';
 
 export const USERS_URL = '/api/users';
 
@@ -15,8 +15,9 @@ export interface UserFilters {
 }
 
 /**
- * Talks to the users API: an Admin or RM can list, only an Admin can change. `create` and `update`
- * skip the error snackbar, because the dialog shows their errors next to the fields.
+ * Talks to the users API: an Admin or RM can list, only an Admin can change, and a PM, an RM or
+ * the employee themself can read an employee's availability. `create` and `update` skip the error
+ * snackbar, because the dialog shows their errors next to the fields.
  */
 @Injectable({ providedIn: 'root' })
 export class UserService {
@@ -61,5 +62,11 @@ export class UserService {
 
   deactivate(id: number): Observable<UserAccount> {
     return this.http.patch<UserAccount>(`${USERS_URL}/${id}/deactivate`, null);
+  }
+
+  /** `from` and `to` are ISO dates (`toIsoDate`), both included, at most a year apart. */
+  availability(id: number, from: string, to: string): Observable<Availability> {
+    const params = new HttpParams().set('from', from).set('to', to);
+    return this.http.get<Availability>(`${USERS_URL}/${id}/availability`, { params });
   }
 }

@@ -24,6 +24,14 @@ export function capacityTone(load: number, capacity: number): CapacityTone {
  * <app-capacity-bar [load]="member.load" [capacity]="member.capacityPercent" />
  * <app-capacity-bar [load]="120" [capacity]="100" label="Over capacity" />
  * ```
+ *
+ * For a period, `UserService.availability` gives one day per working day:
+ *
+ * ```html
+ * @for (day of availability.days; track day.date) {
+ *   <app-capacity-bar [load]="day.load" [capacity]="availability.capacityPercent" />
+ * }
+ * ```
  */
 @Component({
   selector: 'app-capacity-bar',

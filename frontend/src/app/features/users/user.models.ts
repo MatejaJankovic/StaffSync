@@ -45,6 +45,25 @@ export interface CreateUserRequest extends UpdateUserRequest {
   temporaryPassword: string;
 }
 
+/**
+ * `GET /api/users/{id}/availability`: the employee's capacity and one entry per working day
+ * (Mon–Fri) of the period, from active allocations (§7). Feed a day to `app-capacity-bar`.
+ */
+export interface Availability {
+  employeeId: number;
+  capacityPercent: number;
+  from: string;
+  to: string;
+  days: DayAvailability[];
+}
+
+/** `free` is `capacityPercent - load`, negative if overbooked. */
+export interface DayAvailability {
+  date: string;
+  load: number;
+  free: number;
+}
+
 /** A day that a lower capacity would overbook, in the `details` of a 409 `CAPACITY_EXCEEDED` (BR-13). */
 export interface OverloadedDay {
   date: string;

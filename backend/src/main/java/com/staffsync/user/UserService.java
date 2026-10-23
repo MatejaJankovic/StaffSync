@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.staffsync.allocation.AllocationRepository;
@@ -17,7 +18,9 @@ import com.staffsync.common.GlobalExceptionHandler;
 import com.staffsync.common.NotFoundException;
 import com.staffsync.department.Department;
 import com.staffsync.department.DepartmentRepository;
+import com.staffsync.user.dto.AvailabilityDto;
 import com.staffsync.user.dto.CreateUserRequest;
+import com.staffsync.user.dto.DayAvailabilityDto;
 import com.staffsync.user.dto.TeamMemberDto;
 import com.staffsync.user.dto.UpdateUserRequest;
 import com.staffsync.user.dto.UserAccountDto;
@@ -48,6 +51,8 @@ public class UserService {
 	public static final String CANNOT_DEACTIVATE_SELF = "CANNOT_DEACTIVATE_SELF";
 
 	public static final String CANNOT_CHANGE_OWN_ROLE = "CANNOT_CHANGE_OWN_ROLE";
+
+	public static final String INVALID_PERIOD = "INVALID_PERIOD";
 
 	/** The unique index on {@code lower(email)}, see V1. */
 	private static final String EMAIL_INDEX = "uq_users_email_lower";
@@ -122,6 +127,31 @@ public class UserService {
 			.map(member -> TeamMemberDto.from(member,
 					capacityService.getDailyLoad(member.getId(), day, day, null).getOrDefault(day, 0)))
 			.toList();
+	}
+
+	/**
+	 * §7: the user's load and free capacity per working day of {@code [from, to]}, from active allocations with
+	 * their current values (BR-16). The period is at most a year, so walking it day by day stays cheap. Free
+	 * comes from {@link CapacityService#getFreeCapacity}, the same method matching uses, so the two never drift
+	 * (BR-1, §7).
+	 */
+	@Transactional(readOnly = true)
+	public AvailabilityDto availability(Long id, LocalDate from, LocalDate to) {
+		if (from.isAfter(to)) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, INVALID_PERIOD, "From must not be after to");
+		}
+		if (to.isAfter(from.plusYears(1))) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, INVALID_PERIOD,
+					"The period must not be longer than a year");
+		}
+		User user = find(id);
+		Map<LocalDate, Integer> free = capacityService.getFreeCapacity(id, from, to);
+		List<DayAvailabilityDto> days = capacityService.getDailyLoad(id, from, to, null)
+			.entrySet()
+			.stream()
+			.map(day -> new DayAvailabilityDto(day.getKey(), day.getValue(), free.get(day.getKey())))
+			.toList();
+		return new AvailabilityDto(id, user.getCapacityPercent(), from, to, days);
 	}
 
 	/** Emails are unique regardless of case (409). The temporary password is stored as a BCrypt hash. */
