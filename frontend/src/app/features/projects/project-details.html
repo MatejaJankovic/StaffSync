@@ -25,8 +25,22 @@
           <h1>{{ current.name }}</h1>
           <app-status-chip [status]="current.status" />
           <span class="project__spacer"></span>
-          <!-- US-24 (#82) puts the status action here: the PM changes the project's status -->
-          <div class="project__status-action"></div>
+          @if (statusActions().length > 0) {
+            <div class="project__status-action">
+              <button mat-stroked-button type="button" [matMenuTriggerFor]="statusMenu">
+                <mat-icon>swap_horiz</mat-icon>
+                Change status
+              </button>
+              <mat-menu #statusMenu="matMenu" xPosition="before">
+                @for (action of statusActions(); track action.status) {
+                  <button mat-menu-item type="button" (click)="changeStatus(action)">
+                    <mat-icon>{{ action.icon }}</mat-icon>
+                    <span>{{ action.label }}</span>
+                  </button>
+                }
+              </mat-menu>
+            </div>
+          }
           @if (canEdit()) {
             <button mat-stroked-button (click)="edit()">
               <mat-icon>edit</mat-icon>
