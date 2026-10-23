@@ -1,0 +1,35 @@
+:host {
+  display: block;
+}
+
+.capacity-bar__text {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: 4px;
+  font: var(--mat-sys-body-small);
+}
+
+.capacity-bar__label {
+  font-weight: 500;
+}
+
+// Material has no success or warning roles, so these two use the app's own tokens (styles.scss)
+:host(.capacity-bar--free) {
+  --mat-progress-bar-active-indicator-color: var(--app-on-success-container);
+  --mat-progress-bar-track-color: var(--app-success-container);
+}
+
+:host(.capacity-bar--nearly-full) {
+  --mat-progress-bar-active-indicator-color: var(--app-on-warning-container);
+  --mat-progress-bar-track-color: var(--app-warning-container);
+}
+
+:host(.capacity-bar--full) {
+  --mat-progress-bar-active-indicator-color: var(--mat-sys-error);
+  --mat-progress-bar-track-color: var(--mat-sys-error-container);
+
+  .capacity-bar__label {
+    color: var(--mat-sys-error);
+  }
+}
