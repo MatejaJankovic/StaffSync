@@ -9,7 +9,7 @@
         <button
           mat-button
           type="button"
-          [attr.aria-label]="'Withdraw ' + row.employeeName"
+          [attr.aria-label]="'Withdraw ' + row.employeeName + ' from ' + row.requestTitle"
           (click)="withdraw(row)"
         >
           Withdraw
@@ -19,7 +19,7 @@
         <button
           mat-button
           type="button"
-          [attr.aria-label]="'Cancel ' + row.employeeName"
+          [attr.aria-label]="'Cancel ' + row.employeeName + ' on ' + row.requestTitle"
           (click)="cancel(row)"
         >
           Cancel

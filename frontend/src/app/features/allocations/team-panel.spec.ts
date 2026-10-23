@@ -206,16 +206,38 @@ describe('TeamPanel', () => {
       await open([allocation(1, 'Jelena Jovic', 'PROPOSED', { startDate: EARLIER })]);
 
       const jelena = rowOf('Jelena Jovic');
-      expect(action(jelena, 'Withdraw Jelena Jovic')?.textContent?.trim()).toBe('Withdraw');
-      expect(action(jelena, 'Cancel Jelena Jovic')).toBeNull();
+      expect(action(jelena, 'Withdraw Jelena Jovic from Java Developer')?.textContent?.trim()).toBe(
+        'Withdraw',
+      );
+      expect(action(jelena, 'Cancel Jelena Jovic on Java Developer')).toBeNull();
     });
 
     it('offers Cancel on an approved allocation that has not started', async () => {
       await open([allocation(1, 'Marko Markovic', 'APPROVED', { startDate: LATER })]);
 
       const marko = rowOf('Marko Markovic');
-      expect(action(marko, 'Cancel Marko Markovic')?.textContent?.trim()).toBe('Cancel');
-      expect(action(marko, 'Withdraw Marko Markovic')).toBeNull();
+      expect(action(marko, 'Cancel Marko Markovic on Java Developer')?.textContent?.trim()).toBe(
+        'Cancel',
+      );
+      expect(action(marko, 'Withdraw Marko Markovic from Java Developer')).toBeNull();
+    });
+
+    it('names the request in the action, as one employee can be on two requests (BR-8)', async () => {
+      await open([
+        allocation(1, 'Marko Markovic', 'APPROVED', { startDate: LATER }),
+        allocation(2, 'Marko Markovic', 'APPROVED', {
+          startDate: LATER,
+          requestTitle: 'Tech Lead',
+        }),
+      ]);
+
+      const labels = [...el().querySelectorAll('tr.mat-mdc-row button')].map((button) =>
+        button.getAttribute('aria-label'),
+      );
+      expect(labels).toEqual([
+        'Cancel Marko Markovic on Java Developer',
+        'Cancel Marko Markovic on Tech Lead',
+      ]);
     });
 
     it.each([
@@ -239,7 +261,7 @@ describe('TeamPanel', () => {
     it('asks before withdrawing, then withdraws, reloads the team and tells the page', async () => {
       await open([allocation(2, 'Jelena Jovic')]);
 
-      action(rowOf('Jelena Jovic'), 'Withdraw Jelena Jovic')!.click();
+      action(rowOf('Jelena Jovic'), 'Withdraw Jelena Jovic from Java Developer')!.click();
       await settle();
 
       expect(confirm).toHaveBeenCalledWith({
@@ -265,7 +287,7 @@ describe('TeamPanel', () => {
     it('asks before cancelling an approved allocation, then cancels it', async () => {
       await open([allocation(1, 'Marko Markovic', 'APPROVED', { startDate: LATER })]);
 
-      action(rowOf('Marko Markovic'), 'Cancel Marko Markovic')!.click();
+      action(rowOf('Marko Markovic'), 'Cancel Marko Markovic on Java Developer')!.click();
       await settle();
 
       expect(confirm).toHaveBeenCalledWith({
@@ -288,7 +310,7 @@ describe('TeamPanel', () => {
       await open([allocation(2, 'Jelena Jovic')]);
       confirm.mockReturnValue(of(false));
 
-      action(rowOf('Jelena Jovic'), 'Withdraw Jelena Jovic')!.click();
+      action(rowOf('Jelena Jovic'), 'Withdraw Jelena Jovic from Java Developer')!.click();
       await settle();
 
       httpMock.expectNone({ method: 'POST', url: '/api/allocations/2/cancel' });
@@ -299,7 +321,7 @@ describe('TeamPanel', () => {
     it('reloads the team after a failed cancel, and leaves the message to the error snackbar', async () => {
       await open([allocation(1, 'Marko Markovic', 'APPROVED', { startDate: LATER })]);
 
-      action(rowOf('Marko Markovic'), 'Cancel Marko Markovic')!.click();
+      action(rowOf('Marko Markovic'), 'Cancel Marko Markovic on Java Developer')!.click();
       await settle();
       httpMock
         .expectOne({ method: 'POST', url: '/api/allocations/1/cancel' })
