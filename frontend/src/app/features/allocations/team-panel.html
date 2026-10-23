@@ -1,3 +1,35 @@
+<!-- One live region, always there: screen readers announce what is added to it, but not always a
+     region that appears together with its content -->
+<div role="status">
+  @if (changeNotice(); as notice) {
+    <div class="team-panel__notice">
+      <mat-icon>warning</mat-icon>
+      <div class="team-panel__notice-text">
+        <p class="team-panel__notice-title">
+          A change for {{ notice.employeeName }} was requested, with warnings
+        </p>
+        <ul>
+          @for (warning of notice.warnings; track $index) {
+            <li>{{ warning }}</li>
+          }
+        </ul>
+        <p>
+          The change is saved and the current values stay in force. The resource manager can’t
+          approve it while this person has too little capacity.
+        </p>
+      </div>
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="'Dismiss the warnings for ' + notice.employeeName"
+        (click)="dismissChangeNotice()"
+      >
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  }
+</div>
+
 <app-paged-table [columns]="columns" [fetch]="fetch()" [emptyText]="emptyText()" [pageSize]="10">
   <ng-template appPagedTableCell="status" let-row>
     <app-status-chip [status]="row.status" />
@@ -13,6 +45,28 @@
           (click)="withdraw(row)"
         >
           Withdraw
+        </button>
+      }
+      @if (canRequestChange(row)) {
+        <button
+          mat-button
+          type="button"
+          [attr.aria-label]="'Request a change for ' + row.employeeName + ' on ' + row.requestTitle"
+          (click)="requestChange(row)"
+        >
+          Request change
+        </button>
+      }
+      @if (canWithdrawChange(row)) {
+        <button
+          mat-button
+          type="button"
+          [attr.aria-label]="
+            'Withdraw the change for ' + row.employeeName + ' on ' + row.requestTitle
+          "
+          (click)="withdrawChange(row)"
+        >
+          Withdraw change
         </button>
       }
       @if (canCancel(row)) {
