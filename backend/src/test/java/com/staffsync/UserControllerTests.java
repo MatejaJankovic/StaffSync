@@ -804,6 +804,37 @@ class UserControllerTests {
 			.then().statusCode(200).body("days.free", everyItem(equalTo(100)));
 	}
 
+	@Test
+	void aPendingChangeCountsWithItsCurrentValuesNotThePendingOnes() {
+		User employee = newEmployee("Pending", newDepartment(), rm());
+		// 40% for Nov 2–6, with a change to 80% until Nov 13 waiting for the RM (BR-15)
+		Allocation allocation = allocate(employee, 40, LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 6),
+				AllocationStatus.APPROVED);
+		allocation.requestChange(80, LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 13), "Scope grew");
+		allocationRepository.save(allocation);
+
+		// BR-16: until the change is approved, Nov 2–6 stay at 40% and Nov 9–13 stay free
+		given().auth().oauth2(tokenFor(PM))
+			.queryParam("from", "2026-11-02").queryParam("to", "2026-11-13")
+			.when().get("/api/users/{id}/availability", employee.getId())
+			.then()
+			.statusCode(200)
+			.body("days.load", contains(40, 40, 40, 40, 40, 0, 0, 0, 0, 0))
+			.body("days.free", contains(60, 60, 60, 60, 60, 100, 100, 100, 100, 100));
+	}
+
+	@Test
+	void anRmWhoIsNotTheEmployeesManagerSeesTheirAvailabilityToo() {
+		// §10 grants any RM; BR-5 scopes decisions to the employee's own RM, not reading capacity
+		User employee = newEmployee("Other", newDepartment(), rm());
+		User otherRm = newUser("Other", Role.RM);
+
+		given().auth().oauth2(tokenFor(otherRm.getEmail()))
+			.queryParam("from", "2026-11-02").queryParam("to", "2026-11-06")
+			.when().get("/api/users/{id}/availability", employee.getId())
+			.then().statusCode(200).body("days.free", everyItem(equalTo(100)));
+	}
+
 	@ParameterizedTest
 	@ValueSource(strings = { ADMIN, "bogdan_employee@staffsync.local" })
 	void noOneElseSeesAnEmployeesAvailability(String email) {
@@ -824,10 +855,18 @@ class UserControllerTests {
 
 	@Test
 	void availabilityNeedsFromAndTo() {
-		given().auth().oauth2(tokenFor(PM))
+		String token = tokenFor(PM);
+		Long id = rm().getId();
+
+		// Spring MVC rejects a missing or malformed query parameter, so the code is the status name (§10)
+		given().auth().oauth2(token)
 			.queryParam("to", "2026-11-06")
-			.when().get("/api/users/{id}/availability", rm().getId())
-			.then().statusCode(400);
+			.when().get("/api/users/{id}/availability", id)
+			.then().statusCode(400).body("code", equalTo("BAD_REQUEST"));
+		given().auth().oauth2(token)
+			.queryParam("from", "next monday").queryParam("to", "2026-11-06")
+			.when().get("/api/users/{id}/availability", id)
+			.then().statusCode(400).body("code", equalTo("BAD_REQUEST"));
 	}
 
 	@Test
@@ -881,7 +920,8 @@ class UserControllerTests {
 	}
 
 	/** Allocation transitions belong to US-10 and US-12, so tests save the allocation with its status. */
-	private void allocate(User employee, int percent, LocalDate start, LocalDate end, AllocationStatus status) {
+	private Allocation allocate(User employee, int percent, LocalDate start, LocalDate end,
+			AllocationStatus status) {
 		User pm = userRepository.findByEmailIgnoreCase(PM).orElseThrow();
 		Project project = projectRepository
 			.save(new Project("Project-" + UUID.randomUUID(), "Acme", null, start, end, pm));
@@ -889,7 +929,7 @@ class UserControllerTests {
 			.save(new StaffingRequest(project, "Developer", Seniority.MEDIOR, percent, start, end, 1));
 		Allocation allocation = new Allocation(request, employee, percent, start, end, pm);
 		allocation.setStatus(status);
-		allocationRepository.save(allocation);
+		return allocationRepository.save(allocation);
 	}
 
 	private Map<String, Object> employeeBody(String email) {

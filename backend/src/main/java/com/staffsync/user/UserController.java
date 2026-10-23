@@ -106,7 +106,7 @@ public class UserController {
 							    { "date": "2026-11-10", "load": 90, "free": 10 }
 							  ] }""")))
 	@ApiResponse(responseCode = "400",
-			description = "from or to is missing or not a date (VALIDATION_ERROR), or from is after to or the period "
+			description = "from or to is missing or not a date (BAD_REQUEST), or from is after to or the period "
 					+ "is longer than a year (INVALID_PERIOD)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
