@@ -352,7 +352,7 @@ Settle each one before starting the task that depends on it, and write the answe
 
 | Question | Issues | Suggestion |
 |---|---|---|
-| After a 409 on approving a **change**, does the allocation stay `CHANGE_PENDING` or go back to `APPROVED`? T-30 says it "stays APPROVED", but BR-15 returns it to APPROVED only after a decision | [#45][i45], [#47][i47], [#95][i95] | Decide with QA. The old values stay in force either way |
+| After a 409 on approving a **change**, does the allocation stay `CHANGE_PENDING` or go back to `APPROVED`? T-30 said it "stays APPROVED", but BR-15 returns it to APPROVED only after a decision | [#45][i45], [#47][i47], [#95][i95] | **Decided in [#45][i45]:** it stays `CHANGE_PENDING` with the old values in force, and the change keeps waiting for the RM. T-30 in the spec's test matrix is updated to match |
 | What happens to allocations when a request is cancelled? | [#18][i18] | Cancel its `PROPOSED` allocations, and only allow cancelling a request that has no active allocations |
 | Can a skill or a department that is in use be deleted? | [#12][i12], [#61][i61] | No: return 409 |
 | Employee search: must free capacity be ≥ `minFreePercent` on every working day, or on average? | [#78][i78] | On every working day |

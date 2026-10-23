@@ -1023,7 +1023,7 @@ class AllocationServiceTests {
 
 	@Test
 	void aCapacityBreachOnAChangeLeavesItPendingWithTheOldValuesInForce() {
-		// T-30, agreed with QA: the change keeps waiting, as a proposal stays PROPOSED
+		// T-30 (decided in #45): the change keeps waiting, as a proposal stays PROPOSED
 		Allocation allocation = givenPendingChange();
 		BusinessException exceeded = new BusinessException(HttpStatus.CONFLICT, CapacityService.CAPACITY_EXCEEDED,
 				"Capacity exceeded on 2026-11-02 (30% existing + 80% new = 110% of 100% capacity)", List.of(day(2, 110)));
