@@ -74,7 +74,7 @@ public class DashboardService {
 	 * Loads are per working day (§7), so on a weekend "today" is the next Monday.
 	 */
 	List<DashboardCardDto> cards(AuthUser currentUser, LocalDate today) {
-		LocalDate day = workingDayFrom(today);
+		LocalDate day = CapacityService.workingDayFrom(today);
 		Long me = currentUser.id();
 		return switch (currentUser.role()) {
 			case EMPLOYEE -> employeeCards(me, day);
@@ -171,14 +171,6 @@ public class DashboardService {
 
 	private static boolean allZero(Collection<Integer> loads) {
 		return loads.stream().allMatch(load -> load == 0);
-	}
-
-	private static LocalDate workingDayFrom(LocalDate day) {
-		return switch (day.getDayOfWeek()) {
-			case SATURDAY -> day.plusDays(2);
-			case SUNDAY -> day.plusDays(1);
-			default -> day;
-		};
 	}
 
 }
