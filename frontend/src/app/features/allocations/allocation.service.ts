@@ -2,13 +2,16 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Page, PageQuery, toPageParams } from '../../core/api/page';
+import { skipErrorSnackbar } from '../../core/error/error.interceptor';
 import {
   Allocation,
   AllocationChange,
   AllocationChangePayload,
   AllocationFilters,
   AllocationProposal,
+  PendingApproval,
   ProposeAllocationPayload,
+  RejectAllocationPayload,
 } from './allocation.models';
 
 export const ALLOCATIONS_URL = '/api/allocations';
@@ -16,7 +19,8 @@ export const ALLOCATIONS_URL = '/api/allocations';
 /**
  * Talks to the allocations API. The search is filtered by role on the server: an Employee gets
  * their own allocations, a PM those on their projects, an RM those of their team, an Admin all.
- * Only the PM who owns the project proposes, cancels and requests changes.
+ * Only the PM who owns the project proposes, cancels and requests changes, and only the employee's
+ * RM approves and rejects.
  */
 @Injectable({ providedIn: 'root' })
 export class AllocationService {
@@ -57,6 +61,36 @@ export class AllocationService {
    */
   withdrawChange(id: number): Observable<Allocation> {
     return this.http.delete<Allocation>(`${ALLOCATIONS_URL}/${id}/change-request`);
+  }
+
+  /**
+   * The RM's pending approvals: the proposals (NEW) and changes (CHANGE) of their own team that can
+   * still be decided (BR-5, BR-7), oldest first unless `query.sort` says otherwise.
+   */
+  pending(query: PageQuery): Observable<Page<PendingApproval>> {
+    return this.http.get<Page<PendingApproval>>(`${ALLOCATIONS_URL}/pending`, {
+      params: toPageParams(query),
+    });
+  }
+
+  /**
+   * The RM approves a proposal or a pending change (BR-1, BR-5, BR-7, BR-15). Errors are not shown in
+   * the snackbar: a 409 CAPACITY_EXCEEDED lists the overloaded days in its `details`, which the caller
+   * shows in full, and it shows the message of any other error itself.
+   */
+  approve(id: number): Observable<Allocation> {
+    return this.http.post<Allocation>(`${ALLOCATIONS_URL}/${id}/approve`, null, {
+      context: skipErrorSnackbar(),
+    });
+  }
+
+  /**
+   * The RM rejects a proposal (it becomes REJECTED) or a pending change (the allocation goes back to
+   * APPROVED with its current values), with a comment (BR-6, BR-15). The API answers 400 (the
+   * comment), 403 (BR-5) and 409 (BR-7), and the error snackbar shows its message.
+   */
+  reject(id: number, payload: RejectAllocationPayload): Observable<Allocation> {
+    return this.http.post<Allocation>(`${ALLOCATIONS_URL}/${id}/reject`, payload);
   }
 
   list(query: PageQuery, filters: AllocationFilters = {}): Observable<Page<Allocation>> {

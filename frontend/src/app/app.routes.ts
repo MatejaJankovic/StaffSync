@@ -63,7 +63,12 @@ export const routes: Routes = [
         title: 'Candidates · StaffSync',
       },
       // RM
-      menuRoute('approvals'),
+      menuRoute('approvals', {
+        loadComponent: () =>
+          import('./features/allocations/pending-approvals-page').then(
+            (m) => m.PendingApprovalsPage,
+          ),
+      }),
       menuRoute('team', {
         loadComponent: () => import('./features/team/team-page').then((m) => m.TeamPage),
       }),
