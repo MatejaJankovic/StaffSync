@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import com.staffsync.common.BusinessException;
 import com.staffsync.common.NotFoundException;
@@ -78,12 +79,23 @@ public class CapacityService {
 		return overloaded;
 	}
 
-	/** BR-1: throws 409 CAPACITY_EXCEEDED with the overloaded days. Approve and change approval call this. */
+	/**
+	 * BR-1: throws 409 CAPACITY_EXCEEDED with the overloaded days in {@code details}, and a message with one
+	 * part per run of days, e.g. {@code "Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new
+	 * = 120% of 100% capacity)"}. The capacity is shown so a part-time overload reads right. Approve and change
+	 * approval call this.
+	 */
 	public void checkCapacity(Long employeeId, LocalDate from, LocalDate to, int percent, Long excludeAllocationId) {
 		List<Map<String, Object>> overloaded = findOverloadedDays(employeeId, from, to, percent, excludeAllocationId,
 				false);
 		if (!overloaded.isEmpty()) {
-			throw capacityExceeded("Capacity exceeded on", overloaded);
+			int capacity = findEmployee(employeeId).getCapacityPercent();
+			String runs = toRuns(overloaded).stream()
+				.map(run -> run.days() + " (" + (run.load() - percent) + "% existing + " + percent + "% new = "
+						+ run.load() + "% of " + capacity + "% capacity)")
+				.collect(Collectors.joining("; "));
+			throw new BusinessException(HttpStatus.CONFLICT, CAPACITY_EXCEEDED, "Capacity exceeded on " + runs,
+					overloaded);
 		}
 	}
 
@@ -113,6 +125,35 @@ public class CapacityService {
 			}
 		});
 		return overloaded;
+	}
+
+	/**
+	 * Merges the days from {@link #findOverloadedDays} into runs of consecutive working days with the same
+	 * load, for readable messages. A weekend doesn't break a run.
+	 */
+	public static List<OverloadedRun> toRuns(List<Map<String, Object>> overloadedDays) {
+		List<OverloadedRun> runs = new ArrayList<>();
+		LocalDate runStart = null;
+		LocalDate runEnd = null;
+		int runLoad = 0;
+		for (Map<String, Object> day : overloadedDays) {
+			LocalDate date = (LocalDate) day.get("date");
+			int load = (Integer) day.get("load");
+			if (runStart != null && load == runLoad && date.equals(nextWorkingDay(runEnd))) {
+				runEnd = date;
+				continue;
+			}
+			if (runStart != null) {
+				runs.add(new OverloadedRun(runStart, runEnd, runLoad));
+			}
+			runStart = date;
+			runEnd = date;
+			runLoad = load;
+		}
+		if (runStart != null) {
+			runs.add(new OverloadedRun(runStart, runEnd, runLoad));
+		}
+		return runs;
 	}
 
 	private Map<LocalDate, Integer> computeLoad(Long employeeId, LocalDate from, LocalDate to, Long excludeId,
@@ -152,8 +193,26 @@ public class CapacityService {
 		return dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY;
 	}
 
+	private static LocalDate nextWorkingDay(LocalDate day) {
+		LocalDate next = day.plusDays(1);
+		while (!isWorkingDay(next)) {
+			next = next.plusDays(1);
+		}
+		return next;
+	}
+
 	private User findEmployee(Long employeeId) {
 		return userRepository.findById(employeeId).orElseThrow(() -> new NotFoundException("Employee", employeeId));
+	}
+
+	/** Consecutive working days from {@code start} to {@code end}, each with this total {@code load} %. */
+	public record OverloadedRun(LocalDate start, LocalDate end, int load) {
+
+		/** {@code "2026-11-02"} for one day, {@code "2026-11-02 – 2026-11-13"} for more. */
+		public String days() {
+			return start.equals(end) ? start.toString() : start + " – " + end;
+		}
+
 	}
 
 }

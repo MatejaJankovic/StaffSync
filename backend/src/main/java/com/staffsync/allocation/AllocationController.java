@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
+import com.staffsync.allocation.dto.RejectAllocationRequest;
 import com.staffsync.auth.AuthUser;
 import com.staffsync.common.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -92,6 +94,52 @@ public class AllocationController {
 	public AllocationProposalDto propose(@Valid @RequestBody ProposeAllocationRequest request,
 			@AuthenticationPrincipal AuthUser user) {
 		return allocationService.propose(request, user);
+	}
+
+	@Operation(summary = "Approve a proposed allocation (the employee's RM)",
+			description = "Runs the hard capacity check (BR-1): on every working day of the period, the employee's "
+					+ "active allocations plus this one must stay within their capacity. Exactly 100% is allowed. "
+					+ "On success the allocation is APPROVED and decidedBy and decidedAt are set. On a 409 nothing "
+					+ "changes and the allocation stays PROPOSED")
+	@ApiResponse(responseCode = "200", description = "Approved")
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not the employee's resource manager (BR-5)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No allocation with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409",
+			description = "Capacity exceeded (CAPACITY_EXCEEDED, with the overloaded days and loads in details, "
+					+ "BR-1), the allocation is not PROPOSED (BR-7), the request is not OPEN or PARTIALLY_FILLED, "
+					+ "the project is COMPLETED or CANCELLED, or the employee has been deactivated "
+					+ "(EMPLOYEE_INACTIVE)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('RM')")
+	@PostMapping("/{id}/approve")
+	public AllocationDto approve(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
+		return allocationService.approve(id, user);
+	}
+
+	@Operation(summary = "Reject a proposed allocation (the employee's RM)",
+			description = "A comment of at least 10 characters is required (BR-6). The allocation becomes REJECTED "
+					+ "with decidedBy, decidedAt and decisionComment set, and can't be decided again. The request's "
+					+ "status doesn't change")
+	@ApiResponse(responseCode = "200", description = "Rejected")
+	@ApiResponse(responseCode = "400", description = "The comment is missing, blank, or shorter than 10 characters (BR-6)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not the employee's resource manager (BR-5)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No allocation with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409", description = "The allocation is not PROPOSED (BR-7)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('RM')")
+	@PostMapping("/{id}/reject")
+	public AllocationDto reject(@PathVariable Long id, @Valid @RequestBody RejectAllocationRequest request,
+			@AuthenticationPrincipal AuthUser user) {
+		return allocationService.reject(id, request, user);
 	}
 
 }

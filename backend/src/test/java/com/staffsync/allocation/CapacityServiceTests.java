@@ -152,6 +152,31 @@ class CapacityServiceTests {
 	}
 
 	@Test
+	void checkCapacityMessageMergesConsecutiveDaysWithTheSameLoad() {
+		when(userRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employee(100)));
+		when(allocationRepository.findOverlapping(EMPLOYEE_ID, nov(2), nov(20), AllocationStatus.ACTIVE, null))
+			.thenReturn(List.of(approved(60, nov(2), nov(13)), approved(50, nov(16), nov(20))));
+
+		// The weekend of 7–8 Nov doesn't break the first run, a different load starts a new one
+		assertThatThrownBy(() -> capacityService.checkCapacity(EMPLOYEE_ID, nov(2), nov(20), 60, null))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage("Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity); "
+					+ "2026-11-16 – 2026-11-20 (50% existing + 60% new = 110% of 100% capacity)");
+	}
+
+	@Test
+	void checkCapacityMessageShowsAPartTimeCapacity() {
+		// T-05: without the capacity, "0% existing + 60% new = 60%" would look like it fits
+		when(userRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employee(50)));
+		when(allocationRepository.findOverlapping(EMPLOYEE_ID, nov(2), nov(6), AllocationStatus.ACTIVE, null))
+			.thenReturn(List.of());
+
+		assertThatThrownBy(() -> capacityService.checkCapacity(EMPLOYEE_ID, nov(2), nov(6), 60, null))
+			.isInstanceOf(BusinessException.class)
+			.hasMessage("Capacity exceeded on 2026-11-02 – 2026-11-06 (0% existing + 60% new = 60% of 50% capacity)");
+	}
+
+	@Test
 	void checkCapacityIgnoresProposedAllocations() {
 		// The repository filters by status like the real query, so the proposed 50% only counts if asked for
 		Allocation existing = proposed(50, nov(9), nov(11));
