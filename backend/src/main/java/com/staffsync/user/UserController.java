@@ -1,14 +1,17 @@
 package com.staffsync.user;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import com.staffsync.auth.AuthUser;
 import com.staffsync.common.ErrorResponse;
+import com.staffsync.user.dto.AvailabilityDto;
 import com.staffsync.user.dto.CreateUserRequest;
 import com.staffsync.user.dto.TeamMemberDto;
 import com.staffsync.user.dto.UpdateUserRequest;
 import com.staffsync.user.dto.UserAccountDto;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -21,6 +24,7 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -86,6 +90,39 @@ public class UserController {
 	@GetMapping("/me/team")
 	public List<TeamMemberDto> myTeam(@AuthenticationPrincipal AuthUser user) {
 		return userService.myTeam(user);
+	}
+
+	@Operation(summary = "An employee's daily load and free capacity for a period (PM, RM, the employee themself)",
+			description = "One entry per working day (Mon–Fri) from from to to, both included. load is the % from "
+					+ "APPROVED and CHANGE_PENDING allocations with their current values (BR-16), and free is "
+					+ "capacityPercent − load. The period is at most a year")
+	@ApiResponse(responseCode = "200", description = "The capacity and the working days, possibly none",
+			content = @Content(schema = @Schema(implementation = AvailabilityDto.class),
+					examples = @ExampleObject(value = """
+							{ "employeeId": 4, "capacityPercent": 100, "from": "2026-11-06", "to": "2026-11-10",
+							  "days": [
+							    { "date": "2026-11-06", "load": 60, "free": 40 },
+							    { "date": "2026-11-09", "load": 60, "free": 40 },
+							    { "date": "2026-11-10", "load": 90, "free": 10 }
+							  ] }""")))
+	@ApiResponse(responseCode = "400",
+			description = "from or to is missing or not a date (VALIDATION_ERROR), or from is after to or the period "
+					+ "is longer than a year (INVALID_PERIOD)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not a PM, an RM or the employee themself",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No user with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasAnyRole('PM', 'RM') or #id == principal.id()")
+	@GetMapping("/{id}/availability")
+	public AvailabilityDto availability(@PathVariable Long id,
+			@Parameter(example = "2026-11-05") @RequestParam @DateTimeFormat(
+					iso = DateTimeFormat.ISO.DATE) LocalDate from,
+			@Parameter(example = "2026-11-20") @RequestParam @DateTimeFormat(
+					iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+		return userService.availability(id, from, to);
 	}
 
 	@Operation(summary = "Create an account with a temporary password (Admin)",

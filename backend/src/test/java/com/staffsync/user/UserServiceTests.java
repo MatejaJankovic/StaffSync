@@ -1,19 +1,27 @@
 package com.staffsync.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
 
 import com.staffsync.allocation.AllocationRepository;
 import com.staffsync.allocation.CapacityService;
 import com.staffsync.auth.AuthUser;
+import com.staffsync.common.BusinessException;
+import com.staffsync.common.NotFoundException;
 import com.staffsync.department.Department;
 import com.staffsync.department.DepartmentRepository;
 import com.staffsync.department.dto.DepartmentDto;
+import com.staffsync.user.dto.AvailabilityDto;
+import com.staffsync.user.dto.DayAvailabilityDto;
 import com.staffsync.user.dto.TeamMemberDto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,7 +31,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
-/** Unit tests for {@link UserService#myTeam} (US-21). "Today" is Wednesday 4 Nov 2026. */
+/**
+ * Unit tests for {@link UserService#myTeam} (US-21) and {@link UserService#availability} (US-16). "Today" is
+ * Wednesday 4 Nov 2026.
+ */
 @ExtendWith(MockitoExtension.class)
 class UserServiceTests {
 
@@ -86,6 +97,43 @@ class UserServiceTests {
 		when(userRepository.findByManagerIdAndActiveTrue(ME)).thenReturn(List.of());
 
 		assertThat(userService.myTeam(rm(), TODAY)).isEmpty();
+	}
+
+	// ---- US-16: availability
+
+	@Test
+	void availabilityHasTheLoadAndFreeCapacityOfEachWorkingDay() {
+		LocalDate friday = LocalDate.of(2026, 11, 6);
+		LocalDate monday = LocalDate.of(2026, 11, 9);
+		User member = member(10L, "Ana", "Zoric", 80, null);
+		when(userRepository.findById(10L)).thenReturn(Optional.of(member));
+		Map<LocalDate, Integer> load = new TreeMap<>(Map.of(friday, 30, monday, 90));
+		when(capacityService.getDailyLoad(10L, friday, monday, null)).thenReturn(load);
+
+		// Overbooked data shows as negative free capacity, as on My team
+		assertThat(userService.availability(10L, friday, monday)).isEqualTo(new AvailabilityDto(10L, 80, friday,
+				monday, List.of(new DayAvailabilityDto(friday, 30, 50), new DayAvailabilityDto(monday, 90, -10))));
+	}
+
+	@Test
+	void availabilityChecksThePeriodBeforeLookingAnythingUp() {
+		LocalDate from = LocalDate.of(2026, 11, 6);
+
+		assertThatThrownBy(() -> userService.availability(10L, from, from.minusDays(1)))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("code", UserService.INVALID_PERIOD);
+		assertThatThrownBy(() -> userService.availability(10L, from, from.plusYears(1).plusDays(1)))
+			.isInstanceOf(BusinessException.class)
+			.hasFieldOrPropertyWithValue("code", UserService.INVALID_PERIOD);
+		verifyNoInteractions(userRepository, capacityService);
+	}
+
+	@Test
+	void availabilityOfAnUnknownUserIsNotFound() {
+		LocalDate from = LocalDate.of(2026, 11, 6);
+		when(userRepository.findById(10L)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> userService.availability(10L, from, from)).isInstanceOf(NotFoundException.class);
 	}
 
 	// ---- helpers
