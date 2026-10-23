@@ -150,6 +150,13 @@ describe('MyAllocationsPage', () => {
       expect(text('app-capacity-bar')).toBe('60% / 50% Over capacity');
     });
 
+    it('does not say over capacity at exactly my capacity', async () => {
+      answerLoad(availability([['2026-10-23', 100]]), '2026-10-23', '2026-10-29');
+      await settle();
+
+      expect(text('app-capacity-bar')).toBe('100% / 100%');
+    });
+
     it('shows an error with Retry, and loads again on Retry', async () => {
       httpMock
         .expectOne((req) => req.url === AVAILABILITY_URL)
@@ -167,6 +174,22 @@ describe('MyAllocationsPage', () => {
       await settle();
 
       expect(text('app-capacity-bar')).toBe('60% / 100%');
+    });
+
+    it('shows the error with Retry, not an empty bar, when the period is refused', async () => {
+      httpMock
+        .expectOne((req) => req.url === AVAILABILITY_URL)
+        .flush(
+          { status: 400, code: 'INVALID_PERIOD', message: 'The period can be at most a year' },
+          { status: 400, statusText: 'Bad Request' },
+        );
+      await settle();
+
+      expect(text('.my-allocations__load [role="alert"]')).toContain(
+        'Unable to load your current load.',
+      );
+      expect(el().querySelector('.my-allocations__load button')?.textContent).toContain('Retry');
+      expect(el().querySelector('app-capacity-bar')).toBeNull();
     });
   });
 
@@ -224,6 +247,32 @@ describe('MyAllocationsPage', () => {
 
       expect(column('pendingChange')).toEqual(['60% → 80% pending', '']);
       expect(column('status')).toEqual(['Change pending', 'Approved']);
+    });
+
+    it('keeps the current % and period in force while a change waits for the RM', async () => {
+      answerList([
+        allocation(1, 'Project Alpha', 'CHANGE_PENDING', {
+          pendingPercent: 80,
+          pendingStartDate: '2026-11-01',
+          pendingEndDate: '2027-02-28',
+        }),
+      ]);
+      await settle();
+
+      expect(column('percent')).toEqual(['60%']);
+      expect(column('startDate')).toEqual(['1 Nov 2026 – 31 Jan 2027']);
+      expect(column('pendingChange')).toEqual([
+        '60% → 80%, 1 Nov 2026 – 31 Jan 2027 → 1 Nov 2026 – 28 Feb 2027 pending',
+      ]);
+    });
+
+    it('says the list failed to load, and still shows my load', async () => {
+      httpMock.expectOne(LIST_URL).flush(null, { status: 500, statusText: 'Server Error' });
+      await settle();
+
+      expect(el().textContent).toContain('Unable to load the data');
+      expect(el().textContent).not.toContain('You have no allocations yet');
+      expect(text('app-capacity-bar')).toBe('60% / 100%');
     });
 
     it('says so when I have no allocations', async () => {
