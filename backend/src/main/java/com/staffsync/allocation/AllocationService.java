@@ -78,7 +78,7 @@ public class AllocationService {
 	public AllocationProposalDto propose(ProposeAllocationRequest body, AuthUser currentUser) {
 		StaffingRequest request = requestRepository.findById(body.requestId())
 			.orElseThrow(() -> new NotFoundException("Staffing request", body.requestId()));
-		checkOwner(request.getProject(), currentUser);
+		checkOwner(request.getProject(), currentUser, "propose employees for its requests");
 
 		int percent = body.percent() != null ? body.percent() : request.getAllocationPercent();
 		LocalDate startDate = body.startDate() != null ? body.startDate() : request.getStartDate();
@@ -152,6 +152,28 @@ public class AllocationService {
 	}
 
 	/**
+	 * The PM withdraws a proposal or cancels an approved allocation before it starts (§9:
+	 * {@code PROPOSED → CANCELLED}, {@code APPROVED → CANCELLED}). The checks run in this order: BR-4 (403),
+	 * the project is still open (409), the allocation is {@code PROPOSED} or {@code APPROVED} (409), an
+	 * approved one hasn't started yet (409). Then the request status is recalculated (BR-10), so a
+	 * {@code FILLED} request goes back to {@code PARTIALLY_FILLED} (T-20). A withdrawn proposal was never
+	 * active, so its request keeps its status.
+	 */
+	@Transactional
+	public AllocationDto cancel(Long id, AuthUser currentUser) {
+		Allocation allocation = find(id);
+		Project project = allocation.getRequest().getProject();
+		checkOwner(project, currentUser, "cancel its allocations");
+		// Otherwise the recalculation could reopen a request on a closed project (BR-11)
+		checkProjectOpen(project, "cancellations");
+		checkCancellable(allocation);
+
+		allocation.setStatus(AllocationStatus.CANCELLED);
+		requestStatusService.recalculate(allocation.getRequest().getId());
+		return AllocationDto.from(allocation);
+	}
+
+	/**
 	 * Searches allocations, always within what the caller may see (§10, "filtered by role"): an EMPLOYEE
 	 * their own, a PM those on their projects, an RM those of their team ({@code employee.manager_id}),
 	 * an ADMIN all. The filters narrow that further, so a filter outside the caller's scope gives an empty
@@ -200,11 +222,14 @@ public class AllocationService {
 		};
 	}
 
-	/** BR-4: only the PM who owns the request's project proposes candidates for it. */
-	private static void checkOwner(Project project, AuthUser currentUser) {
+	/**
+	 * BR-4: only the PM who owns the project proposes candidates for its requests and cancels its
+	 * allocations. {@code what} names the action in the message, e.g. {@code "cancel its allocations"}.
+	 */
+	private static void checkOwner(Project project, AuthUser currentUser, String what) {
 		if (!project.getPm().getId().equals(currentUser.id())) {
 			throw new BusinessException(HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER",
-					"Only the project manager who owns this project can propose employees for its requests");
+					"Only the project manager who owns this project can " + what);
 		}
 	}
 
@@ -227,15 +252,22 @@ public class AllocationService {
 	 * {@code what} names the action in the message, e.g. {@code "proposals"}.
 	 */
 	private static void checkOpen(StaffingRequest request, String what) {
-		Project project = request.getProject();
-		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
-			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
-					"A " + project.getStatus().name().toLowerCase() + " project takes no " + what);
-		}
+		checkProjectOpen(request.getProject(), what);
 		if (request.getStatus() != RequestStatus.OPEN && request.getStatus() != RequestStatus.PARTIALLY_FILLED) {
 			throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_NOT_OPEN",
 					"Only an open or partially filled request takes " + what + ", but this one is "
-							+ request.getStatus().name().toLowerCase().replace('_', ' '));
+							+ label(request.getStatus()));
+		}
+	}
+
+	/**
+	 * A completed or cancelled project takes no proposals, approvals or cancellations (409). {@code what}
+	 * names the action in the message, e.g. {@code "cancellations"}.
+	 */
+	private static void checkProjectOpen(Project project, String what) {
+		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
+			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
+					"A " + label(project.getStatus()) + " project takes no " + what);
 		}
 	}
 
@@ -257,7 +289,26 @@ public class AllocationService {
 		if (allocation.getStatus() != AllocationStatus.PROPOSED) {
 			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS",
 					"Only a proposed allocation can be approved or rejected, but this one is "
-							+ allocation.getStatus().name().toLowerCase().replace('_', ' '));
+							+ label(allocation.getStatus()));
+		}
+	}
+
+	/**
+	 * §9: only a {@code PROPOSED} or {@code APPROVED} allocation can be cancelled. A {@code CHANGE_PENDING}
+	 * one isn't: its pending change is withdrawn first (US-13, BR-15). An approved allocation can only be
+	 * cancelled "before it starts", and it starts on its start date, so its {@code startDate} must be after
+	 * today. A proposal can always be withdrawn, because it never took any capacity.
+	 */
+	private static void checkCancellable(Allocation allocation) {
+		AllocationStatus status = allocation.getStatus();
+		if (status != AllocationStatus.PROPOSED && status != AllocationStatus.APPROVED) {
+			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS",
+					"Only a proposed or approved allocation can be cancelled, but this one is "
+							+ label(status));
+		}
+		if (status == AllocationStatus.APPROVED && !allocation.getStartDate().isAfter(LocalDate.now())) {
+			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_ALREADY_STARTED",
+					"Allocation has already started (on " + allocation.getStartDate() + "), so it can't be cancelled");
 		}
 	}
 
@@ -320,6 +371,11 @@ public class AllocationService {
 	private static BusinessException validationError(String field, String message) {
 		return new BusinessException(HttpStatus.BAD_REQUEST, GlobalExceptionHandler.VALIDATION_ERROR,
 				"Some fields are invalid", List.of(new FieldViolation(field, message)));
+	}
+
+	/** A status as the messages write it: {@code CHANGE_PENDING} → {@code "change pending"}. */
+	private static String label(Enum<?> status) {
+		return status.name().toLowerCase().replace('_', ' ');
 	}
 
 	/** Rejects unknown sort properties, and adds the id as the last sort key so pages don't shuffle on ties. */

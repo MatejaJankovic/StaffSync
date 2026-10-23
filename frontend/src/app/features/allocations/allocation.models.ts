@@ -1,3 +1,4 @@
+import { toIsoDate } from '../../shared/dates';
 import { AllocationStatus } from '../../shared/status-chip/status-chip';
 import { formatPeriod } from '../projects/project.models';
 
@@ -54,6 +55,22 @@ export interface AllocationFilters {
   /** `yyyy-MM-dd`: only allocations whose period overlaps from–to */
   from?: string;
   to?: string;
+}
+
+/** A proposal can be withdrawn by the PM (§9: PROPOSED → CANCELLED). */
+export function isWithdrawable(allocation: Pick<Allocation, 'status'>): boolean {
+  return allocation.status === 'PROPOSED';
+}
+
+/**
+ * An approved allocation can be cancelled by the PM only before it starts (§9). It starts on its
+ * start date, so on that day it is too late, as on the server. `today` is `yyyy-MM-dd`.
+ */
+export function isCancellable(
+  allocation: Pick<Allocation, 'status' | 'startDate'>,
+  today: string = toIsoDate(new Date()),
+): boolean {
+  return allocation.status === 'APPROVED' && allocation.startDate > today;
 }
 
 /**
