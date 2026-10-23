@@ -109,10 +109,11 @@ public class AllocationService {
 	}
 
 	/**
-	 * The RM approves a proposed allocation (§9: {@code PROPOSED → APPROVED}). The checks run in this order:
-	 * BR-5 (403), BR-7 (409), the request and project are still open (409), the employee is still active
-	 * (409), then the hard capacity check on every working day of the period (409 CAPACITY_EXCEEDED, BR-1).
-	 * Nothing is changed before the last check passes, so a failed approval leaves the allocation
+	 * The RM approves a proposed allocation (§9: {@code PROPOSED → APPROVED}) or a pending change
+	 * ({@code CHANGE_PENDING → APPROVED}, see {@link #approveChange}). For a proposal the checks run in this
+	 * order: BR-5 (403), BR-7 (409), the request and project are still open (409), the employee is still
+	 * active (409), then the hard capacity check on every working day of the period (409 CAPACITY_EXCEEDED,
+	 * BR-1). Nothing is changed before the last check passes, so a failed approval leaves the allocation
 	 * {@code PROPOSED}. Then the request status is recalculated (BR-10).
 	 */
 	@Transactional
@@ -120,6 +121,9 @@ public class AllocationService {
 		Allocation allocation = find(id);
 		User rm = checkResourceManager(allocation, currentUser);
 		checkPendingDecision(allocation);
+		if (allocation.hasPendingChange()) {
+			return approveChange(allocation, rm);
+		}
 		checkOpen(allocation.getRequest(), "approvals");
 		checkEmployeeActive(allocation);
 		// A PROPOSED allocation is not active, so it isn't counted in its own load
@@ -133,9 +137,35 @@ public class AllocationService {
 	}
 
 	/**
-	 * The RM rejects a proposed allocation (§9: {@code PROPOSED → REJECTED}) with a comment of at least 10
+	 * The RM approves a pending change (BR-15, §9: {@code CHANGE_PENDING → APPROVED} with the new values).
+	 * After BR-5 and BR-7 in {@link #approve}: the project is still open (409), the employee is still active
+	 * (409), then BR-1 for the new percent and period without this allocation's current values, which they
+	 * replace (§7, the 60% → 70% example). The request isn't checked for being open: a change on a
+	 * {@code FILLED} request is normal, because the allocation counts as active while it waits (BR-16, T-36).
+	 * <p>
+	 * T-30: on 409 CAPACITY_EXCEEDED nothing changes, as for a proposal. The allocation stays
+	 * {@code CHANGE_PENDING} with its current values in force, so the RM can still approve it once capacity
+	 * frees up or reject it, and the PM can withdraw it. Otherwise the pending values are applied, the decision
+	 * is recorded, and the request status is recalculated (BR-10), which keeps a {@code FILLED} request filled.
+	 */
+	private AllocationDto approveChange(Allocation allocation, User rm) {
+		checkProjectOpen(allocation.getRequest().getProject(), "approvals");
+		checkEmployeeActive(allocation);
+		capacityService.checkCapacity(allocation.getEmployee().getId(), allocation.getPendingStartDate(),
+				allocation.getPendingEndDate(), allocation.getPendingPercent(), allocation.getId());
+
+		allocation.applyPendingChange();
+		allocation.recordDecision(rm, null);
+		requestStatusService.recalculate(allocation.getRequest().getId());
+		return AllocationDto.from(allocation);
+	}
+
+	/**
+	 * The RM rejects a proposed allocation (§9: {@code PROPOSED → REJECTED}) or a pending change
+	 * ({@code CHANGE_PENDING → APPROVED} with the current values, BR-15, T-34), with a comment of at least 10
 	 * characters without the surrounding spaces (BR-6, 400). Then BR-5 (403) and BR-7 (409), as for approve.
-	 * The request status doesn't change, because a proposal was never active (BR-10).
+	 * The request status doesn't change: a proposal was never active, and a rejected change leaves the
+	 * allocation active with the values it had (BR-10, BR-16).
 	 */
 	@Transactional
 	public AllocationDto reject(Long id, RejectAllocationRequest body, AuthUser currentUser) {
@@ -148,7 +178,12 @@ public class AllocationService {
 		User rm = checkResourceManager(allocation, currentUser);
 		checkPendingDecision(allocation);
 
-		allocation.setStatus(AllocationStatus.REJECTED);
+		if (allocation.hasPendingChange()) {
+			allocation.clearPendingChange();
+		}
+		else {
+			allocation.setStatus(AllocationStatus.REJECTED);
+		}
 		allocation.recordDecision(rm, comment);
 		return AllocationDto.from(allocation);
 	}
@@ -359,11 +394,11 @@ public class AllocationService {
 		return manager;
 	}
 
-	/** BR-7: only a {@code PROPOSED} allocation is decided here. {@code CHANGE_PENDING} joins in US-13 (BR-15). */
+	/** BR-7: only a {@code PROPOSED} allocation or a pending change ({@code CHANGE_PENDING}, BR-15) is decided. */
 	private static void checkPendingDecision(Allocation allocation) {
-		if (allocation.getStatus() != AllocationStatus.PROPOSED) {
+		if (allocation.getStatus() != AllocationStatus.PROPOSED && !allocation.hasPendingChange()) {
 			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS",
-					"Only a proposed allocation can be approved or rejected, but this one is "
+					"Only a proposed allocation or a pending change can be approved or rejected, but this one is "
 							+ label(allocation.getStatus()));
 		}
 	}

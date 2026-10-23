@@ -99,11 +99,14 @@ public class AllocationController {
 		return allocationService.propose(request, user);
 	}
 
-	@Operation(summary = "Approve a proposed allocation (the employee's RM)",
+	@Operation(summary = "Approve a proposed allocation or a pending change (the employee's RM)",
 			description = "Runs the hard capacity check (BR-1): on every working day of the period, the employee's "
 					+ "active allocations plus this one must stay within their capacity. Exactly 100% is allowed. "
-					+ "On success the allocation is APPROVED and decidedBy and decidedAt are set. On a 409 nothing "
-					+ "changes and the allocation stays PROPOSED")
+					+ "For a pending change (CHANGE_PENDING) the check uses the new percent and period, without the "
+					+ "allocation's current values, which they replace (BR-15). On success the allocation is APPROVED "
+					+ "(with the new values, for a change) and decidedBy and decidedAt are set. On a 409 nothing "
+					+ "changes: a proposal stays PROPOSED, and a change stays CHANGE_PENDING with the current values "
+					+ "in force (T-30)")
 	@ApiResponse(responseCode = "200", description = "Approved")
 	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -113,9 +116,9 @@ public class AllocationController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "409",
 			description = "Capacity exceeded (CAPACITY_EXCEEDED, with the overloaded days and loads in details, "
-					+ "BR-1), the allocation is not PROPOSED (BR-7), the request is not OPEN or PARTIALLY_FILLED, "
-					+ "the project is COMPLETED or CANCELLED, or the employee has been deactivated "
-					+ "(EMPLOYEE_INACTIVE)",
+					+ "BR-1), the allocation is not PROPOSED or CHANGE_PENDING (BR-7), a proposal's request is not "
+					+ "OPEN or PARTIALLY_FILLED, the project is COMPLETED or CANCELLED, or the employee has been "
+					+ "deactivated (EMPLOYEE_INACTIVE)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('RM')")
 	@PostMapping("/{id}/approve")
@@ -123,10 +126,11 @@ public class AllocationController {
 		return allocationService.approve(id, user);
 	}
 
-	@Operation(summary = "Reject a proposed allocation (the employee's RM)",
-			description = "A comment of at least 10 characters is required (BR-6). The allocation becomes REJECTED "
-					+ "with decidedBy, decidedAt and decisionComment set, and can't be decided again. The request's "
-					+ "status doesn't change")
+	@Operation(summary = "Reject a proposed allocation or a pending change (the employee's RM)",
+			description = "A comment of at least 10 characters is required (BR-6). A proposal becomes REJECTED and "
+					+ "can't be decided again. A pending change is dropped: the allocation goes back to APPROVED with "
+					+ "its current values (BR-15). Either way decidedBy, decidedAt and decisionComment are set, and "
+					+ "the request's status doesn't change")
 	@ApiResponse(responseCode = "200", description = "Rejected")
 	@ApiResponse(responseCode = "400", description = "The comment is missing, blank, or shorter than 10 characters (BR-6)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -136,7 +140,7 @@ public class AllocationController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "404", description = "No allocation with this id",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-	@ApiResponse(responseCode = "409", description = "The allocation is not PROPOSED (BR-7)",
+	@ApiResponse(responseCode = "409", description = "The allocation is not PROPOSED or CHANGE_PENDING (BR-7)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('RM')")
 	@PostMapping("/{id}/reject")

@@ -1094,7 +1094,49 @@ class AllocationControllerTests {
 		given().when().delete("/api/allocations/1/change-request").then().statusCode(401);
 	}
 
+	@Test
+	void theRmApprovesAChangeThroughApproveAndTheNewValuesApply() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int allocation = approvedAllocation(pm, rm);
+		requestChange(pm.token(), allocation, 80);
+
+		given().auth().oauth2(login(rm.getEmail()).token())
+			.when().post("/api/allocations/" + allocation + "/approve")
+			.then()
+			.statusCode(200)
+			.body("status", equalTo("APPROVED"))
+			.body("percent", equalTo(80))
+			.body("pendingPercent", nullValue())
+			.body("decidedById", equalTo(rm.getId().intValue()));
+	}
+
+	@Test
+	void theRmRejectsAChangeThroughRejectAndTheOldValuesStay() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int allocation = approvedAllocation(pm, rm);
+		requestChange(pm.token(), allocation, 80);
+
+		given().auth().oauth2(login(rm.getEmail()).token()).contentType(ContentType.JSON)
+			.body(Map.of("comment", "Fully booked on Project Beta until December"))
+			.when().post("/api/allocations/" + allocation + "/reject")
+			.then()
+			.statusCode(200)
+			.body("status", equalTo("APPROVED"))
+			.body("percent", equalTo(60))
+			.body("pendingPercent", nullValue())
+			.body("decisionComment", equalTo("Fully booked on Project Beta until December"));
+	}
+
 	// ---- helpers
+
+	private void requestChange(String token, int allocation, int percent) {
+		given().auth().oauth2(token).contentType(ContentType.JSON)
+			.body(Map.of("percent", percent, "reason", "The client asked for more work"))
+			.when().post("/api/allocations/" + allocation + "/change-request")
+			.then().statusCode(200);
+	}
 
 	/**
 	 * An APPROVED allocation of a new employee in this RM's team, at 60% from tomorrow for a month. The demo
