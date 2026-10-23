@@ -27,6 +27,15 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 	Optional<Allocation> findById(Long id);
 
 	/**
+	 * The allocations in the given statuses of the employees who report to this RM ({@code manager_id}, BR-5).
+	 * One query for the page: the pending approvals show the employee, the request, the project, the proposer
+	 * and the last decider, so they are loaded with it.
+	 */
+	@EntityGraph(attributePaths = { "employee", "request", "request.project", "proposedBy", "decidedBy" })
+	Page<Allocation> findByEmployeeManagerIdAndStatusIn(Long managerId, Collection<AllocationStatus> statuses,
+			Pageable pageable);
+
+	/**
 	 * The employee's allocations in the given statuses whose period overlaps {@code [from, to]}
 	 * (both ends inclusive, so an allocation ending on {@code from} counts). The allocation with
 	 * {@code excludeId} is left out, which changes need (BR-15); pass {@code null} to keep all.

@@ -12,6 +12,7 @@ import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
 import com.staffsync.allocation.dto.ChangeAllocationRequest;
 import com.staffsync.allocation.dto.MissingSkill;
+import com.staffsync.allocation.dto.PendingApprovalDto;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
 import com.staffsync.allocation.dto.RejectAllocationRequest;
 import com.staffsync.auth.AuthUser;
@@ -315,6 +316,24 @@ public class AllocationService {
 			return cb.and(predicates.toArray(Predicate[]::new));
 		};
 		return allocationRepository.findAll(scope.and(filters), checkedSort(pageable)).map(AllocationDto::from);
+	}
+
+	/**
+	 * The RM's pending approvals (US-14, §10): the allocations of their own team ({@code employee.manager_id},
+	 * BR-5) that can still be decided, i.e. {@code PROPOSED} and {@code CHANGE_PENDING} (BR-7). Each one is
+	 * marked {@code NEW} or {@code CHANGE}. Always the caller's team, so another role is a 403 here too, not
+	 * an empty page, and no RM can list another team's.
+	 */
+	@Transactional(readOnly = true)
+	public Page<PendingApprovalDto> pending(Pageable pageable, AuthUser currentUser) {
+		if (currentUser.role() != Role.RM) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "NOT_RESOURCE_MANAGER",
+					"Only a resource manager has pending approvals");
+		}
+		return allocationRepository
+			.findByEmployeeManagerIdAndStatusIn(currentUser.id(), AllocationStatus.AWAITING_DECISION,
+					checkedSort(pageable))
+			.map(PendingApprovalDto::from);
 	}
 
 	/**

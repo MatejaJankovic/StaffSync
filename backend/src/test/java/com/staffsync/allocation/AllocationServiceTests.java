@@ -19,12 +19,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import com.staffsync.allocation.dto.AllocationChangeDto;
 import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
 import com.staffsync.allocation.dto.ChangeAllocationRequest;
 import com.staffsync.allocation.dto.MissingSkill;
+import com.staffsync.allocation.dto.PendingApprovalDto;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
 import com.staffsync.allocation.dto.RejectAllocationRequest;
 import com.staffsync.auth.AuthUser;
@@ -56,6 +58,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -1195,7 +1198,100 @@ class AllocationServiceTests {
 		assertThat(captor.getValue().getSort()).isEqualTo(Sort.by("startDate").and(Sort.by("id")));
 	}
 
+	// ---- pending approvals (US-14). The team scoping runs in the database, see AllocationControllerTests
+
+	@Test
+	void pendingAsksForTheRmsOwnTeamInTheStatusesThatCanBeDecided() {
+		when(allocationRepository.findByEmployeeManagerIdAndStatusIn(any(), any(), any())).thenReturn(Page.empty());
+
+		allocationService.pending(PageRequest.of(0, 20, Sort.by("createdAt")), RM);
+
+		// BR-5: the caller's team, by manager_id. BR-7: only what can still be approved or rejected
+		verify(allocationRepository).findByEmployeeManagerIdAndStatusIn(eq(RM_ID),
+				eq(Set.of(AllocationStatus.PROPOSED, AllocationStatus.CHANGE_PENDING)), any());
+	}
+
+	@Test
+	void aProposalIsNewWithItsValuesAndProposer() {
+		Allocation proposal = pendingAllocation();
+		givenPending(proposal);
+
+		PendingApprovalDto item = allocationService.pending(PageRequest.of(0, 20), RM).getContent().get(0);
+
+		assertThat(item.type()).isEqualTo(PendingApprovalDto.Type.NEW);
+		assertThat(item.allocation().id()).isEqualTo(ALLOCATION_ID);
+		assertThat(item.allocation().employeeId()).isEqualTo(EMPLOYEE_ID);
+		assertThat(item.allocation().projectName()).isEqualTo("Project Alpha");
+		assertThat(item.allocation().requestId()).isEqualTo(REQUEST_ID);
+		assertThat(item.allocation().requestTitle()).isEqualTo("Java Developer");
+		assertThat(item.allocation().percent()).isEqualTo(60);
+		assertThat(item.allocation().startDate()).isEqualTo(nov(1));
+		assertThat(item.allocation().endDate()).isEqualTo(LocalDate.of(2027, 1, 31));
+		assertThat(item.allocation().pendingPercent()).isNull();
+		assertThat(item.allocation().changeReason()).isNull();
+		assertThat(item.proposedById()).isEqualTo(PM_ID);
+		assertThat(item.proposedByName()).isEqualTo("First2 Last");
+	}
+
+	@Test
+	void aPendingChangeIsChangeWithTheCurrentAndThePendingValuesAndTheReason() {
+		Allocation changed = pendingAllocation();
+		changed.setStatus(AllocationStatus.APPROVED);
+		changed.requestChange(80, nov(1), LocalDate.of(2027, 2, 28), REASON);
+		givenPending(changed);
+
+		PendingApprovalDto item = allocationService.pending(PageRequest.of(0, 20), RM).getContent().get(0);
+
+		assertThat(item.type()).isEqualTo(PendingApprovalDto.Type.CHANGE);
+		// The current values, still in force (BR-16), next to what the PM asks for (BR-15): 60% → 80%
+		assertThat(item.allocation().percent()).isEqualTo(60);
+		assertThat(item.allocation().endDate()).isEqualTo(LocalDate.of(2027, 1, 31));
+		assertThat(item.allocation().pendingPercent()).isEqualTo(80);
+		assertThat(item.allocation().pendingStartDate()).isEqualTo(nov(1));
+		assertThat(item.allocation().pendingEndDate()).isEqualTo(LocalDate.of(2027, 2, 28));
+		assertThat(item.allocation().changeReason()).isEqualTo(REASON);
+		assertThat(item.allocation().status()).isEqualTo(AllocationStatus.CHANGE_PENDING);
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = Role.class, names = { "EMPLOYEE", "PM", "ADMIN" })
+	void anotherRoleHasNoPendingApprovalsEvenWithAnRmsId(Role role) {
+		assertThatThrownBy(() -> allocationService.pending(PageRequest.of(0, 20), new AuthUser(RM_ID, "x", role)))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+				assertThat(ex.getCode()).isEqualTo("NOT_RESOURCE_MANAGER");
+			});
+		verify(allocationRepository, never()).findByEmployeeManagerIdAndStatusIn(any(), any(), any());
+	}
+
+	@Test
+	void pendingRejectsAnUnknownSortPropertyAndAddsTheIdAsTheLastSortKey() {
+		assertThatThrownBy(() -> allocationService.pending(PageRequest.of(0, 20, Sort.by("employee")), RM))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.getCode()).isEqualTo("INVALID_SORT"));
+
+		when(allocationRepository.findByEmployeeManagerIdAndStatusIn(any(), any(), any())).thenReturn(Page.empty());
+		allocationService.pending(PageRequest.of(1, 10, Sort.by("createdAt")), RM);
+
+		ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+		verify(allocationRepository).findByEmployeeManagerIdAndStatusIn(any(), any(), captor.capture());
+		assertThat(captor.getValue().getPageNumber()).isEqualTo(1);
+		assertThat(captor.getValue().getSort()).isEqualTo(Sort.by("createdAt").and(Sort.by("id")));
+	}
+
 	// ---- helpers
+
+	/** The request's 60% over its whole period, proposed by {@link #PM} for an employee of {@link #RM}'s team. */
+	private Allocation pendingAllocation() {
+		employee.setManager(user(RM_ID, Role.RM));
+		Allocation allocation = new Allocation(request, employee, 60, nov(1), LocalDate.of(2027, 1, 31), pm);
+		ReflectionTestUtils.setField(allocation, "id", ALLOCATION_ID);
+		return allocation;
+	}
+
+	private void givenPending(Allocation allocation) {
+		when(allocationRepository.findByEmployeeManagerIdAndStatusIn(any(), any(), any()))
+			.thenReturn(new PageImpl<>(List.of(allocation)));
+	}
 
 	private void givenRequest() {
 		when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
