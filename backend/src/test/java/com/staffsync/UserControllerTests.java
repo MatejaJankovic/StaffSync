@@ -726,6 +726,27 @@ class UserControllerTests {
 		given().when().get("/api/users/me/team").then().statusCode(401);
 	}
 
+	@Test
+	void myTeamHasTheSameLoadsAsTheRmHomeCards() {
+		User rm = newUser("Igor", Role.RM);
+		Department department = newDepartment();
+		LocalDate day = CapacityService.workingDayFrom(LocalDate.now());
+		User busy = newEmployee("Busy", department, rm);
+		User partly = newEmployee("Partly", department, rm);
+		newEmployee("Bench", department, rm);
+		allocate(busy, 60, day.minusDays(30), day.plusDays(60), AllocationStatus.APPROVED);
+		allocate(partly, 20, day.minusDays(30), day.plusDays(60), AllocationStatus.CHANGE_PENDING);
+		String token = tokenFor(rm.getEmail());
+
+		// #75: the page matches the Home cards, so the same team and loads give the same average: 80 / 3 = 27%
+		given().auth().oauth2(token)
+			.when().get("/api/users/me/team")
+			.then().statusCode(200).body("load", containsInAnyOrder(60, 20, 0));
+		given().auth().oauth2(token)
+			.when().get("/api/dashboard")
+			.then().statusCode(200).body("find { it.key == 'averageLoad' }.value", equalTo("27%"));
+	}
+
 	// ---- helpers
 
 	/** The user's own fields with a new capacity, as the *Edit* dialog sends them. */
