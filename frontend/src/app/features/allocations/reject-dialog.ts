@@ -1,10 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import {
-  NonNullableFormBuilder,
-  ReactiveFormsModule,
-  ValidatorFn,
-  Validators,
-} from '@angular/forms';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -12,18 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { ChangeDiff } from '../../shared/change-diff/change-diff';
 import { Allocation, PendingApproval, requestedValues } from './allocation.models';
 import { AllocationService } from './allocation.service';
-
-const MIN_COMMENT_LENGTH = 10;
-const MAX_COMMENT_LENGTH = 1000;
-
-/** Counted without the surrounding spaces, as on the server, so "  Too short " is too short (BR-6). */
-const commentLength: ValidatorFn = (control) => {
-  const length = String(control.value ?? '').trim().length;
-  if (length === 0) {
-    return { required: true };
-  }
-  return length < MIN_COMMENT_LENGTH ? { tooShort: true } : null;
-};
+import { MAX_TEXT_LENGTH, MIN_TEXT_LENGTH, textLength } from './allocation.validators';
 
 /**
  * The *Reject* dialog on *Pending approvals*: a required comment of at least 10 characters (BR-6,
@@ -120,11 +104,11 @@ export class RejectDialog {
       ? `Reject the change for ${this.allocation.employeeName}`
       : `Reject ${this.allocation.employeeName}`;
 
-  protected readonly minCommentLength = MIN_COMMENT_LENGTH;
-  protected readonly maxCommentLength = MAX_COMMENT_LENGTH;
+  protected readonly minCommentLength = MIN_TEXT_LENGTH;
+  protected readonly maxCommentLength = MAX_TEXT_LENGTH;
 
   protected readonly form = inject(NonNullableFormBuilder).group({
-    comment: ['', [commentLength, Validators.maxLength(MAX_COMMENT_LENGTH)]],
+    comment: ['', [textLength, Validators.maxLength(MAX_TEXT_LENGTH)]],
   });
 
   protected readonly saving = signal(false);
