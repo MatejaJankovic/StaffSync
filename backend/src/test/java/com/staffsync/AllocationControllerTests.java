@@ -995,7 +995,127 @@ class AllocationControllerTests {
 		given().when().post("/api/allocations/1/cancel").then().statusCode(401);
 	}
 
+	// ---- change request (US-13): the wiring and status codes. The rules are in AllocationServiceTests, and
+	// QA's API tests for T-29 – T-36 are in #95
+
+	@Test
+	void thePmRequestsAChangeAndWithdrawsIt() {
+		LoggedIn pm = login(PM);
+		int allocation = approvedAllocation(pm, newUser("Team", Role.RM));
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON)
+			.body(Map.of("percent", 80, "reason", "The client asked for more work"))
+			.when().post("/api/allocations/" + allocation + "/change-request")
+			.then()
+			.statusCode(200)
+			.body("allocation.id", equalTo(allocation))
+			.body("allocation.status", equalTo("CHANGE_PENDING"))
+			.body("allocation.percent", equalTo(60))
+			.body("allocation.pendingPercent", equalTo(80))
+			.body("allocation.pendingStartDate", equalTo(LocalDate.now().plusDays(1).toString()))
+			.body("allocation.changeReason", equalTo("The client asked for more work"))
+			.body("warnings", empty());
+
+		given().auth().oauth2(pm.token())
+			.when().delete("/api/allocations/" + allocation + "/change-request")
+			.then()
+			.statusCode(200)
+			.body("status", equalTo("APPROVED"))
+			.body("percent", equalTo(60))
+			.body("pendingPercent", nullValue())
+			.body("changeReason", nullValue());
+		assertThat(allocationStatus(allocation)).isEqualTo(AllocationStatus.APPROVED);
+	}
+
+	@Test
+	void aChangeRequestWithoutAValidReasonOrPercentIs400() {
+		String token = login(PM).token();
+
+		given().auth().oauth2(token).contentType(ContentType.JSON).body(Map.of("percent", 80))
+			.when().post("/api/allocations/1/change-request")
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("VALIDATION_ERROR"))
+			.body("details.field", hasItem("reason"));
+		given().auth().oauth2(token).contentType(ContentType.JSON)
+			.body(Map.of("percent", 110, "reason", "Too short"))
+			.when().post("/api/allocations/1/change-request")
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("VALIDATION_ERROR"))
+			.body("details.field", hasItem("percent"))
+			.body("details.field", hasItem("reason"));
+	}
+
+	@Test
+	void withdrawingWhenNoChangeIsPendingIs409() {
+		LoggedIn pm = login(PM);
+		int allocation = approvedAllocation(pm, newUser("Team", Role.RM));
+
+		given().auth().oauth2(pm.token())
+			.when().delete("/api/allocations/" + allocation + "/change-request")
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("NO_PENDING_CHANGE"));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { RM, EMPLOYEE, ADMIN })
+	void onlyAPmCanRequestOrWithdrawAChange(String email) {
+		LoggedIn pm = login(PM);
+		int allocation = approvedAllocation(pm, newUser("Team", Role.RM));
+		String token = login(email).token();
+
+		given().auth().oauth2(token).contentType(ContentType.JSON)
+			.body(Map.of("percent", 80, "reason", "The client asked for more work"))
+			.when().post("/api/allocations/" + allocation + "/change-request")
+			.then()
+			.statusCode(403)
+			.body("code", equalTo("FORBIDDEN"));
+		given().auth().oauth2(token)
+			.when().delete("/api/allocations/" + allocation + "/change-request")
+			.then()
+			.statusCode(403)
+			.body("code", equalTo("FORBIDDEN"));
+		assertThat(allocationStatus(allocation)).isEqualTo(AllocationStatus.APPROVED);
+	}
+
+	@Test
+	void changeRequestsOnAnUnknownAllocationAre404AndWithoutATokenAre401() {
+		String token = login(PM).token();
+		Map<String, Object> body = Map.of("percent", 80, "reason", "The client asked for more work");
+
+		given().auth().oauth2(token).contentType(ContentType.JSON).body(body)
+			.when().post("/api/allocations/999999999/change-request").then().statusCode(404);
+		given().auth().oauth2(token)
+			.when().delete("/api/allocations/999999999/change-request").then().statusCode(404);
+		given().contentType(ContentType.JSON).body(body)
+			.when().post("/api/allocations/1/change-request").then().statusCode(401);
+		given().when().delete("/api/allocations/1/change-request").then().statusCode(401);
+	}
+
 	// ---- helpers
+
+	/**
+	 * An APPROVED allocation of a new employee in this RM's team, at 60% from tomorrow for a month. The demo
+	 * dates are fixed, so the request is moved around today and the allocation inside it: whether it has
+	 * started or ended (BR-15) then doesn't depend on when the tests run.
+	 */
+	private int approvedAllocation(LoggedIn pm, User rm) {
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		int allocation = propose(pm.token(), proposal(request, newEmployee("Marko", rm), null, null, null));
+		given().auth().oauth2(login(rm.getEmail()).token())
+			.when().post("/api/allocations/" + allocation + "/approve").then().statusCode(200);
+		StaffingRequest saved = requestRepository.findById((long) request).orElseThrow();
+		saved.setStartDate(LocalDate.now().minusYears(1));
+		saved.setEndDate(LocalDate.now().plusYears(1));
+		requestRepository.save(saved);
+		Allocation approved = allocationRepository.findById((long) allocation).orElseThrow();
+		approved.setStartDate(LocalDate.now().plusDays(1));
+		approved.setEndDate(LocalDate.now().plusMonths(1));
+		allocationRepository.save(approved);
+		return allocation;
+	}
 
 	private record Scenario(LoggedIn pmA, LoggedIn pmB, User rm, User ena, User filip, int projectA, int projectB,
 			int enaOnA, int filipOnA, int enaOnB) {

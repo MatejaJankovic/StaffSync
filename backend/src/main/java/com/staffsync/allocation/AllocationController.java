@@ -2,8 +2,10 @@ package com.staffsync.allocation;
 
 import java.time.LocalDate;
 
+import com.staffsync.allocation.dto.AllocationChangeDto;
 import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
+import com.staffsync.allocation.dto.ChangeAllocationRequest;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
 import com.staffsync.allocation.dto.RejectAllocationRequest;
 import com.staffsync.auth.AuthUser;
@@ -24,6 +26,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -163,6 +166,57 @@ public class AllocationController {
 	@PostMapping("/{id}/cancel")
 	public AllocationDto cancel(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
 		return allocationService.cancel(id, user);
+	}
+
+	@Operation(summary = "Request a change to an approved allocation (PM who owns the project)",
+			description = "Asks the employee's RM to change the percent and/or the period (BR-15). A value left out "
+					+ "keeps its current one, but at least one must change, and the reason is required. The "
+					+ "allocation becomes CHANGE_PENDING with the new values in pending*, and the current values stay "
+					+ "in force until the RM decides (BR-16). If active and proposed allocations plus the new values "
+					+ "would go over the employee's capacity, the change is still requested and the response lists "
+					+ "warnings (soft booking, BR-2). An allocation has started on its start date: from then on its "
+					+ "start date can't change")
+	@ApiResponse(responseCode = "200", description = "Change requested, with any capacity warnings")
+	@ApiResponse(responseCode = "400",
+			description = "The reason is missing or shorter than 10 characters, the percent is out of range or not a "
+					+ "step of 10, nothing changes (NO_CHANGE), the start date changes on an allocation that has "
+					+ "started (ALLOCATION_ALREADY_STARTED), or the new period is invalid or outside the request "
+					+ "(BR-3)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not a PM, or not the PM who owns the project (BR-4)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No allocation with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409",
+			description = "A change is already pending (CHANGE_ALREADY_PENDING), the allocation is not APPROVED "
+					+ "(INVALID_ALLOCATION_STATUS), it has ended (ALLOCATION_ENDED), or the project is completed or "
+					+ "cancelled (PROJECT_CLOSED)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('PM')")
+	@PostMapping("/{id}/change-request")
+	public AllocationChangeDto requestChange(@PathVariable Long id,
+			@Valid @RequestBody ChangeAllocationRequest request, @AuthenticationPrincipal AuthUser user) {
+		return allocationService.requestChange(id, request, user);
+	}
+
+	@Operation(summary = "Withdraw a pending change (PM who owns the project)",
+			description = "The allocation goes back to APPROVED with its current values, and the pending* fields and "
+					+ "changeReason are cleared (BR-15)")
+	@ApiResponse(responseCode = "200", description = "Change withdrawn")
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not a PM, or not the PM who owns the project (BR-4)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No allocation with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409", description = "No change is pending (NO_PENDING_CHANGE)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('PM')")
+	@DeleteMapping("/{id}/change-request")
+	public AllocationDto withdrawChange(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
+		return allocationService.withdrawChange(id, user);
 	}
 
 }

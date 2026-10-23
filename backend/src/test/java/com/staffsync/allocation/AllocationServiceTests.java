@@ -20,8 +20,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.staffsync.allocation.dto.AllocationChangeDto;
 import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
+import com.staffsync.allocation.dto.ChangeAllocationRequest;
 import com.staffsync.allocation.dto.MissingSkill;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
 import com.staffsync.allocation.dto.RejectAllocationRequest;
@@ -82,6 +84,8 @@ class AllocationServiceTests {
 	static final Long ALLOCATION_ID = 20L;
 
 	static final AuthUser RM = new AuthUser(RM_ID, "rm@staffsync.local", Role.RM);
+
+	static final String REASON = "The client asked for more work on the reporting module";
 
 	@Mock
 	AllocationRepository allocationRepository;
@@ -694,6 +698,292 @@ class AllocationServiceTests {
 		assertThat(statusWhenRecalculated).containsExactly(AllocationStatus.CANCELLED);
 	}
 
+	// ---- change request (US-13, BR-15). Relative to today, like cancel, because "started" and "ended" depend on it
+
+	@Test
+	void thePmRequestsAChangeAndTheCurrentValuesStayInForce() {
+		// §4 step 8: 60% → 80%, same period
+		Allocation allocation = givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+
+		AllocationChangeDto result = allocationService.requestChange(ALLOCATION_ID, change(80, null, null), PM);
+
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.CHANGE_PENDING);
+		assertThat(allocation.getPendingPercent()).isEqualTo(80);
+		assertThat(allocation.getPendingStartDate()).isEqualTo(today().plusDays(10));
+		assertThat(allocation.getPendingEndDate()).isEqualTo(today().plusDays(40));
+		assertThat(allocation.getChangeReason()).isEqualTo(REASON);
+		// BR-16: the current values stay until the RM approves
+		assertThat(allocation.getPercent()).isEqualTo(60);
+		assertThat(result.allocation().status()).isEqualTo(AllocationStatus.CHANGE_PENDING);
+		assertThat(result.allocation().percent()).isEqualTo(60);
+		assertThat(result.allocation().pendingPercent()).isEqualTo(80);
+		assertThat(result.allocation().changeReason()).isEqualTo(REASON);
+		assertThat(result.warnings()).isEmpty();
+		// Not a decision, and the allocation stays active, so neither is touched
+		assertThat(allocation.getDecidedBy()).isNull();
+		verify(capacityService, never()).checkCapacity(any(), any(), any(), anyInt(), any());
+		verify(requestStatusService, never()).recalculate(any());
+	}
+
+	@Test
+	void theGivenDatesAreRequestedAndTheOmittedPercentStays() {
+		Allocation allocation = givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+
+		allocationService.requestChange(ALLOCATION_ID, change(null, today().plusDays(20), today().plusDays(60)), PM);
+
+		assertThat(allocation.getPendingPercent()).isEqualTo(60);
+		assertThat(allocation.getPendingStartDate()).isEqualTo(today().plusDays(20));
+		assertThat(allocation.getPendingEndDate()).isEqualTo(today().plusDays(60));
+	}
+
+	@Test
+	void theReasonIsStoredWithoutTheSurroundingSpaces() {
+		Allocation allocation = givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+
+		allocationService.requestChange(ALLOCATION_ID, new ChangeAllocationRequest(80, null, null, "  " + REASON + " \n"),
+				PM);
+
+		assertThat(allocation.getChangeReason()).isEqualTo(REASON);
+	}
+
+	@Test
+	void aReasonShorterThan10CharactersWithoutTheSpacesIsInvalid() {
+		assertThatThrownBy(() -> allocationService.requestChange(ALLOCATION_ID,
+				new ChangeAllocationRequest(80, null, null, "  Too short "), PM))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+				assertThat(ex.getCode()).isEqualTo("VALIDATION_ERROR");
+			});
+		// Checked like Bean Validation, before the allocation is even loaded
+		verify(allocationRepository, never()).findById(any());
+	}
+
+	@Test
+	void changingAnUnknownAllocationIsNotFound() {
+		when(allocationRepository.findById(ALLOCATION_ID)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> allocationService.requestChange(ALLOCATION_ID, change(80, null, null), PM))
+			.isInstanceOf(NotFoundException.class);
+	}
+
+	// ---- BR-4 on change requests
+
+	@Test
+	void anotherPmCannotRequestAChange() {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+		AuthUser otherPm = new AuthUser(99L, "other@staffsync.local", Role.PM);
+
+		assertChangeFails(change(80, null, null), otherPm, HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER");
+	}
+
+	@Test
+	void theOwnerCheckComesBeforeTheStatusCheckOnAChangeRequest() {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40)).setStatus(AllocationStatus.REJECTED);
+		AuthUser otherPm = new AuthUser(99L, "other@staffsync.local", Role.PM);
+
+		assertChangeFails(change(80, null, null), otherPm, HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER");
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = ProjectStatus.class, names = { "COMPLETED", "CANCELLED" })
+	void aClosedProjectTakesNoChangeRequests(ProjectStatus status) {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+		project.setStatus(status);
+
+		assertChangeFails(change(80, null, null), PM, HttpStatus.CONFLICT, "PROJECT_CLOSED");
+	}
+
+	// ---- T-31, T-33
+
+	@Test
+	void aSecondChangeWhileOneIsPendingIsAConflict() {
+		Allocation allocation = givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+		allocation.requestChange(80, today().plusDays(10), today().plusDays(40), REASON);
+
+		assertChangeFails(change(90, null, null), PM, HttpStatus.CONFLICT, "CHANGE_ALREADY_PENDING");
+		// The first change is still the one waiting
+		assertThat(allocation.getPendingPercent()).isEqualTo(80);
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = AllocationStatus.class, names = { "PROPOSED", "REJECTED", "CANCELLED" })
+	void onlyAnApprovedAllocationCanBeChanged(AllocationStatus status) {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40)).setStatus(status);
+
+		assertChangeFails(change(80, null, null), PM, HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS");
+	}
+
+	@Test
+	void anAllocationThatEndedYesterdayCannotBeChanged() {
+		givenApprovedAllocation(today().minusDays(30), today().minusDays(1));
+
+		assertChangeFails(change(80, null, null), PM, HttpStatus.CONFLICT, "ALLOCATION_ENDED");
+	}
+
+	@Test
+	void anAllocationEndingTodayHasNotEndedAndCanStillBeChanged() {
+		Allocation allocation = givenApprovedAllocation(today().minusDays(30), today());
+
+		allocationService.requestChange(ALLOCATION_ID, change(null, null, today().plusDays(30)), PM);
+
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.CHANGE_PENDING);
+	}
+
+	// ---- T-32: started means the start date is today or earlier, as for cancel
+
+	@Test
+	void anAllocationStartingTodayHasStartedSoItsStartDateCannotChange() {
+		givenApprovedAllocation(today(), today().plusDays(30));
+
+		assertChangeFails(change(null, today().plusDays(1), null), PM, HttpStatus.BAD_REQUEST,
+				"ALLOCATION_ALREADY_STARTED");
+	}
+
+	@Test
+	void anAllocationThatStartedEarlierCannotMoveItsStartDateEarlierEither() {
+		givenApprovedAllocation(today().minusDays(5), today().plusDays(30));
+
+		assertChangeFails(change(80, today().minusDays(10), null), PM, HttpStatus.BAD_REQUEST,
+				"ALLOCATION_ALREADY_STARTED");
+	}
+
+	@Test
+	void aStartedAllocationCanChangeItsPercentAndEndDateAndRepeatItsStartDate() {
+		Allocation allocation = givenApprovedAllocation(today().minusDays(5), today().plusDays(30));
+
+		allocationService.requestChange(ALLOCATION_ID, change(80, today().minusDays(5), today().plusDays(60)), PM);
+
+		assertThat(allocation.getPendingPercent()).isEqualTo(80);
+		assertThat(allocation.getPendingStartDate()).isEqualTo(today().minusDays(5));
+		assertThat(allocation.getPendingEndDate()).isEqualTo(today().plusDays(60));
+	}
+
+	@Test
+	void anAllocationStartingTomorrowCanMoveItsStartDate() {
+		Allocation allocation = givenApprovedAllocation(today().plusDays(1), today().plusDays(30));
+
+		allocationService.requestChange(ALLOCATION_ID, change(null, today().plusDays(8), null), PM);
+
+		assertThat(allocation.getPendingStartDate()).isEqualTo(today().plusDays(8));
+	}
+
+	// ---- what the change asks for: something changes, a step of 10, BR-3
+
+	@Test
+	void aChangeWithNothingDifferentIsRejected() {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+
+		assertChangeFails(change(60, today().plusDays(10), today().plusDays(40)), PM, HttpStatus.BAD_REQUEST,
+				"NO_CHANGE");
+		assertChangeFails(change(null, null, null), PM, HttpStatus.BAD_REQUEST, "NO_CHANGE");
+	}
+
+	@Test
+	void aPercentThatIsNotAStepOfTenIsAValidationErrorOnAChange() {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+
+		assertChangeFails(change(65, null, null), PM, HttpStatus.BAD_REQUEST, "VALIDATION_ERROR");
+	}
+
+	@Test
+	void aNewEndAfterTheRequestIsOutsideIt() {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+
+		assertChangeFails(change(null, null, request.getEndDate().plusDays(1)), PM, HttpStatus.BAD_REQUEST,
+				"ALLOCATION_OUTSIDE_REQUEST");
+	}
+
+	@Test
+	void aNewStartBeforeTheRequestIsOutsideIt() {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+
+		assertChangeFails(change(null, request.getStartDate().minusDays(1), null), PM, HttpStatus.BAD_REQUEST,
+				"ALLOCATION_OUTSIDE_REQUEST");
+	}
+
+	@Test
+	void aNewEndBeforeTheStartIsAnInvalidPeriod() {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+
+		assertChangeFails(change(null, null, today().plusDays(9)), PM, HttpStatus.BAD_REQUEST, "INVALID_PERIOD");
+	}
+
+	// ---- BR-2 on change requests
+
+	@Test
+	void capacityIsCheckedForTheNewValuesWithoutTheAllocationsCurrentOnes() {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+
+		allocationService.requestChange(ALLOCATION_ID, change(80, null, today().plusDays(50)), PM);
+
+		verify(capacityService).findOverloadedDays(EMPLOYEE_ID, today().plusDays(10), today().plusDays(50), 80,
+				ALLOCATION_ID, true);
+	}
+
+	@Test
+	void goingOverCapacityStillRequestsTheChangeButWarns() {
+		Allocation allocation = givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+		// The days are only formatted, so fixed November ones keep the message readable
+		when(capacityService.findOverloadedDays(EMPLOYEE_ID, today().plusDays(10), today().plusDays(40), 80,
+				ALLOCATION_ID, true))
+			.thenReturn(List.of(day(2, 110), day(3, 110)));
+
+		AllocationChangeDto result = allocationService.requestChange(ALLOCATION_ID, change(80, null, null), PM);
+
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.CHANGE_PENDING);
+		assertThat(result.warnings()).containsExactly("Capacity would be exceeded on 2026-11-02 – 2026-11-03 (110%)");
+	}
+
+	// ---- withdraw a change (T-35)
+
+	@Test
+	void thePmWithdrawsAPendingChangeAndTheOldValuesStay() {
+		Allocation allocation = givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+		allocation.requestChange(80, today().plusDays(20), today().plusDays(50), REASON);
+
+		AllocationDto result = allocationService.withdrawChange(ALLOCATION_ID, PM);
+
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(allocation.getPercent()).isEqualTo(60);
+		assertThat(allocation.getStartDate()).isEqualTo(today().plusDays(10));
+		assertThat(allocation.getEndDate()).isEqualTo(today().plusDays(40));
+		assertThat(allocation.getPendingPercent()).isNull();
+		assertThat(allocation.getPendingStartDate()).isNull();
+		assertThat(allocation.getPendingEndDate()).isNull();
+		assertThat(allocation.getChangeReason()).isNull();
+		assertThat(result.status()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(result.pendingPercent()).isNull();
+		verify(requestStatusService, never()).recalculate(any());
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = AllocationStatus.class, names = "CHANGE_PENDING", mode = EnumSource.Mode.EXCLUDE)
+	void withdrawingWithoutAPendingChangeIsAConflict(AllocationStatus status) {
+		givenApprovedAllocation(today().plusDays(10), today().plusDays(40)).setStatus(status);
+
+		assertThatThrownBy(() -> allocationService.withdrawChange(ALLOCATION_ID, PM))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+				assertThat(ex.getCode()).isEqualTo("NO_PENDING_CHANGE");
+			});
+		assertThat(allocationRepository.findById(ALLOCATION_ID).orElseThrow().getStatus()).isEqualTo(status);
+	}
+
+	@Test
+	void anotherPmCannotWithdrawAChange() {
+		Allocation allocation = givenApprovedAllocation(today().plusDays(10), today().plusDays(40));
+		allocation.requestChange(80, today().plusDays(10), today().plusDays(40), REASON);
+		AuthUser otherPm = new AuthUser(99L, "other@staffsync.local", Role.PM);
+
+		assertThatThrownBy(() -> allocationService.withdrawChange(ALLOCATION_ID, otherPm))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+				assertThat(ex.getCode()).isEqualTo("NOT_PROJECT_OWNER");
+			});
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.CHANGE_PENDING);
+		assertThat(allocation.getPendingPercent()).isEqualTo(80);
+	}
+
 	// ---- search (the role scoping runs in the database, see AllocationControllerTests)
 
 	@Test
@@ -795,6 +1085,37 @@ class AllocationServiceTests {
 		verify(requestStatusService, never()).recalculate(any());
 	}
 
+	/**
+	 * Approved, on {@link #PM}'s project, at 60% over this period. The request runs a year either side of
+	 * today, so a period relative to today is inside it (BR-3) whenever the tests run.
+	 */
+	private Allocation givenApprovedAllocation(LocalDate startDate, LocalDate endDate) {
+		request.setStartDate(today().minusYears(1));
+		request.setEndDate(today().plusYears(1));
+		Allocation allocation = new Allocation(request, employee, 60, startDate, endDate, pm);
+		allocation.setStatus(AllocationStatus.APPROVED);
+		ReflectionTestUtils.setField(allocation, "id", ALLOCATION_ID);
+		when(allocationRepository.findById(ALLOCATION_ID)).thenReturn(Optional.of(allocation));
+		return allocation;
+	}
+
+	/** A failed change request changes nothing: same status, same pending values, no request recalculation. */
+	private void assertChangeFails(ChangeAllocationRequest body, AuthUser currentUser, HttpStatus status,
+			String code) {
+		Allocation allocation = allocationRepository.findById(ALLOCATION_ID).orElseThrow();
+		AllocationStatus before = allocation.getStatus();
+		Integer pendingBefore = allocation.getPendingPercent();
+		assertThatThrownBy(() -> allocationService.requestChange(ALLOCATION_ID, body, currentUser))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getStatus()).isEqualTo(status);
+				assertThat(ex.getCode()).isEqualTo(code);
+			});
+		assertThat(allocation.getStatus()).isEqualTo(before);
+		assertThat(allocation.getPendingPercent()).isEqualTo(pendingBefore);
+		assertThat(allocation.getPercent()).isEqualTo(60);
+		verify(requestStatusService, never()).recalculate(any());
+	}
+
 	private Allocation savedAllocation() {
 		ArgumentCaptor<Allocation> captor = ArgumentCaptor.forClass(Allocation.class);
 		verify(allocationRepository).save(captor.capture());
@@ -812,6 +1133,10 @@ class AllocationServiceTests {
 
 	static RejectAllocationRequest rejection() {
 		return new RejectAllocationRequest("Fully booked on Project Beta until December");
+	}
+
+	static ChangeAllocationRequest change(Integer percent, LocalDate start, LocalDate end) {
+		return new ChangeAllocationRequest(percent, start, end, REASON);
 	}
 
 	static ProposeAllocationRequest body(Integer percent, LocalDate start, LocalDate end) {
