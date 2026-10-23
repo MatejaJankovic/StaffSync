@@ -932,6 +932,29 @@ class AllocationControllerTests {
 		assertThat(allocationStatus(allocation)).isEqualTo(AllocationStatus.valueOf(status));
 	}
 
+	@Test
+	void aClosedProjectTakesNoCancellationsSoItsFilledRequestStaysFilled() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int project = createProject(pm.token());
+		int request = createRequest(pm.token(), project);
+		int ana = propose(pm.token(), proposal(request, newEmployee("Ana", rm), null, null, null));
+		int boris = propose(pm.token(), proposal(request, newEmployee("Boris", rm), null, null, null));
+		String rmToken = login(rm.getEmail()).token();
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + ana + "/approve").then().statusCode(200);
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + boris + "/approve").then().statusCode(200);
+		setAllocationStartDate(ana, LocalDate.now().plusDays(1));
+		setProjectStatus(project, ProjectStatus.COMPLETED);
+
+		given().auth().oauth2(pm.token())
+			.when().post("/api/allocations/" + ana + "/cancel")
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("PROJECT_CLOSED"));
+		assertThat(allocationStatus(ana)).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(requestStatus(request)).isEqualTo(RequestStatus.FILLED);
+	}
+
 	// ---- BR-4 on cancel
 
 	@Test

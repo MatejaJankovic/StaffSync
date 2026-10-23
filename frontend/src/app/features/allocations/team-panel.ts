@@ -8,7 +8,7 @@ import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
-import { formatPeriod, Project } from '../projects/project.models';
+import { formatPeriod, isEditable, Project } from '../projects/project.models';
 import {
   Allocation,
   formatPendingChange,
@@ -25,8 +25,8 @@ import { AllocationService } from './allocation.service';
  * the project gets the whole team, an RM only their own people on it, an Employee only themselves.
  * The panel loads again whenever the page is opened, e.g. after a proposal from *Candidates* (US-11).
  *
- * The PM who owns the project can withdraw a proposal, or cancel an approved allocation that hasn't
- * started yet (US-12). Both change the request's status on the server (BR-10), so `changed` tells
+ * While the project is open, the PM who owns it can withdraw a proposal, or cancel an approved
+ * allocation that hasn't started yet (US-12). Both change the request's status on the server (BR-10), so `changed` tells
  * the page to load it again.
  *
  * ```html
@@ -97,12 +97,15 @@ export class TeamPanel {
     }
   });
 
+  /** A completed or cancelled project takes no cancellations (the API answers 409), as in `ProjectRequests`. */
+  protected readonly canChange = computed(() => this.isOwner() && isEditable(this.project()));
+
   protected canWithdraw(allocation: Allocation): boolean {
-    return this.isOwner() && isWithdrawable(allocation);
+    return this.canChange() && isWithdrawable(allocation);
   }
 
   protected canCancel(allocation: Allocation): boolean {
-    return this.isOwner() && isCancellable(allocation);
+    return this.canChange() && isCancellable(allocation);
   }
 
   protected withdraw(allocation: Allocation): void {

@@ -155,8 +155,9 @@ public class AllocationController {
 	@ApiResponse(responseCode = "404", description = "No allocation with this id",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "409",
-			description = "The allocation is REJECTED, CANCELLED or CHANGE_PENDING (INVALID_ALLOCATION_STATUS), or it "
-					+ "is APPROVED and has already started (ALLOCATION_ALREADY_STARTED)",
+			description = "The project is completed or cancelled (PROJECT_CLOSED), the allocation is REJECTED, "
+					+ "CANCELLED or CHANGE_PENDING (INVALID_ALLOCATION_STATUS), or it is APPROVED and has already "
+					+ "started (ALLOCATION_ALREADY_STARTED)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('PM')")
 	@PostMapping("/{id}/cancel")

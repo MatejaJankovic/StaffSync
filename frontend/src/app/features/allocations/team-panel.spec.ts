@@ -335,6 +335,22 @@ describe('TeamPanel', () => {
       expect(rowOf('Marko Markovic').querySelectorAll('button')).toHaveLength(0);
       expect(rowOf('Jelena Jovic').querySelectorAll('button')).toHaveLength(0);
     });
+
+    it.each<Project['status']>(['COMPLETED', 'CANCELLED'])(
+      'shows the PM who owns a %s project no actions',
+      async (status) => {
+        await open(
+          [
+            allocation(1, 'Marko Markovic', 'APPROVED', { startDate: LATER }),
+            allocation(2, 'Jelena Jovic'),
+          ],
+          { project: { ...PROJECT, status } },
+        );
+
+        expect(rowOf('Marko Markovic').querySelectorAll('button')).toHaveLength(0);
+        expect(rowOf('Jelena Jovic').querySelectorAll('button')).toHaveLength(0);
+      },
+    );
   });
 });
 

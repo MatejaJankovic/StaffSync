@@ -631,6 +631,16 @@ class AllocationServiceTests {
 		assertCancelFails(PM, HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS");
 	}
 
+	@ParameterizedTest
+	@EnumSource(value = ProjectStatus.class, names = { "COMPLETED", "CANCELLED" })
+	void aClosedProjectTakesNoCancellations(ProjectStatus status) {
+		// Cancelling would reopen a FILLED request on a closed project (BR-11)
+		givenAllocation(AllocationStatus.APPROVED, today().plusDays(10));
+		project.setStatus(status);
+
+		assertCancelFails(PM, HttpStatus.CONFLICT, "PROJECT_CLOSED");
+	}
+
 	// ---- BR-4 on cancel
 
 	@Test
@@ -644,6 +654,15 @@ class AllocationServiceTests {
 	@Test
 	void theOwnerCheckComesBeforeTheStatusCheck() {
 		givenAllocation(AllocationStatus.REJECTED, today().plusDays(10));
+		AuthUser otherPm = new AuthUser(99L, "other@staffsync.local", Role.PM);
+
+		assertCancelFails(otherPm, HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER");
+	}
+
+	@Test
+	void theOwnerCheckComesBeforeTheProjectCheck() {
+		givenAllocation(AllocationStatus.APPROVED, today().plusDays(10));
+		project.setStatus(ProjectStatus.COMPLETED);
 		AuthUser otherPm = new AuthUser(99L, "other@staffsync.local", Role.PM);
 
 		assertCancelFails(otherPm, HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER");

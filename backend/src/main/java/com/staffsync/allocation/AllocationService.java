@@ -154,14 +154,18 @@ public class AllocationService {
 	/**
 	 * The PM withdraws a proposal or cancels an approved allocation before it starts (§9:
 	 * {@code PROPOSED → CANCELLED}, {@code APPROVED → CANCELLED}). The checks run in this order: BR-4 (403),
-	 * the allocation is {@code PROPOSED} or {@code APPROVED} (409), an approved one hasn't started yet (409).
-	 * Then the request status is recalculated (BR-10), so a {@code FILLED} request goes back to
-	 * {@code PARTIALLY_FILLED} (T-20). A withdrawn proposal was never active, so its request keeps its status.
+	 * the project is still open (409), the allocation is {@code PROPOSED} or {@code APPROVED} (409), an
+	 * approved one hasn't started yet (409). Then the request status is recalculated (BR-10), so a
+	 * {@code FILLED} request goes back to {@code PARTIALLY_FILLED} (T-20). A withdrawn proposal was never
+	 * active, so its request keeps its status.
 	 */
 	@Transactional
 	public AllocationDto cancel(Long id, AuthUser currentUser) {
 		Allocation allocation = find(id);
-		checkOwner(allocation.getRequest().getProject(), currentUser, "cancel its allocations");
+		Project project = allocation.getRequest().getProject();
+		checkOwner(project, currentUser, "cancel its allocations");
+		// Otherwise the recalculation could reopen a request on a closed project (BR-11)
+		checkProjectOpen(project, "cancellations");
 		checkCancellable(allocation);
 
 		allocation.setStatus(AllocationStatus.CANCELLED);
@@ -248,15 +252,22 @@ public class AllocationService {
 	 * {@code what} names the action in the message, e.g. {@code "proposals"}.
 	 */
 	private static void checkOpen(StaffingRequest request, String what) {
-		Project project = request.getProject();
-		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
-			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
-					"A " + project.getStatus().name().toLowerCase() + " project takes no " + what);
-		}
+		checkProjectOpen(request.getProject(), what);
 		if (request.getStatus() != RequestStatus.OPEN && request.getStatus() != RequestStatus.PARTIALLY_FILLED) {
 			throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_NOT_OPEN",
 					"Only an open or partially filled request takes " + what + ", but this one is "
 							+ request.getStatus().name().toLowerCase().replace('_', ' '));
+		}
+	}
+
+	/**
+	 * A completed or cancelled project takes no proposals, approvals or cancellations (409). {@code what}
+	 * names the action in the message, e.g. {@code "cancellations"}.
+	 */
+	private static void checkProjectOpen(Project project, String what) {
+		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
+			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
+					"A " + project.getStatus().name().toLowerCase() + " project takes no " + what);
 		}
 	}
 
