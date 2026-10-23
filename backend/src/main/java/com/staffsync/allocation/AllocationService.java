@@ -135,11 +135,12 @@ public class AllocationService {
 	/**
 	 * The RM approves a pending change (BR-15, §9: {@code CHANGE_PENDING → APPROVED} with the new values).
 	 * After BR-5 and BR-7 in {@link #approve}: the project is still open (409), the employee is still active
-	 * (409), then BR-1 for the new percent and period without this allocation's current values, which they
-	 * replace (§7, the 60% → 70% example). The request isn't checked for being open: a change on a
+	 * (409), a change that moves the start date isn't approved once the allocation has started (409
+	 * ALLOCATION_ALREADY_STARTED, BR-15), then BR-1 for the new percent and period without this allocation's
+	 * current values, which they replace (§7, the 60% → 70% example). The request isn't checked for being open: a change on a
 	 * {@code FILLED} request is normal, because the allocation counts as active while it waits (BR-16, T-36).
 	 * <p>
-	 * T-30: on 409 CAPACITY_EXCEEDED nothing changes, as for a proposal. The allocation stays
+	 * T-30: on 409 CAPACITY_EXCEEDED (or ALLOCATION_ALREADY_STARTED) nothing changes, as for a proposal. The allocation stays
 	 * {@code CHANGE_PENDING} with its current values in force, so the RM can still approve it once capacity
 	 * frees up or reject it, and the PM can withdraw it. Otherwise the pending values are applied, the decision
 	 * is recorded, and the request status is recalculated (BR-10), which keeps a {@code FILLED} request filled.
@@ -147,6 +148,12 @@ public class AllocationService {
 	private AllocationDto approveChange(Allocation allocation, User rm) {
 		checkProjectOpen(allocation.getRequest().getProject(), "approvals");
 		checkEmployeeActive(allocation);
+		// T-32 again: the change may have been requested before the start and decided after it
+		if (hasStarted(allocation) && !allocation.getPendingStartDate().equals(allocation.getStartDate())) {
+			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_ALREADY_STARTED",
+					"Allocation has already started (on " + allocation.getStartDate()
+							+ "), so a change that moves its start date can't be approved");
+		}
 		capacityService.checkCapacity(allocation.getEmployee().getId(), allocation.getPendingStartDate(),
 				allocation.getPendingEndDate(), allocation.getPendingPercent(), allocation.getId());
 

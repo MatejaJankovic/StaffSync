@@ -1062,6 +1062,33 @@ class AllocationServiceTests {
 	}
 
 	@Test
+	void aChangeThatMovesTheStartIsNotApprovedOnceTheAllocationHasStarted() {
+		// BR-15 / T-32: requested before the start, decided after it. It keeps waiting, as on T-30
+		employee.setManager(user(RM_ID, Role.RM));
+		Allocation allocation = givenApprovedAllocation(today().minusDays(2), today().plusDays(40));
+		allocation.requestChange(60, today().plusDays(5), today().plusDays(40), REASON);
+
+		assertDecisionFails(() -> allocationService.approve(ALLOCATION_ID, RM), HttpStatus.CONFLICT,
+				"ALLOCATION_ALREADY_STARTED");
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.CHANGE_PENDING);
+		assertThat(allocation.getStartDate()).isEqualTo(today().minusDays(2));
+		assertThat(allocation.getPendingStartDate()).isEqualTo(today().plusDays(5));
+	}
+
+	@Test
+	void aStartedAllocationCanStillHaveAChangeToItsEndApproved() {
+		employee.setManager(user(RM_ID, Role.RM));
+		Allocation allocation = givenApprovedAllocation(today().minusDays(2), today().plusDays(40));
+		allocation.requestChange(80, today().minusDays(2), today().plusDays(60), REASON);
+
+		allocationService.approve(ALLOCATION_ID, RM);
+
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(allocation.getPercent()).isEqualTo(80);
+		assertThat(allocation.getEndDate()).isEqualTo(today().plusDays(60));
+	}
+
+	@Test
 	void aChangeOnAFilledRequestCanBeApprovedAndTheRequestStatusIsRecalculated() {
 		// T-36: the allocation counted as active all along, so its request is FILLED and that is no reason to refuse
 		Allocation allocation = givenPendingChange();
