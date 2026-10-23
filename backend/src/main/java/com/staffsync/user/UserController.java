@@ -1,12 +1,17 @@
 package com.staffsync.user;
 
+import java.util.List;
+
 import com.staffsync.auth.AuthUser;
 import com.staffsync.common.ErrorResponse;
 import com.staffsync.user.dto.CreateUserRequest;
+import com.staffsync.user.dto.TeamMemberDto;
 import com.staffsync.user.dto.UpdateUserRequest;
 import com.staffsync.user.dto.UserAccountDto;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -58,6 +63,29 @@ public class UserController {
 			@RequestParam(required = false) Role role, @RequestParam(required = false) Boolean active,
 			@ParameterObject @PageableDefault(sort = "lastName") Pageable pageable) {
 		return userService.list(departmentId, role, active, pageable);
+	}
+
+	@Operation(summary = "My team with today's load (RM)",
+			description = "The RM's active users (BR-5), sorted by last name. load is today's % from APPROVED and "
+					+ "CHANGE_PENDING allocations, and free is capacityPercent − load. On a weekend, the loads are "
+					+ "those of the next Monday, as on the Home cards")
+	@ApiResponse(responseCode = "200", description = "The team members, possibly none",
+			content = @Content(array = @ArraySchema(schema = @Schema(implementation = TeamMemberDto.class)),
+					examples = @ExampleObject(value = """
+							[
+							  { "id": 4, "firstName": "Bogdan", "lastName": "Vujic", "seniority": "MEDIOR",
+							    "department": { "id": 1, "name": "Engineering" }, "capacityPercent": 100, "load": 60, "free": 40 },
+							  { "id": 7, "firstName": "Jelena", "lastName": "Petrovic", "seniority": "JUNIOR",
+							    "department": { "id": 1, "name": "Engineering" }, "capacityPercent": 80, "load": 0, "free": 80 }
+							]""")))
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not an RM",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('RM')")
+	@GetMapping("/me/team")
+	public List<TeamMemberDto> myTeam(@AuthenticationPrincipal AuthUser user) {
+		return userService.myTeam(user);
 	}
 
 	@Operation(summary = "Create an account with a temporary password (Admin)",

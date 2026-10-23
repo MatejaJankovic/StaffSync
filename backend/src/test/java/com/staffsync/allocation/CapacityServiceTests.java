@@ -256,6 +256,13 @@ class CapacityServiceTests {
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
+	@Test
+	void aWorkingDayIsItselfAndAWeekendDayIsTheNextMonday() {
+		assertThat(CapacityService.workingDayFrom(nov(6))).isEqualTo(nov(6));
+		assertThat(CapacityService.workingDayFrom(nov(7))).isEqualTo(nov(9));
+		assertThat(CapacityService.workingDayFrom(nov(8))).isEqualTo(nov(9));
+	}
+
 	static LocalDate nov(int day) {
 		return LocalDate.of(2026, 11, day);
 	}

@@ -64,7 +64,9 @@ export const routes: Routes = [
       },
       // RM
       menuRoute('approvals'),
-      menuRoute('team'),
+      menuRoute('team', {
+        loadComponent: () => import('./features/team/team-page').then((m) => m.TeamPage),
+      }),
       // PM and RM
       menuRoute('employees'),
       // Admin

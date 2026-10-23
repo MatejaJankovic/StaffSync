@@ -1,0 +1,31 @@
+.team {
+  padding: 24px;
+  max-width: 960px;
+}
+
+.team__header {
+  margin-bottom: 16px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0;
+  }
+}
+
+// Like paged-table: on a narrow screen only the table scrolls sideways, not the page
+.team__scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.team__table {
+  width: 100%;
+}
+
+.team__load {
+  min-width: 160px;
+}
+
+.team__message {
+  color: var(--mat-sys-on-surface-variant);
+}

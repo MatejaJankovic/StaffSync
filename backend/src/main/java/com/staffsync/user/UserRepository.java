@@ -30,7 +30,8 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 	/** Whether an RM still has employees who can log in, so their team would be left without an RM. */
 	boolean existsByManagerIdAndActiveTrue(Long managerId);
 
-	/** An RM's team: the users who report to them and can still be staffed (Home cards). */
+	/** An RM's team: the users who report to them and can still be staffed (Home cards, *My team*). */
+	@EntityGraph(attributePaths = "department")
 	List<User> findByManagerIdAndActiveTrue(Long managerId);
 
 	/** The users who can log in (Admin's Home card). */

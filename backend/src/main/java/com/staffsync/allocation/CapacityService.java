@@ -193,6 +193,14 @@ public class CapacityService {
 		return dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY;
 	}
 
+	/**
+	 * {@code day} itself on a working day, otherwise the next one: loads are per working day (§7), so "today's
+	 * load" on a weekend is the next Monday's. The Home cards and *My team* both use it.
+	 */
+	public static LocalDate workingDayFrom(LocalDate day) {
+		return isWorkingDay(day) ? day : nextWorkingDay(day);
+	}
+
 	private static LocalDate nextWorkingDay(LocalDate day) {
 		LocalDate next = day.plusDays(1);
 		while (!isWorkingDay(next)) {

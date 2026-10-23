@@ -3,6 +3,7 @@ package com.staffsync.user;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -17,6 +18,7 @@ import com.staffsync.common.NotFoundException;
 import com.staffsync.department.Department;
 import com.staffsync.department.DepartmentRepository;
 import com.staffsync.user.dto.CreateUserRequest;
+import com.staffsync.user.dto.TeamMemberDto;
 import com.staffsync.user.dto.UpdateUserRequest;
 import com.staffsync.user.dto.UserAccountDto;
 import com.staffsync.user.dto.UserFields;
@@ -60,6 +62,11 @@ public class UserService {
 	private static final Set<String> SORTABLE = Set.of("id", "email", "firstName", "lastName", "role", "seniority",
 			"capacityPercent", "active");
 
+	/** Last name, then first name, then id, so equal names keep a stable order. */
+	private static final Comparator<User> BY_NAME = Comparator.comparing(User::getLastName)
+		.thenComparing(User::getFirstName)
+		.thenComparing(User::getId);
+
 	private final UserRepository userRepository;
 
 	private final DepartmentRepository departmentRepository;
@@ -96,6 +103,25 @@ public class UserService {
 			return cb.and(predicates.toArray(Predicate[]::new));
 		};
 		return userRepository.findAll(filters, checkedSort(pageable)).map(UserAccountDto::from);
+	}
+
+	@Transactional(readOnly = true)
+	public List<TeamMemberDto> myTeam(AuthUser currentUser) {
+		return myTeam(currentUser, LocalDate.now());
+	}
+
+	/**
+	 * The RM's team as of {@code today}: their active users ({@code manager_id}, BR-5), the same team and the
+	 * same load as the RM Home cards. On a weekend the load is the next Monday's. Sorted by name.
+	 */
+	List<TeamMemberDto> myTeam(AuthUser currentUser, LocalDate today) {
+		LocalDate day = CapacityService.workingDayFrom(today);
+		return userRepository.findByManagerIdAndActiveTrue(currentUser.id())
+			.stream()
+			.sorted(BY_NAME)
+			.map(member -> TeamMemberDto.from(member,
+					capacityService.getDailyLoad(member.getId(), day, day, null).getOrDefault(day, 0)))
+			.toList();
 	}
 
 	/** Emails are unique regardless of case (409). The temporary password is stored as a BCrypt hash. */

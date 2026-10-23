@@ -2,6 +2,7 @@ package com.staffsync;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import com.staffsync.allocation.Allocation;
 import com.staffsync.allocation.AllocationRepository;
 import com.staffsync.allocation.AllocationStatus;
+import com.staffsync.allocation.CapacityService;
 import com.staffsync.department.Department;
 import com.staffsync.department.DepartmentRepository;
 import com.staffsync.project.Project;
@@ -664,6 +666,85 @@ class UserControllerTests {
 		given().auth().oauth2(tokenFor(ADMIN))
 			.when().patch("/api/users/999999/deactivate")
 			.then().statusCode(404);
+	}
+
+	// ---- US-21: my team
+
+	@Test
+	void anRmGetsExactlyTheirActiveTeamWithTodaysLoadAndFreeCapacity() {
+		User rm = newUser("Igor", Role.RM);
+		Department department = newDepartment();
+		LocalDate day = CapacityService.workingDayFrom(LocalDate.now());
+		User busy = newEmployee("Busy", department, rm);
+		busy.setCapacityPercent(80);
+		busy.setSeniority(Seniority.SENIOR);
+		userRepository.save(busy);
+		User bench = newEmployee("Bench", department, rm);
+		User former = newEmployee("Former", department, rm);
+		former.setActive(false);
+		userRepository.save(former);
+		User otherTeam = newEmployee("Other", department, newUser("Other", Role.RM));
+		allocate(busy, 40, day.minusDays(30), day.plusDays(60), AllocationStatus.APPROVED);
+		// A pending change counts with its current values (BR-16), a proposal doesn't count yet
+		allocate(busy, 20, day.minusDays(30), day.plusDays(60), AllocationStatus.CHANGE_PENDING);
+		allocate(bench, 50, day.minusDays(30), day.plusDays(60), AllocationStatus.PROPOSED);
+		allocate(otherTeam, 50, day.minusDays(30), day.plusDays(60), AllocationStatus.APPROVED);
+
+		// Both are "Test", so the first name decides: Bench before Busy
+		given().auth().oauth2(tokenFor(rm.getEmail()))
+			.when().get("/api/users/me/team")
+			.then()
+			.statusCode(200)
+			.body("id", contains(bench.getId().intValue(), busy.getId().intValue()))
+			.body("load", contains(0, 60))
+			.body("free", contains(100, 20))
+			.body("capacityPercent", contains(100, 80))
+			.body("[1].seniority", equalTo("SENIOR"))
+			.body("[1].department.name", equalTo(department.getName()))
+			.body("[1].email", nullValue());
+	}
+
+	@Test
+	void anRmWithoutATeamGetsAnEmptyList() {
+		User rm = newUser("Lonely", Role.RM);
+
+		given().auth().oauth2(tokenFor(rm.getEmail()))
+			.when().get("/api/users/me/team")
+			.then().statusCode(200).body("size()", equalTo(0));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { ADMIN, PM, "bogdan_employee@staffsync.local" })
+	void onlyAnRmHasATeam(String email) {
+		given().auth().oauth2(tokenFor(email))
+			.when().get("/api/users/me/team")
+			.then().statusCode(403);
+	}
+
+	@Test
+	void myTeamWithoutTokenIs401() {
+		given().when().get("/api/users/me/team").then().statusCode(401);
+	}
+
+	@Test
+	void myTeamHasTheSameLoadsAsTheRmHomeCards() {
+		User rm = newUser("Igor", Role.RM);
+		Department department = newDepartment();
+		LocalDate day = CapacityService.workingDayFrom(LocalDate.now());
+		User busy = newEmployee("Busy", department, rm);
+		User partly = newEmployee("Partly", department, rm);
+		newEmployee("Bench", department, rm);
+		allocate(busy, 60, day.minusDays(30), day.plusDays(60), AllocationStatus.APPROVED);
+		allocate(partly, 20, day.minusDays(30), day.plusDays(60), AllocationStatus.CHANGE_PENDING);
+		String token = tokenFor(rm.getEmail());
+
+		// #75: the page matches the Home cards, so the same team and loads give the same average: 80 / 3 = 27%
+		given().auth().oauth2(token)
+			.when().get("/api/users/me/team")
+			.then().statusCode(200).body("load", containsInAnyOrder(60, 20, 0));
+		given().auth().oauth2(token)
+			.when().get("/api/dashboard")
+			.then().statusCode(200).body("find { it.key == 'averageLoad' }.value", equalTo("27%"));
 	}
 
 	// ---- helpers
