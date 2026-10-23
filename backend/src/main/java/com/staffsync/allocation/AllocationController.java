@@ -80,7 +80,8 @@ public class AllocationController {
 					+ "period are then the current values, and pending* and changeReason the requested ones. Paged, "
 					+ "oldest first (createdAt) by default. Sortable by id, percent, startDate, endDate, status and "
 					+ "createdAt")
-	@ApiResponse(responseCode = "200", description = "A page of pending approvals",
+	// Without useReturnTypeSchema, examples alone leave the page's schema out of the docs
+	@ApiResponse(responseCode = "200", description = "A page of pending approvals", useReturnTypeSchema = true,
 			content = @Content(examples = {
 					@ExampleObject(name = "NEW", summary = "A new proposal (§4 step 5)", value = """
 							{
