@@ -256,7 +256,7 @@ public class AllocationService {
 		if (request.getStatus() != RequestStatus.OPEN && request.getStatus() != RequestStatus.PARTIALLY_FILLED) {
 			throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_NOT_OPEN",
 					"Only an open or partially filled request takes " + what + ", but this one is "
-							+ request.getStatus().name().toLowerCase().replace('_', ' '));
+							+ label(request.getStatus()));
 		}
 	}
 
@@ -267,7 +267,7 @@ public class AllocationService {
 	private static void checkProjectOpen(Project project, String what) {
 		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
 			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
-					"A " + project.getStatus().name().toLowerCase() + " project takes no " + what);
+					"A " + label(project.getStatus()) + " project takes no " + what);
 		}
 	}
 
@@ -289,7 +289,7 @@ public class AllocationService {
 		if (allocation.getStatus() != AllocationStatus.PROPOSED) {
 			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS",
 					"Only a proposed allocation can be approved or rejected, but this one is "
-							+ allocation.getStatus().name().toLowerCase().replace('_', ' '));
+							+ label(allocation.getStatus()));
 		}
 	}
 
@@ -304,7 +304,7 @@ public class AllocationService {
 		if (status != AllocationStatus.PROPOSED && status != AllocationStatus.APPROVED) {
 			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS",
 					"Only a proposed or approved allocation can be cancelled, but this one is "
-							+ status.name().toLowerCase().replace('_', ' '));
+							+ label(status));
 		}
 		if (status == AllocationStatus.APPROVED && !allocation.getStartDate().isAfter(LocalDate.now())) {
 			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_ALREADY_STARTED",
@@ -371,6 +371,11 @@ public class AllocationService {
 	private static BusinessException validationError(String field, String message) {
 		return new BusinessException(HttpStatus.BAD_REQUEST, GlobalExceptionHandler.VALIDATION_ERROR,
 				"Some fields are invalid", List.of(new FieldViolation(field, message)));
+	}
+
+	/** A status as the messages write it: {@code CHANGE_PENDING} → {@code "change pending"}. */
+	private static String label(Enum<?> status) {
+		return status.name().toLowerCase().replace('_', ' ');
 	}
 
 	/** Rejects unknown sort properties, and adds the id as the last sort key so pages don't shuffle on ties. */
