@@ -47,6 +47,9 @@ public class AllocationService {
 	private static final Set<String> SORTABLE = Set.of("id", "percent", "startDate", "endDate", "status",
 			"createdAt");
 
+	/** The shortest rejection comment (BR-6) or change reason (BR-15), without the surrounding spaces. */
+	private static final int MIN_TEXT_LENGTH = 10;
+
 	private final AllocationRepository allocationRepository;
 
 	private final StaffingRequestRepository requestRepository;
@@ -172,11 +175,7 @@ public class AllocationService {
 	 */
 	@Transactional
 	public AllocationDto reject(Long id, RejectAllocationRequest body, AuthUser currentUser) {
-		// Bean Validation counts the spaces too, so "  Too short " would pass it
-		String comment = body.comment().trim();
-		if (comment.length() < 10) {
-			throw validationError("comment", "Comment must be between 10 and 1000 characters");
-		}
+		String comment = requireText(body.comment(), "comment", "Comment");
 		Allocation allocation = find(id);
 		User rm = checkResourceManager(allocation, currentUser);
 		checkPendingDecision(allocation);
@@ -231,11 +230,7 @@ public class AllocationService {
 	 */
 	@Transactional
 	public AllocationChangeDto requestChange(Long id, ChangeAllocationRequest body, AuthUser currentUser) {
-		// Bean Validation counts the spaces too, so "  Too short " would pass it
-		String reason = body.reason().trim();
-		if (reason.length() < 10) {
-			throw validationError("reason", "Reason must be between 10 and 1000 characters");
-		}
+		String reason = requireText(body.reason(), "reason", "Reason");
 		Allocation allocation = find(id);
 		StaffingRequest request = allocation.getRequest();
 		checkOwner(request.getProject(), currentUser, "request changes to its allocations");
@@ -524,6 +519,18 @@ public class AllocationService {
 			.stream()
 			.map(run -> "Capacity would be exceeded on " + run.days() + " (" + run.load() + "%)")
 			.toList();
+	}
+
+	/**
+	 * A rejection comment (BR-6) or change reason (BR-15), trimmed. Bean Validation counts the spaces too, so
+	 * {@code "  Too short "} passes it and is only caught here, as a 400 on {@code field}.
+	 */
+	private static String requireText(String value, String field, String name) {
+		String text = value.trim();
+		if (text.length() < MIN_TEXT_LENGTH) {
+			throw validationError(field, name + " must be between 10 and 1000 characters");
+		}
+		return text;
 	}
 
 	/** The same body as a Bean Validation failure, so a form can show the message next to the field. */
