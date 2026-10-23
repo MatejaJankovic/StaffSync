@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -572,6 +574,107 @@ class AllocationServiceTests {
 				"INVALID_ALLOCATION_STATUS");
 	}
 
+	// ---- cancel (US-12). Today is when the tests run, so "started" doesn't depend on the calendar
+
+	@Test
+	void thePmWithdrawsAProposal() {
+		Allocation allocation = givenAllocation(AllocationStatus.PROPOSED, today().plusDays(10));
+
+		AllocationDto result = allocationService.cancel(ALLOCATION_ID, PM);
+
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.CANCELLED);
+		assertThat(result.status()).isEqualTo(AllocationStatus.CANCELLED);
+		// Cancelling isn't an RM decision
+		assertThat(allocation.getDecidedBy()).isNull();
+		assertThat(allocation.getDecidedAt()).isNull();
+	}
+
+	@Test
+	void aProposalWhoseStartDateHasPassedCanStillBeWithdrawn() {
+		Allocation allocation = givenAllocation(AllocationStatus.PROPOSED, today().minusDays(1));
+
+		allocationService.cancel(ALLOCATION_ID, PM);
+
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.CANCELLED);
+	}
+
+	@Test
+	void anApprovedAllocationStartingTomorrowIsCancelled() {
+		Allocation allocation = givenAllocation(AllocationStatus.APPROVED, today().plusDays(1));
+
+		AllocationDto result = allocationService.cancel(ALLOCATION_ID, PM);
+
+		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.CANCELLED);
+		assertThat(result.status()).isEqualTo(AllocationStatus.CANCELLED);
+	}
+
+	@Test
+	void anApprovedAllocationStartingTodayHasStarted() {
+		givenAllocation(AllocationStatus.APPROVED, today());
+
+		assertCancelFails(PM, HttpStatus.CONFLICT, "ALLOCATION_ALREADY_STARTED");
+	}
+
+	@Test
+	void anApprovedAllocationThatStartedEarlierHasStarted() {
+		givenAllocation(AllocationStatus.APPROVED, today().minusDays(1));
+
+		assertCancelFails(PM, HttpStatus.CONFLICT, "ALLOCATION_ALREADY_STARTED");
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = AllocationStatus.class, names = { "REJECTED", "CANCELLED", "CHANGE_PENDING" })
+	void onlyAProposedOrApprovedAllocationCanBeCancelled(AllocationStatus status) {
+		// Even one that hasn't started: a pending change is withdrawn through US-13 instead
+		givenAllocation(status, today().plusDays(10));
+
+		assertCancelFails(PM, HttpStatus.CONFLICT, "INVALID_ALLOCATION_STATUS");
+	}
+
+	// ---- BR-4 on cancel
+
+	@Test
+	void anotherPmCannotCancel() {
+		givenAllocation(AllocationStatus.APPROVED, today().plusDays(10));
+		AuthUser otherPm = new AuthUser(99L, "other@staffsync.local", Role.PM);
+
+		assertCancelFails(otherPm, HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER");
+	}
+
+	@Test
+	void theOwnerCheckComesBeforeTheStatusCheck() {
+		givenAllocation(AllocationStatus.REJECTED, today().plusDays(10));
+		AuthUser otherPm = new AuthUser(99L, "other@staffsync.local", Role.PM);
+
+		assertCancelFails(otherPm, HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER");
+	}
+
+	@Test
+	void cancellingAnUnknownAllocationIsNotFound() {
+		when(allocationRepository.findById(ALLOCATION_ID)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> allocationService.cancel(ALLOCATION_ID, PM)).isInstanceOf(NotFoundException.class);
+		verify(requestStatusService, never()).recalculate(any());
+	}
+
+	// ---- BR-10 / T-20 on cancel (the counting itself is in RequestStatusServiceTests)
+
+	@ParameterizedTest
+	@EnumSource(value = AllocationStatus.class, names = { "PROPOSED", "APPROVED" })
+	void cancellingRecalculatesTheRequestStatusAfterTheStatusHasChanged(AllocationStatus status) {
+		Allocation allocation = givenAllocation(status, today().plusDays(10));
+		List<AllocationStatus> statusWhenRecalculated = new ArrayList<>();
+		doAnswer(call -> {
+			statusWhenRecalculated.add(allocation.getStatus());
+			return RequestStatus.PARTIALLY_FILLED;
+		}).when(requestStatusService).recalculate(REQUEST_ID);
+
+		allocationService.cancel(ALLOCATION_ID, PM);
+
+		// The recalculation counts active allocations, so this one must already be CANCELLED
+		assertThat(statusWhenRecalculated).containsExactly(AllocationStatus.CANCELLED);
+	}
+
 	// ---- search (the role scoping runs in the database, see AllocationControllerTests)
 
 	@Test
@@ -652,6 +755,27 @@ class AllocationServiceTests {
 		assertThat(allocation.getDecidedAt()).isNull();
 	}
 
+	/** On {@link #PM}'s project, for a month from this start date, already in this status. */
+	private Allocation givenAllocation(AllocationStatus status, LocalDate startDate) {
+		Allocation allocation = new Allocation(request, employee, 60, startDate, startDate.plusMonths(1), pm);
+		allocation.setStatus(status);
+		ReflectionTestUtils.setField(allocation, "id", ALLOCATION_ID);
+		when(allocationRepository.findById(ALLOCATION_ID)).thenReturn(Optional.of(allocation));
+		return allocation;
+	}
+
+	/** A failed cancel changes nothing: the status stays and the request status isn't recalculated. */
+	private void assertCancelFails(AuthUser currentUser, HttpStatus status, String code) {
+		AllocationStatus before = allocationRepository.findById(ALLOCATION_ID).orElseThrow().getStatus();
+		assertThatThrownBy(() -> allocationService.cancel(ALLOCATION_ID, currentUser))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getStatus()).isEqualTo(status);
+				assertThat(ex.getCode()).isEqualTo(code);
+			});
+		assertThat(allocationRepository.findById(ALLOCATION_ID).orElseThrow().getStatus()).isEqualTo(before);
+		verify(requestStatusService, never()).recalculate(any());
+	}
+
 	private Allocation savedAllocation() {
 		ArgumentCaptor<Allocation> captor = ArgumentCaptor.forClass(Allocation.class);
 		verify(allocationRepository).save(captor.capture());
@@ -702,6 +826,11 @@ class AllocationServiceTests {
 
 	static LocalDate nov(int day) {
 		return LocalDate.of(2026, 11, day);
+	}
+
+	/** The service reads {@code LocalDate.now()}, like the rest of the code, so the cancel tests do too. */
+	static LocalDate today() {
+		return LocalDate.now();
 	}
 
 }

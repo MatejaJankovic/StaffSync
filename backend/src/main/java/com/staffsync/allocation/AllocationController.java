@@ -142,4 +142,26 @@ public class AllocationController {
 		return allocationService.reject(id, request, user);
 	}
 
+	@Operation(summary = "Withdraw a proposal or cancel an allocation before it starts (PM who owns the project)",
+			description = "A PROPOSED allocation is withdrawn. An APPROVED allocation can be cancelled only while its "
+					+ "start date is after today: on its start date it has started. Either way it becomes CANCELLED "
+					+ "and the request's status is recalculated (BR-10), e.g. a FILLED request goes back to "
+					+ "PARTIALLY_FILLED. A pending change is withdrawn through the change request instead")
+	@ApiResponse(responseCode = "200", description = "Cancelled")
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not a PM, or not the PM who owns the project (BR-4)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No allocation with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409",
+			description = "The allocation is REJECTED, CANCELLED or CHANGE_PENDING (INVALID_ALLOCATION_STATUS), or it "
+					+ "is APPROVED and has already started (ALLOCATION_ALREADY_STARTED)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('PM')")
+	@PostMapping("/{id}/cancel")
+	public AllocationDto cancel(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
+		return allocationService.cancel(id, user);
+	}
+
 }

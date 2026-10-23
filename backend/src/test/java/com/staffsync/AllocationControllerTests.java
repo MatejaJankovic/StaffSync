@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -838,6 +839,139 @@ class AllocationControllerTests {
 			.then().statusCode(409).body("code", equalTo("INVALID_ALLOCATION_STATUS"));
 	}
 
+	// ---- cancel (US-12)
+
+	@Test
+	void thePmWithdrawsAProposal() {
+		LoggedIn pm = login(PM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		int allocation = propose(pm.token(), proposal(request, newEmployee("Jelena"), null, null, null));
+
+		given().auth().oauth2(pm.token())
+			.when().post("/api/allocations/" + allocation + "/cancel")
+			.then()
+			.statusCode(200)
+			.body("id", equalTo(allocation))
+			.body("status", equalTo("CANCELLED"));
+		assertThat(allocationStatus(allocation)).isEqualTo(AllocationStatus.CANCELLED);
+		assertThat(requestStatus(request)).isEqualTo(RequestStatus.OPEN);
+	}
+
+	// ---- BR-10 / T-20
+
+	@Test
+	void cancellingAnApprovedAllocationOnAFilledRequestMakesItPartiallyFilled() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		int ana = propose(pm.token(), proposal(request, newEmployee("Ana", rm), null, null, null));
+		int boris = propose(pm.token(), proposal(request, newEmployee("Boris", rm), null, null, null));
+		String rmToken = login(rm.getEmail()).token();
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + ana + "/approve").then().statusCode(200);
+		given().auth().oauth2(rmToken).when().post("/api/allocations/" + boris + "/approve").then().statusCode(200);
+		assertThat(requestStatus(request)).isEqualTo(RequestStatus.FILLED);
+		// Starts tomorrow, so the test doesn't depend on when it runs
+		setAllocationStartDate(ana, LocalDate.now().plusDays(1));
+
+		given().auth().oauth2(pm.token())
+			.when().post("/api/allocations/" + ana + "/cancel")
+			.then()
+			.statusCode(200)
+			.body("status", equalTo("CANCELLED"));
+
+		assertThat(requestStatus(request)).isEqualTo(RequestStatus.PARTIALLY_FILLED);
+	}
+
+	@Test
+	void cancellingTheOnlyApprovedAllocationReopensTheRequest() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		int ana = propose(pm.token(), proposal(request, newEmployee("Ana", rm), null, null, null));
+		given().auth().oauth2(login(rm.getEmail()).token())
+			.when().post("/api/allocations/" + ana + "/approve").then().statusCode(200);
+		setAllocationStartDate(ana, LocalDate.now().plusDays(1));
+
+		given().auth().oauth2(pm.token()).when().post("/api/allocations/" + ana + "/cancel").then().statusCode(200);
+
+		assertThat(requestStatus(request)).isEqualTo(RequestStatus.OPEN);
+	}
+
+	@Test
+	void anApprovedAllocationStartingTodayHasStartedAndCannotBeCancelled() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		int ana = propose(pm.token(), proposal(request, newEmployee("Ana", rm), null, null, null));
+		given().auth().oauth2(login(rm.getEmail()).token())
+			.when().post("/api/allocations/" + ana + "/approve").then().statusCode(200);
+		setAllocationStartDate(ana, LocalDate.now());
+
+		given().auth().oauth2(pm.token())
+			.when().post("/api/allocations/" + ana + "/cancel")
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("ALLOCATION_ALREADY_STARTED"));
+		assertThat(allocationStatus(ana)).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(requestStatus(request)).isEqualTo(RequestStatus.PARTIALLY_FILLED);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "REJECTED", "CANCELLED", "CHANGE_PENDING" })
+	void onlyAProposedOrApprovedAllocationCanBeCancelled(String status) {
+		LoggedIn pm = login(PM);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Marko"), null, null, null));
+		setAllocationStatus(allocation, AllocationStatus.valueOf(status));
+
+		given().auth().oauth2(pm.token())
+			.when().post("/api/allocations/" + allocation + "/cancel")
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("INVALID_ALLOCATION_STATUS"));
+		assertThat(allocationStatus(allocation)).isEqualTo(AllocationStatus.valueOf(status));
+	}
+
+	// ---- BR-4 on cancel
+
+	@Test
+	void anotherPmCannotCancelOnSomeoneElsesProject() {
+		LoggedIn pm = login(PM);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Marko"), null, null, null));
+
+		given().auth().oauth2(newPm().token())
+			.when().post("/api/allocations/" + allocation + "/cancel")
+			.then()
+			.statusCode(403)
+			.body("code", equalTo("NOT_PROJECT_OWNER"));
+		assertThat(allocationStatus(allocation)).isEqualTo(AllocationStatus.PROPOSED);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { RM, EMPLOYEE, ADMIN })
+	void onlyAPmCanCancel(String email) {
+		LoggedIn pm = login(PM);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Marko"), null, null, null));
+
+		given().auth().oauth2(login(email).token())
+			.when().post("/api/allocations/" + allocation + "/cancel")
+			.then()
+			.statusCode(403)
+			.body("code", equalTo("FORBIDDEN"));
+		assertThat(allocationStatus(allocation)).isEqualTo(AllocationStatus.PROPOSED);
+	}
+
+	@Test
+	void cancellingAnUnknownAllocationIs404AndWithoutATokenIs401() {
+		given().auth().oauth2(login(PM).token())
+			.when().post("/api/allocations/999999999/cancel")
+			.then()
+			.statusCode(404);
+		given().when().post("/api/allocations/1/cancel").then().statusCode(401);
+	}
+
 	// ---- helpers
 
 	private record Scenario(LoggedIn pmA, LoggedIn pmB, User rm, User ena, User filip, int projectA, int projectB,
@@ -849,6 +983,13 @@ class AllocationControllerTests {
 	private void setAllocationStatus(int id, AllocationStatus status) {
 		Allocation allocation = allocationRepository.findById((long) id).orElseThrow();
 		allocation.setStatus(status);
+		allocationRepository.save(allocation);
+	}
+
+	/** The demo dates are fixed, so tests about "started" move the start relative to today. */
+	private void setAllocationStartDate(int id, LocalDate startDate) {
+		Allocation allocation = allocationRepository.findById((long) id).orElseThrow();
+		allocation.setStartDate(startDate);
 		allocationRepository.save(allocation);
 	}
 
