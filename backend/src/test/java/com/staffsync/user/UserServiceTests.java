@@ -109,6 +109,9 @@ class UserServiceTests {
 		when(userRepository.findById(10L)).thenReturn(Optional.of(member));
 		Map<LocalDate, Integer> load = new TreeMap<>(Map.of(friday, 30, monday, 90));
 		when(capacityService.getDailyLoad(10L, friday, monday, null)).thenReturn(load);
+		// Free comes from CapacityService, not from its own capacity − load (§7). Strict stubs fail if it isn't asked
+		Map<LocalDate, Integer> free = new TreeMap<>(Map.of(friday, 50, monday, -10));
+		when(capacityService.getFreeCapacity(10L, friday, monday)).thenReturn(free);
 
 		// Overbooked data shows as negative free capacity, as on My team
 		assertThat(userService.availability(10L, friday, monday)).isEqualTo(new AvailabilityDto(10L, 80, friday,

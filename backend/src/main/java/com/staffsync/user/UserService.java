@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.staffsync.allocation.AllocationRepository;
@@ -130,7 +131,9 @@ public class UserService {
 
 	/**
 	 * §7: the user's load and free capacity per working day of {@code [from, to]}, from active allocations with
-	 * their current values (BR-16). The period is at most a year, so walking it day by day stays cheap.
+	 * their current values (BR-16). The period is at most a year, so walking it day by day stays cheap. Free
+	 * comes from {@link CapacityService#getFreeCapacity}, the same method matching uses, so the two never drift
+	 * (BR-1, §7).
 	 */
 	@Transactional(readOnly = true)
 	public AvailabilityDto availability(Long id, LocalDate from, LocalDate to) {
@@ -142,13 +145,13 @@ public class UserService {
 					"The period must not be longer than a year");
 		}
 		User user = find(id);
-		int capacity = user.getCapacityPercent();
+		Map<LocalDate, Integer> free = capacityService.getFreeCapacity(id, from, to);
 		List<DayAvailabilityDto> days = capacityService.getDailyLoad(id, from, to, null)
 			.entrySet()
 			.stream()
-			.map(day -> new DayAvailabilityDto(day.getKey(), day.getValue(), capacity - day.getValue()))
+			.map(day -> new DayAvailabilityDto(day.getKey(), day.getValue(), free.get(day.getKey())))
 			.toList();
-		return new AvailabilityDto(id, capacity, from, to, days);
+		return new AvailabilityDto(id, user.getCapacityPercent(), from, to, days);
 	}
 
 	/** Emails are unique regardless of case (409). The temporary password is stored as a BCrypt hash. */
