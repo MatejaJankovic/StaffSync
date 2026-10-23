@@ -125,6 +125,9 @@ class AllocationServiceTests {
 
 	Skill postgres = skill(3L, "PostgreSQL");
 
+	/** What {@code findByRequestProjectIdAndStatusIn} returns for project 1, filled by {@link #onProject}. */
+	List<Allocation> projectAllocations = new ArrayList<>();
+
 	@BeforeEach
 	void setUp() {
 		pm = user(PM_ID, Role.PM);
@@ -1159,6 +1162,116 @@ class AllocationServiceTests {
 		assertThat(allocation.getStatus()).isEqualTo(AllocationStatus.CHANGE_PENDING);
 	}
 
+	// ---- closing a project (BR-11, T-21)
+
+	@Test
+	void closingAProjectCancelsItsProposals() {
+		Allocation proposal = onProject(AllocationStatus.PROPOSED, today().minusDays(5), today().plusDays(20));
+
+		allocationService.closeForProject(1L, today());
+
+		assertThat(proposal.getStatus()).isEqualTo(AllocationStatus.CANCELLED);
+		assertThat(proposal.getEndDate()).isEqualTo(today().plusDays(20));
+	}
+
+	@Test
+	void closingAProjectShortensARunningAllocationToTheClosingDay() {
+		Allocation running = onProject(AllocationStatus.APPROVED, today().minusDays(5), today().plusDays(20));
+
+		allocationService.closeForProject(1L, today());
+
+		assertThat(running.getStatus()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(running.getStartDate()).isEqualTo(today().minusDays(5));
+		assertThat(running.getEndDate()).isEqualTo(today());
+		assertThat(running.getPercent()).isEqualTo(60);
+	}
+
+	@Test
+	void anAllocationStartingOnTheClosingDayIsKeptForThatOneDay() {
+		Allocation starting = onProject(AllocationStatus.APPROVED, today(), today().plusDays(20));
+
+		allocationService.closeForProject(1L, today());
+
+		assertThat(starting.getStatus()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(starting.getEndDate()).isEqualTo(today());
+	}
+
+	@Test
+	void closingAProjectCancelsAnApprovedAllocationThatHasNotStarted() {
+		Allocation future = onProject(AllocationStatus.APPROVED, today().plusDays(1), today().plusDays(20));
+
+		allocationService.closeForProject(1L, today());
+
+		assertThat(future.getStatus()).isEqualTo(AllocationStatus.CANCELLED);
+		assertThat(future.getEndDate()).isEqualTo(today().plusDays(20));
+	}
+
+	@Test
+	void anAllocationThatHasAlreadyEndedIsLeftAlone() {
+		Allocation ended = onProject(AllocationStatus.APPROVED, today().minusDays(20), today().minusDays(1));
+
+		allocationService.closeForProject(1L, today());
+
+		assertThat(ended.getStatus()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(ended.getEndDate()).isEqualTo(today().minusDays(1));
+	}
+
+	@Test
+	void closingAProjectVoidsAPendingChangeAndShortensTheOldValues() {
+		Allocation changed = onProject(AllocationStatus.APPROVED, today().minusDays(5), today().plusDays(20));
+		changed.requestChange(80, today().minusDays(5), today().plusDays(40), REASON);
+
+		allocationService.closeForProject(1L, today());
+
+		assertThat(changed.getStatus()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(changed.getPercent()).isEqualTo(60);
+		assertThat(changed.getEndDate()).isEqualTo(today());
+		assertThat(changed.getPendingPercent()).isNull();
+		assertThat(changed.getPendingStartDate()).isNull();
+		assertThat(changed.getPendingEndDate()).isNull();
+		assertThat(changed.getChangeReason()).isNull();
+	}
+
+	@Test
+	void aPendingChangeOnAnAllocationThatHasNotStartedIsVoidedAndTheAllocationCancelled() {
+		Allocation changed = onProject(AllocationStatus.APPROVED, today().plusDays(10), today().plusDays(20));
+		changed.requestChange(80, today().plusDays(10), today().plusDays(40), REASON);
+
+		allocationService.closeForProject(1L, today());
+
+		assertThat(changed.getStatus()).isEqualTo(AllocationStatus.CANCELLED);
+		assertThat(changed.getPendingPercent()).isNull();
+		assertThat(changed.getChangeReason()).isNull();
+	}
+
+	@Test
+	void closingAProjectRecalculatesEachRequestOnceAndOnlyLooksAtProposedAndActiveAllocations() {
+		onProject(AllocationStatus.PROPOSED, today().minusDays(5), today().plusDays(20));
+		onProject(AllocationStatus.APPROVED, today().minusDays(5), today().plusDays(20));
+		StaffingRequest other = new StaffingRequest(project, "Angular Developer", Seniority.SENIOR, 50, nov(1),
+				LocalDate.of(2027, 1, 31), 1);
+		ReflectionTestUtils.setField(other, "id", REQUEST_ID + 1);
+		Allocation onOther = new Allocation(other, employee, 50, today().minusDays(5), today().plusDays(20), pm);
+		onOther.setStatus(AllocationStatus.APPROVED);
+		projectAllocations.add(onOther);
+
+		allocationService.closeForProject(1L, today());
+
+		verify(allocationRepository).findByRequestProjectIdAndStatusIn(1L, AllocationStatus.ACTIVE_OR_PROPOSED);
+		verify(requestStatusService).recalculate(REQUEST_ID);
+		verify(requestStatusService).recalculate(REQUEST_ID + 1);
+	}
+
+	@Test
+	void closingAProjectWithoutAllocationsChangesNothing() {
+		when(allocationRepository.findByRequestProjectIdAndStatusIn(1L, AllocationStatus.ACTIVE_OR_PROPOSED))
+			.thenReturn(List.of());
+
+		allocationService.closeForProject(1L, today());
+
+		verify(requestStatusService, never()).recalculate(any());
+	}
+
 	// ---- search (the role scoping runs in the database, see AllocationControllerTests)
 
 	@Test
@@ -1279,6 +1392,21 @@ class AllocationServiceTests {
 	}
 
 	// ---- helpers
+
+	/**
+	 * A 60% allocation on the request of project 1, already in this status. The request runs a year either
+	 * side of today, so a period relative to today is inside it whenever the tests run.
+	 */
+	private Allocation onProject(AllocationStatus status, LocalDate startDate, LocalDate endDate) {
+		request.setStartDate(today().minusYears(1));
+		request.setEndDate(today().plusYears(1));
+		Allocation allocation = new Allocation(request, employee, 60, startDate, endDate, pm);
+		allocation.setStatus(status);
+		projectAllocations.add(allocation);
+		when(allocationRepository.findByRequestProjectIdAndStatusIn(1L, AllocationStatus.ACTIVE_OR_PROPOSED))
+			.thenReturn(projectAllocations);
+		return allocation;
+	}
 
 	/** The request's 60% over its whole period, proposed by {@link #PM} for an employee of {@link #RM}'s team. */
 	private Allocation pendingAllocation() {

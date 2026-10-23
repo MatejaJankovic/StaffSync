@@ -182,6 +182,30 @@ class AllocationRepositoryTests {
 		assertThat(Hibernate.isInitialized(loaded.getProposedBy())).isTrue();
 	}
 
+	// ---- closing a project (BR-11)
+
+	@Test
+	void closingAProjectFindsTheProposedAndActiveAllocationsOnAllItsRequestsOnly() {
+		Allocation proposed = save(30, nov(2), nov(6), AllocationStatus.PROPOSED);
+		Allocation approved = save(30, nov(9), nov(13), AllocationStatus.APPROVED);
+		save(30, nov(16), nov(20), AllocationStatus.REJECTED);
+		save(30, nov(16), nov(20), AllocationStatus.CANCELLED);
+		StaffingRequest second = requestRepository.save(new StaffingRequest(request.getProject(), "QA Engineer",
+				Seniority.JUNIOR, 50, nov(1), nov(30), 1));
+		Allocation changePending = new Allocation(second, employee, 50, nov(2), nov(20), pm);
+		changePending.setStatus(AllocationStatus.CHANGE_PENDING);
+		allocationRepository.saveAndFlush(changePending);
+		Project otherProject = projectRepository
+			.save(new Project("Other project", "Client", null, nov(1), nov(30), pm));
+		StaffingRequest elsewhere = requestRepository
+			.save(new StaffingRequest(otherProject, "Java Developer", Seniority.MEDIOR, 60, nov(1), nov(30), 1));
+		allocationRepository.saveAndFlush(new Allocation(elsewhere, employee, 20, nov(2), nov(6), pm));
+
+		assertThat(allocationRepository.findByRequestProjectIdAndStatusIn(request.getProject().getId(),
+				AllocationStatus.ACTIVE_OR_PROPOSED))
+			.containsExactlyInAnyOrder(proposed, approved, changePending);
+	}
+
 	private User newRm() {
 		return userRepository
 			.save(new User(UUID.randomUUID() + "@staffsync.local", "hash", "Team", "Manager", Role.RM));

@@ -73,6 +73,9 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 	/** BR-10: how many of the request's allocations are in the given statuses (the active ones, BR-16). */
 	long countByRequestIdAndStatusIn(Long requestId, Collection<AllocationStatus> statuses);
 
+	/** BR-11: the allocations in the given statuses on all of the project's requests, cleaned up when it closes. */
+	List<Allocation> findByRequestProjectIdAndStatusIn(Long projectId, Collection<AllocationStatus> statuses);
+
 	/** T-19: the proposals that are cancelled once the request is filled. */
 	List<Allocation> findByRequestIdAndStatus(Long requestId, AllocationStatus status);
 
