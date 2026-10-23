@@ -1,6 +1,8 @@
-import { toIsoDate } from '../../shared/dates';
+import { ChangeValues } from '../../shared/change-diff/change-diff';
+import { parseIsoDate, toIsoDate } from '../../shared/dates';
 import { AllocationStatus } from '../../shared/status-chip/status-chip';
 import { formatPeriod } from '../projects/project.models';
+import { isOverloadedDay } from '../users/user.models';
 
 export type { AllocationStatus };
 
@@ -142,4 +144,78 @@ export function formatPendingChange(allocation: Allocation): string {
     );
   }
   return parts.length ? `${parts.join(', ')} pending` : 'Change pending';
+}
+
+/** NEW for a proposal (PROPOSED), CHANGE for a change to an approved allocation (CHANGE_PENDING). */
+export type PendingApprovalType = 'NEW' | 'CHANGE';
+
+/**
+ * An allocation waiting for the RM's decision (`GET /api/allocations/pending`, BR-7). For a CHANGE
+ * the allocation's percent and period are the current values, still in force (BR-16), and its
+ * pending* fields and changeReason hold what the PM asks for (BR-15).
+ */
+export interface PendingApproval {
+  type: PendingApprovalType;
+  allocation: Allocation;
+  proposedById: number;
+  proposedByName: string;
+}
+
+/** What the RM sends to reject a proposal or a change (`POST /api/allocations/{id}/reject`). */
+export interface RejectAllocationPayload {
+  /** 10 to 1000 characters, without the surrounding spaces (BR-6) */
+  comment: string;
+}
+
+/** The values a decision is about: the proposal's, or the ones a change asks for (BR-15). */
+export function requestedValues(item: PendingApproval): ChangeValues {
+  const { allocation } = item;
+  if (item.type === 'NEW') {
+    return allocation;
+  }
+  return {
+    percent: allocation.pendingPercent ?? allocation.percent,
+    startDate: allocation.pendingStartDate ?? allocation.startDate,
+    endDate: allocation.pendingEndDate ?? allocation.endDate,
+  };
+}
+
+/** A run of consecutive working days on which approving would go over capacity, at the same load. */
+export interface OverloadedRun {
+  /** `yyyy-MM-dd` */
+  start: string;
+  /** `yyyy-MM-dd` */
+  end: string;
+  /** The total with the allocation being approved, e.g. 120 */
+  load: number;
+}
+
+/**
+ * The `details` of a 409 CAPACITY_EXCEEDED (`[{ date, load }]`, one per working day, BR-1) as runs
+ * of consecutive working days with the same load, like the server's message: a weekend doesn't
+ * break a run. Entries that aren't `{ date, load }` are skipped.
+ */
+export function overloadedRuns(details: readonly unknown[]): OverloadedRun[] {
+  const runs: OverloadedRun[] = [];
+  for (const detail of details) {
+    if (!isOverloadedDay(detail)) {
+      continue;
+    }
+    const last = runs.at(-1);
+    if (last && last.load === detail.load && nextWorkingDay(last.end) === detail.date) {
+      last.end = detail.date;
+    } else {
+      runs.push({ start: detail.date, end: detail.date, load: detail.load });
+    }
+  }
+  return runs;
+}
+
+/** `2026-11-06` (a Friday) → `2026-11-09` (the Monday after). */
+function nextWorkingDay(iso: string): string {
+  const day = parseIsoDate(iso);
+  do {
+    day.setDate(day.getDate() + 1);
+  } while (day.getDay() === 0 || day.getDay() === 6);
+  return toIsoDate(day);
 }

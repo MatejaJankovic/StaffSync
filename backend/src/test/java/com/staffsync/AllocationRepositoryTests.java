@@ -19,12 +19,17 @@ import com.staffsync.user.Role;
 import com.staffsync.user.Seniority;
 import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
+import jakarta.persistence.EntityManager;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +55,9 @@ class AllocationRepositoryTests {
 
 	@Autowired
 	StaffingRequestRepository requestRepository;
+
+	@Autowired
+	EntityManager entityManager;
 
 	User pm;
 
@@ -138,6 +146,50 @@ class AllocationRepositoryTests {
 	void theEndDateCannotBeBeforeTheStartDate() {
 		assertThatThrownBy(() -> save(40, nov(20), nov(2), AllocationStatus.APPROVED))
 			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	// ---- pending approvals (US-14)
+
+	@Test
+	void pendingApprovalsAreTheTeamsProposedAndChangePendingAllocations() {
+		User rm = newRm();
+		employee.setManager(rm);
+		Allocation proposed = save(30, nov(2), nov(6), AllocationStatus.PROPOSED);
+		Allocation changePending = save(30, nov(9), nov(13), AllocationStatus.CHANGE_PENDING);
+		save(30, nov(16), nov(20), AllocationStatus.APPROVED);
+		save(30, nov(16), nov(20), AllocationStatus.REJECTED);
+		save(30, nov(16), nov(20), AllocationStatus.CANCELLED);
+		User outsider = userRepository
+			.save(new User(UUID.randomUUID() + "@staffsync.local", "hash", "Other", "Employee", Role.EMPLOYEE));
+		allocationRepository.saveAndFlush(new Allocation(request, outsider, 30, nov(2), nov(6), pm));
+
+		assertThat(pending(rm).getContent()).containsExactlyInAnyOrder(proposed, changePending);
+	}
+
+	@Test
+	void pendingApprovalsLoadWhatTheListShowsInTheSameQuery() {
+		User rm = newRm();
+		employee.setManager(rm);
+		save(30, nov(2), nov(6), AllocationStatus.PROPOSED);
+		entityManager.clear();
+
+		Allocation loaded = pending(rm).getContent().get(0);
+
+		// No query per row for what the DTO reads: the employee, the request, its project and the proposer
+		assertThat(Hibernate.isInitialized(loaded.getEmployee())).isTrue();
+		assertThat(Hibernate.isInitialized(loaded.getRequest())).isTrue();
+		assertThat(Hibernate.isInitialized(loaded.getRequest().getProject())).isTrue();
+		assertThat(Hibernate.isInitialized(loaded.getProposedBy())).isTrue();
+	}
+
+	private User newRm() {
+		return userRepository
+			.save(new User(UUID.randomUUID() + "@staffsync.local", "hash", "Team", "Manager", Role.RM));
+	}
+
+	private Page<Allocation> pending(User rm) {
+		return allocationRepository.findByEmployeeManagerIdAndStatusIn(rm.getId(), AllocationStatus.AWAITING_DECISION,
+				PageRequest.of(0, 20, Sort.by("createdAt", "id")));
 	}
 
 	private List<Allocation> overlapping(LocalDate from, LocalDate to, Long excludeId) {

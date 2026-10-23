@@ -1129,6 +1129,113 @@ class AllocationControllerTests {
 			.body("decisionComment", equalTo("Fully booked on Project Beta until December"));
 	}
 
+	// ---- pending approvals (US-14)
+
+	@Test
+	void anRmSeesTheirTeamsProposalsAsNewAndChangesAsChangeWithTheOldAndNewValues() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int changed = approvedAllocation(pm, rm);
+		requestChange(pm.token(), changed, 80);
+		Allocation current = allocationRepository.findById((long) changed).orElseThrow();
+		int proposed = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Ena", rm), null, null, null));
+		// Neither is waiting for this RM: one is already decided, the other is in another team
+		approvedAllocation(pm, rm);
+		propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Filip", newUser("Other", Role.RM)), null, null, null));
+
+		// Oldest first: the change is on the allocation that was proposed first
+		given().auth().oauth2(login(rm.getEmail()).token())
+			.when().get("/api/allocations/pending")
+			.then()
+			.statusCode(200)
+			.body("page.totalElements", equalTo(2))
+			.body("content.allocation.id", contains(changed, proposed))
+			.body("content.type", contains("CHANGE", "NEW"))
+			.body("content[0].allocation.status", equalTo("CHANGE_PENDING"))
+			.body("content[0].allocation.percent", equalTo(60))
+			.body("content[0].allocation.startDate", equalTo(current.getStartDate().toString()))
+			.body("content[0].allocation.endDate", equalTo(current.getEndDate().toString()))
+			.body("content[0].allocation.pendingPercent", equalTo(80))
+			.body("content[0].allocation.pendingStartDate", equalTo(current.getStartDate().toString()))
+			.body("content[0].allocation.pendingEndDate", equalTo(current.getEndDate().toString()))
+			.body("content[0].allocation.changeReason", equalTo("The client asked for more work"))
+			.body("content[1].allocation.status", equalTo("PROPOSED"))
+			.body("content[1].allocation.employeeName", equalTo("Ena Test"))
+			.body("content[1].allocation.projectId", notNullValue())
+			.body("content[1].allocation.projectName", notNullValue())
+			.body("content[1].allocation.requestTitle", equalTo("Java Developer"))
+			.body("content[1].allocation.percent", equalTo(60))
+			.body("content[1].allocation.startDate", equalTo("2026-11-01"))
+			.body("content[1].allocation.endDate", equalTo("2027-01-31"))
+			.body("content[1].allocation.pendingPercent", nullValue())
+			.body("content[1].proposedById", equalTo(pm.id()))
+			.body("content[1].proposedByName", notNullValue());
+	}
+
+	// T-12: another RM neither sees the team's pending approvals nor decides them
+	@Test
+	void anRmOfAnotherTeamDoesNotSeeThem() {
+		LoggedIn pm = login(PM);
+		int allocation = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Marko", newUser("Team", Role.RM)), null, null, null));
+		String otherRm = login(newUser("Other", Role.RM).getEmail()).token();
+
+		given().auth().oauth2(otherRm)
+			.when().get("/api/allocations/pending")
+			.then()
+			.statusCode(200)
+			.body("content", empty())
+			.body("page.totalElements", equalTo(0));
+		given().auth().oauth2(otherRm)
+			.when().post("/api/allocations/" + allocation + "/approve")
+			.then()
+			.statusCode(403)
+			.body("code", equalTo("NOT_RESOURCE_MANAGER"));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { PM, EMPLOYEE, ADMIN })
+	void onlyAnRmHasPendingApprovals(String email) {
+		given().auth().oauth2(login(email).token())
+			.when().get("/api/allocations/pending")
+			.then()
+			.statusCode(403)
+			.body("code", equalTo("FORBIDDEN"));
+	}
+
+	@Test
+	void pendingApprovalsWithoutATokenAre401AndAnUnknownSortIs400() {
+		given().when().get("/api/allocations/pending").then().statusCode(401);
+		given().auth().oauth2(login(RM).token()).queryParam("sort", "employee")
+			.when().get("/api/allocations/pending")
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("INVALID_SORT"));
+	}
+
+	// T-34: rejecting a change needs the same comment as rejecting a proposal (BR-6), and leaves it pending
+	@ParameterizedTest
+	@ValueSource(strings = { "", "Too short", "  Too short " })
+	void rejectingAChangeWithoutAValidCommentIs400AndTheChangeStaysPending(String comment) {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		int allocation = approvedAllocation(pm, rm);
+		requestChange(pm.token(), allocation, 80);
+
+		given().auth().oauth2(login(rm.getEmail()).token()).contentType(ContentType.JSON)
+			.body(Map.of("comment", comment))
+			.when().post("/api/allocations/" + allocation + "/reject")
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("VALIDATION_ERROR"))
+			.body("details.field", hasItem("comment"));
+		Allocation stillPending = allocationRepository.findById((long) allocation).orElseThrow();
+		assertThat(stillPending.getStatus()).isEqualTo(AllocationStatus.CHANGE_PENDING);
+		assertThat(stillPending.getPendingPercent()).isEqualTo(80);
+	}
+
 	// ---- helpers
 
 	private void requestChange(String token, int allocation, int percent) {

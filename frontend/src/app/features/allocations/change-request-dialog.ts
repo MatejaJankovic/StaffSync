@@ -1,11 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import {
-  NonNullableFormBuilder,
-  ReactiveFormsModule,
-  ValidatorFn,
-  Validators,
-} from '@angular/forms';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -19,18 +14,7 @@ import { formatPeriod } from '../projects/project.models';
 import { ALLOCATION_OPTIONS, StaffingRequest } from '../requests/request.models';
 import { Allocation, AllocationChange, hasStarted } from './allocation.models';
 import { AllocationService } from './allocation.service';
-
-const MIN_REASON_LENGTH = 10;
-const MAX_REASON_LENGTH = 1000;
-
-/** Counted without the surrounding spaces, as on the server, so "  Too short " is too short. */
-const reasonLength: ValidatorFn = (control) => {
-  const length = String(control.value ?? '').trim().length;
-  if (length === 0) {
-    return { required: true };
-  }
-  return length < MIN_REASON_LENGTH ? { tooShort: true } : null;
-};
+import { MAX_TEXT_LENGTH, MIN_TEXT_LENGTH, textLength } from './allocation.validators';
 
 /** Pass the approved allocation to change, and its request for the period limits (BR-3). */
 export interface ChangeRequestDialogData {
@@ -176,8 +160,8 @@ export class ChangeRequestDialog {
   protected readonly allocation = this.data.allocation;
 
   protected readonly percents = ALLOCATION_OPTIONS;
-  protected readonly minReasonLength = MIN_REASON_LENGTH;
-  protected readonly maxReasonLength = MAX_REASON_LENGTH;
+  protected readonly minReasonLength = MIN_TEXT_LENGTH;
+  protected readonly maxReasonLength = MAX_TEXT_LENGTH;
   protected readonly requestPeriod = formatPeriod(this.data.request);
   protected readonly requestEnd = parseIsoDate(this.data.request.endDate);
   /** T-32: once the allocation has started, its start date can't change. */
@@ -195,7 +179,7 @@ export class ChangeRequestDialog {
       start: parseIsoDate(this.allocation.startDate),
       end: parseIsoDate(this.allocation.endDate),
     } as DateRangeValue,
-    reason: ['', [reasonLength, Validators.maxLength(MAX_REASON_LENGTH)]],
+    reason: ['', [textLength, Validators.maxLength(MAX_TEXT_LENGTH)]],
   });
 
   private readonly value = toSignal(

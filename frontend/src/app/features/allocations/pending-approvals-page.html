@@ -1,0 +1,93 @@
+<section class="approvals">
+  <header class="approvals__header">
+    <h1>Pending approvals</h1>
+    <p>Proposals and changes for the people in your team, oldest first.</p>
+  </header>
+
+  <!-- One live region, always there: screen readers announce what is added to it, but not always a
+       region that appears together with its content -->
+  <div role="alert">
+    @if (capacityNotice(); as notice) {
+      <div class="approvals__capacity">
+        <mat-icon>error</mat-icon>
+        <div class="approvals__capacity-text">
+          <p class="approvals__capacity-title">
+            Not approved: {{ notice.item.allocation.employeeName }} would be over capacity on
+            {{ notice.dayCount }} working {{ notice.dayCount === 1 ? 'day' : 'days' }}
+          </p>
+          <ul>
+            @for (line of notice.lines; track line.days) {
+              <li>
+                <span class="approvals__capacity-days">{{ line.days }}</span>
+                {{ line.existing }}% existing + {{ line.added }}% new = {{ line.load }}%
+              </li>
+            }
+          </ul>
+          <p>
+            @if (notice.item.type === 'CHANGE') {
+              Nothing has changed: the change is still waiting for you, and
+              {{ notice.item.allocation.percent }}% stays in force.
+            } @else {
+              Nothing has changed: the proposal is still waiting for you.
+            }
+            Reject it with a comment, or ask the project manager to change the period or percent.
+          </p>
+        </div>
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Dismiss the capacity error"
+          (click)="dismissCapacityNotice()"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    }
+  </div>
+
+  <app-paged-table [columns]="columns" [fetch]="fetch" emptyText="Nothing is waiting for you">
+    <ng-template appPagedTableCell="type" let-row>
+      <app-status-chip [status]="row.type" />
+    </ng-template>
+
+    <ng-template appPagedTableCell="values" let-row>
+      <div class="approvals__values">
+        <app-change-diff [before]="row.allocation" [after]="requestedValues(row)" />
+        @if (row.type === 'CHANGE' && row.allocation.changeReason) {
+          <p class="approvals__reason">Reason: {{ row.allocation.changeReason }}</p>
+        }
+      </div>
+    </ng-template>
+
+    <ng-template appPagedTableCell="actions" let-row>
+      <div class="approvals__actions">
+        <button
+          mat-flat-button
+          type="button"
+          [attr.aria-label]="
+            (row.type === 'CHANGE' ? 'Approve the change for ' : 'Approve ') +
+            row.allocation.employeeName +
+            ' on ' +
+            row.allocation.requestTitle
+          "
+          (click)="approve(row)"
+        >
+          Approve
+        </button>
+        <button
+          mat-button
+          type="button"
+          [attr.aria-label]="
+            (row.type === 'CHANGE' ? 'Reject the change for ' : 'Reject ') +
+            row.allocation.employeeName +
+            ' on ' +
+            row.allocation.requestTitle
+          "
+          (click)="reject(row)"
+        >
+          Reject
+        </button>
+      </div>
+    </ng-template>
+  </app-paged-table>
+</section>

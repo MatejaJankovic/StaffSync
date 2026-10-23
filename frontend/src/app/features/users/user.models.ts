@@ -64,7 +64,10 @@ export interface DayAvailability {
   free: number;
 }
 
-/** A day that a lower capacity would overbook, in the `details` of a 409 `CAPACITY_EXCEEDED` (BR-13). */
+/**
+ * A day over capacity, in the `details` of a 409 `CAPACITY_EXCEEDED`: one that a lower capacity
+ * would overbook (BR-13), or that approving an allocation would (BR-1).
+ */
 export interface OverloadedDay {
   date: string;
   load: number;

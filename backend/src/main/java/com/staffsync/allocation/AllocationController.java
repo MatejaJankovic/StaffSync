@@ -6,6 +6,7 @@ import com.staffsync.allocation.dto.AllocationChangeDto;
 import com.staffsync.allocation.dto.AllocationDto;
 import com.staffsync.allocation.dto.AllocationProposalDto;
 import com.staffsync.allocation.dto.ChangeAllocationRequest;
+import com.staffsync.allocation.dto.PendingApprovalDto;
 import com.staffsync.allocation.dto.ProposeAllocationRequest;
 import com.staffsync.allocation.dto.RejectAllocationRequest;
 import com.staffsync.auth.AuthUser;
@@ -13,6 +14,7 @@ import com.staffsync.common.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -69,6 +71,63 @@ public class AllocationController {
 			@ParameterObject @PageableDefault(sort = "startDate") Pageable pageable,
 			@AuthenticationPrincipal AuthUser user) {
 		return allocationService.search(status, employeeId, projectId, from, to, pageable, user);
+	}
+
+	@Operation(summary = "My pending approvals (RM)",
+			description = "The PROPOSED and CHANGE_PENDING allocations of the employees who report to the caller "
+					+ "(manager_id, BR-5), i.e. everything the RM can still approve or reject (BR-7). type is NEW for a "
+					+ "proposal and CHANGE for a change to an approved allocation: the allocation's percent and "
+					+ "period are then the current values, and pending* and changeReason the requested ones. Paged, "
+					+ "oldest first (createdAt) by default. Sortable by id, percent, startDate, endDate, status and "
+					+ "createdAt")
+	// Without useReturnTypeSchema, examples alone leave the page's schema out of the docs
+	@ApiResponse(responseCode = "200", description = "A page of pending approvals", useReturnTypeSchema = true,
+			content = @Content(examples = {
+					@ExampleObject(name = "NEW", summary = "A new proposal (§4 step 5)", value = """
+							{
+							  "content": [{
+							    "type": "NEW",
+							    "allocation": {
+							      "id": 1, "employeeId": 4, "employeeName": "Bogdan Vujic",
+							      "projectId": 1, "projectName": "Project Alpha", "requestId": 1, "requestTitle": "Java Developer",
+							      "percent": 60, "startDate": "2026-11-01", "endDate": "2027-01-31", "status": "PROPOSED",
+							      "createdAt": "2026-10-27T09:15:30Z", "pendingPercent": null, "pendingStartDate": null,
+							      "pendingEndDate": null, "changeReason": null, "decidedById": null, "decidedByName": null,
+							      "decidedAt": null, "decisionComment": null
+							    },
+							    "proposedById": 2, "proposedByName": "Mateja Jankovic"
+							  }],
+							  "page": { "size": 20, "number": 0, "totalElements": 1, "totalPages": 1 }
+							}"""),
+					@ExampleObject(name = "CHANGE", summary = "A change from 60% to 80% (§4 step 8)", value = """
+							{
+							  "content": [{
+							    "type": "CHANGE",
+							    "allocation": {
+							      "id": 1, "employeeId": 4, "employeeName": "Bogdan Vujic",
+							      "projectId": 1, "projectName": "Project Alpha", "requestId": 1, "requestTitle": "Java Developer",
+							      "percent": 60, "startDate": "2026-11-01", "endDate": "2027-01-31", "status": "CHANGE_PENDING",
+							      "createdAt": "2026-10-27T09:15:30Z", "pendingPercent": 80, "pendingStartDate": "2026-11-01",
+							      "pendingEndDate": "2027-01-31", "changeReason": "The client asked for more work",
+							      "decidedById": 3, "decidedByName": "Lazar Dunjic", "decidedAt": "2026-10-27T11:00:00Z",
+							      "decisionComment": null
+							    },
+							    "proposedById": 2, "proposedByName": "Mateja Jankovic"
+							  }],
+							  "page": { "size": 20, "number": 0, "totalElements": 1, "totalPages": 1 }
+							}""") }))
+	@ApiResponse(responseCode = "400", description = "An unknown sort property",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not an RM",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('RM')")
+	@GetMapping("/pending")
+	public Page<PendingApprovalDto> pending(
+			@ParameterObject @PageableDefault(sort = "createdAt") Pageable pageable,
+			@AuthenticationPrincipal AuthUser user) {
+		return allocationService.pending(pageable, user);
 	}
 
 	@Operation(summary = "Propose an employee for a staffing request (PM who owns the project)",

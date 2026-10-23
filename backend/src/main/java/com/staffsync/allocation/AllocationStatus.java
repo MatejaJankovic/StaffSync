@@ -17,6 +17,9 @@ public enum AllocationStatus {
 	/** Active plus proposed, for soft-booking warnings (BR-2). */
 	public static final Set<AllocationStatus> ACTIVE_OR_PROPOSED = Set.of(APPROVED, CHANGE_PENDING, PROPOSED);
 
+	/** What the RM can still decide on (BR-7): a new proposal or a pending change. */
+	public static final Set<AllocationStatus> AWAITING_DECISION = Set.of(PROPOSED, CHANGE_PENDING);
+
 	public boolean isActive() {
 		return ACTIVE.contains(this);
 	}
