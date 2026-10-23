@@ -1,0 +1,20 @@
+.home {
+  padding: 24px;
+  max-width: 1080px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0 0 16px;
+  }
+}
+
+.home__message {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// One column on a phone, up to four side by side on a wide screen
+.home__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}

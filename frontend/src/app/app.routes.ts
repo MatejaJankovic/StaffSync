@@ -18,7 +18,9 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'home' },
       // Each page is a placeholder until its owner swaps in the real component,
       // e.g. menuRoute('projects', ProjectList). Roles come from MENU in core/layout/menu.ts.
-      menuRoute('home'),
+      menuRoute('home', {
+        loadComponent: () => import('./features/home/home-page').then((m) => m.HomePage),
+      }),
       // Employee
       menuRoute('profile', {
         loadComponent: () => import('./features/profile/profile-page').then((m) => m.ProfilePage),

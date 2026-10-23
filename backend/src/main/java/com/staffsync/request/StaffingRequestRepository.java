@@ -1,5 +1,6 @@
 package com.staffsync.request;
 
+import java.util.Collection;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -15,5 +16,8 @@ public interface StaffingRequestRepository extends JpaRepository<StaffingRequest
 	@Override
 	@EntityGraph(attributePaths = { "project", "project.pm" })
 	Optional<StaffingRequest> findById(Long id);
+
+	/** The requests in the given statuses on all of a PM's projects (PM's Home card). */
+	long countByProjectPmIdAndStatusIn(Long pmId, Collection<RequestStatus> statuses);
 
 }

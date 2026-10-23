@@ -1,0 +1,45 @@
+:host {
+  display: block;
+}
+
+.stat-card__link {
+  display: block;
+  height: 100%;
+  border-radius: var(--mat-card-outlined-container-shape, 12px);
+  color: inherit;
+  text-decoration: none;
+
+  &:hover .stat-card__card,
+  &:focus-visible .stat-card__card {
+    background: var(--mat-sys-surface-container-low);
+    border-color: var(--mat-sys-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+}
+
+.stat-card__card {
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.stat-card__value {
+  font: var(--mat-sys-display-small);
+  color: var(--mat-sys-primary);
+  // A project name can be long, so it wraps instead of running out of the card
+  overflow-wrap: anywhere;
+}
+
+.stat-card__label {
+  font: var(--mat-sys-title-medium);
+  margin-top: 4px;
+}
+
+.stat-card__caption {
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+  margin-top: 4px;
+}
