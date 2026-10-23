@@ -4,6 +4,7 @@ import { filter, switchMap } from 'rxjs';
 import { PageQuery } from '../../core/api/page';
 import { AuthService } from '../../core/auth/auth.service';
 import { Notifications } from '../../core/error/notifications';
+import { ConfirmDialogData } from '../../shared/confirm-dialog/confirm-dialog';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
@@ -135,7 +136,7 @@ export class TeamPanel {
   /** Withdraw and Cancel are the same call (§10), they only read differently. */
   private confirmAndCancel(
     allocation: Allocation,
-    texts: { title: string; message: string; confirmText: string },
+    texts: Pick<ConfirmDialogData, 'title' | 'message' | 'confirmText'>,
     successMessage: string,
   ): void {
     this.confirmDialog
