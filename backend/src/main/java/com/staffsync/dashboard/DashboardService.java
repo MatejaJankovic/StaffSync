@@ -36,10 +36,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class DashboardService {
 
-	/** What waits for an RM's decision (BR-7): new proposals and pending changes. */
-	static final Set<AllocationStatus> AWAITING_RM = Set.of(AllocationStatus.PROPOSED,
-			AllocationStatus.CHANGE_PENDING);
-
 	static final Set<RequestStatus> OPEN_REQUESTS = Set.of(RequestStatus.OPEN, RequestStatus.PARTIALLY_FILLED);
 
 	private final AllocationRepository allocationRepository;
@@ -114,7 +110,7 @@ public class DashboardService {
 		long openRequests = requestRepository.countByProjectPmIdAndStatusIn(me, OPEN_REQUESTS);
 		long awaitingRm = allocationRepository.count((root, query, cb) -> cb.and(
 				cb.equal(root.get("request").get("project").get("pm").get("id"), me),
-				root.get("status").in(AWAITING_RM)));
+				root.get("status").in(AllocationStatus.AWAITING_DECISION)));
 
 		return List.of(DashboardCardDto.of("activeProjects", "Active projects", String.valueOf(activeProjects),
 				"/projects"),
@@ -128,7 +124,8 @@ public class DashboardService {
 	 */
 	private List<DashboardCardDto> rmCards(Long me, LocalDate day) {
 		long pending = allocationRepository.count((root, query, cb) -> cb.and(
-				cb.equal(root.get("employee").get("manager").get("id"), me), root.get("status").in(AWAITING_RM)));
+				cb.equal(root.get("employee").get("manager").get("id"), me),
+				root.get("status").in(AllocationStatus.AWAITING_DECISION)));
 
 		LocalDate monday = day.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 		LocalDate friday = monday.plusDays(4);
