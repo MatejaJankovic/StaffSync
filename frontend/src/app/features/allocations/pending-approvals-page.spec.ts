@@ -296,6 +296,21 @@ describe('PendingApprovalsPage', () => {
       );
     });
 
+    it('counts only the days it lists, without entries that are not a day and a load', async () => {
+      await open([JELENA]);
+
+      button('Approve Jelena Jovic on Java Developer').click();
+      await settle();
+      capacityError([...days(2, 3, 120), { date: '2026-11-04' }, 'not a day']);
+      await settle();
+      answer([JELENA]);
+      await settle();
+
+      const notice = el().querySelector('.approvals__capacity');
+      expect(notice?.textContent).toContain('on 2 working days');
+      expect(notice?.querySelectorAll('li')).toHaveLength(1);
+    });
+
     it('counts a change with its new percent, and says the current values stay', async () => {
       const change: PendingApproval = {
         ...MARKO_CHANGE,

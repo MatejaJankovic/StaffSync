@@ -14,6 +14,7 @@ import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-tab
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
 import { formatPeriod } from '../projects/project.models';
+import { isOverloadedDay } from '../users/user.models';
 import { Allocation, overloadedRuns, PendingApproval, requestedValues } from './allocation.models';
 import { AllocationService } from './allocation.service';
 import { RejectDialog } from './reject-dialog';
@@ -145,7 +146,8 @@ export class PendingApprovalsPage {
       return;
     }
     const added = requestedValues(item).percent;
-    const runs = overloadedRuns(body.details ?? []);
+    const days = (body.details ?? []).filter(isOverloadedDay);
+    const runs = overloadedRuns(days);
     if (runs.length === 0) {
       // No days to list, so the server's message is the most readable thing there is
       this.notifications.error(body.message);
@@ -153,7 +155,7 @@ export class PendingApprovalsPage {
     }
     this.capacityNotice.set({
       item,
-      dayCount: (body.details ?? []).length,
+      dayCount: days.length,
       lines: runs.map((run) => ({
         days:
           run.start === run.end

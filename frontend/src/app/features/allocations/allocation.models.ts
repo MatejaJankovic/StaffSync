@@ -2,6 +2,7 @@ import { ChangeValues } from '../../shared/change-diff/change-diff';
 import { parseIsoDate, toIsoDate } from '../../shared/dates';
 import { AllocationStatus } from '../../shared/status-chip/status-chip';
 import { formatPeriod } from '../projects/project.models';
+import { isOverloadedDay } from '../users/user.models';
 
 export type { AllocationStatus };
 
@@ -208,15 +209,6 @@ export function overloadedRuns(details: readonly unknown[]): OverloadedRun[] {
     }
   }
   return runs;
-}
-
-function isOverloadedDay(detail: unknown): detail is { date: string; load: number } {
-  return (
-    typeof detail === 'object' &&
-    detail !== null &&
-    typeof (detail as { date: unknown }).date === 'string' &&
-    typeof (detail as { load: unknown }).load === 'number'
-  );
 }
 
 /** `2026-11-06` (a Friday) → `2026-11-09` (the Monday after). */
