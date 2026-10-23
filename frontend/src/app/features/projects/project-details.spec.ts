@@ -4,12 +4,15 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatDialog } from '@angular/material/dialog';
+import { By } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
 import { routes } from '../../app.routes';
 import { Role } from '../../core/auth/auth.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { Notifications } from '../../core/error/notifications';
+import { Allocation } from '../allocations/allocation.models';
+import { TeamPanel } from '../allocations/team-panel';
 import { Project } from './project.models';
 import { PROJECTS_URL } from './project.service';
 import { ProjectDetails } from './project-details';
@@ -122,6 +125,21 @@ describe('ProjectDetails', () => {
     expect(headings).toEqual(['Staffing requests', 'Team']);
     expect(el().querySelector('#project-team + app-team-panel')).toBeTruthy();
     expect(el().querySelector('.project__status-action')).toBeTruthy();
+  });
+
+  it('loads the staffing requests again when the team panel withdraws or cancels', async () => {
+    await open();
+    await respond();
+
+    const teamPanel = fixture.debugElement.query(By.directive(TeamPanel))
+      .componentInstance as TeamPanel;
+    teamPanel.changed.emit({ id: 1, requestId: 1, status: 'CANCELLED' } as Allocation);
+    await settle();
+
+    // the request's status may have changed (BR-10)
+    httpMock
+      .expectOne(`${PROJECTS_URL}/5/requests?page=0&size=10`)
+      .flush({ content: [], page: { size: 10, number: 0, totalElements: 0, totalPages: 0 } });
   });
 
   it('links back to My projects for a PM', async () => {

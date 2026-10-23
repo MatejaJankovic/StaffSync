@@ -1,4 +1,4 @@
-import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -41,6 +41,9 @@ export class ProjectDetails {
 
   protected readonly project = signal<Project | null>(null);
   protected readonly state = signal<LoadState>('loading');
+
+  /** Only there once the project has loaded. */
+  protected readonly requests = viewChild(ProjectRequests);
 
   protected readonly period = computed(() => {
     const project = this.project();

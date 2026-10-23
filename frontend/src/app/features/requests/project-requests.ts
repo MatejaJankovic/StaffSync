@@ -96,6 +96,11 @@ export class ProjectRequests {
     'new',
   ]);
 
+  /** Loads the current page again, e.g. after the team panel cancels an allocation (BR-10). */
+  reload(): void {
+    this.table().reload();
+  }
+
   protected editLink(request: StaffingRequest): (string | number)[] {
     return ['/projects', this.project().id, 'requests', request.id, 'edit'];
   }

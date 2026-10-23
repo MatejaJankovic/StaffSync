@@ -2,4 +2,29 @@
   <ng-template appPagedTableCell="status" let-row>
     <app-status-chip [status]="row.status" />
   </ng-template>
+
+  <ng-template appPagedTableCell="actions" let-row>
+    <div class="team-panel__actions">
+      @if (canWithdraw(row)) {
+        <button
+          mat-button
+          type="button"
+          [attr.aria-label]="'Withdraw ' + row.employeeName"
+          (click)="withdraw(row)"
+        >
+          Withdraw
+        </button>
+      }
+      @if (canCancel(row)) {
+        <button
+          mat-button
+          type="button"
+          [attr.aria-label]="'Cancel ' + row.employeeName"
+          (click)="cancel(row)"
+        >
+          Cancel
+        </button>
+      }
+    </div>
+  </ng-template>
 </app-paged-table>
