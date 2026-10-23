@@ -129,6 +129,29 @@ class DashboardControllerTests {
 	}
 
 	@Test
+	void anEmployeeSeesOnlyTheirOwnAllocationsAndNotAColleaguesOnTheSameProjects() {
+		User pm = newUser("Pm", Role.PM);
+		User employee = newUser("Ena", Role.EMPLOYEE);
+		User colleague = newUser("Colleague", Role.EMPLOYEE);
+		Project alpha = newProject(pm, ProjectStatus.ACTIVE);
+		Project beta = newProject(pm, ProjectStatus.ACTIVE);
+		Project gamma = newProject(pm, ProjectStatus.ACTIVE);
+		allocate(employee, alpha, 20, day.minusDays(30), day.plusDays(60), AllocationStatus.APPROVED);
+		allocate(employee, beta, 10, day.plusDays(14), day.plusDays(60), AllocationStatus.APPROVED);
+		// The colleague is busier today and starts sooner, so leaking their data would change every card (T-40)
+		allocate(colleague, alpha, 50, day.minusDays(30), day.plusDays(60), AllocationStatus.APPROVED);
+		allocate(colleague, gamma, 30, day.minusDays(30), day.plusDays(60), AllocationStatus.APPROVED);
+		allocate(colleague, gamma, 10, day.plusDays(7), day.plusDays(60), AllocationStatus.APPROVED);
+
+		given().auth().oauth2(login(employee.getEmail()))
+			.when().get("/api/dashboard")
+			.then()
+			.statusCode(200)
+			.body("value", contains("20%", "1", beta.getName()))
+			.body("[2].date", equalTo(day.plusDays(14).toString()));
+	}
+
+	@Test
 	void anEmployeeWithoutAllocationsSeesZerosAndNone() {
 		User employee = newUser("New", Role.EMPLOYEE);
 
