@@ -1,0 +1,114 @@
+<section class="employee-search">
+  <header class="employee-search__header">
+    <h1>Employee search</h1>
+  </header>
+
+  <form class="employee-search__filters" [formGroup]="form" (ngSubmit)="search()">
+    <div class="employee-search__row">
+      <mat-form-field appearance="outline" class="employee-search__skill">
+        <mat-label>Skill</mat-label>
+        <mat-select formControlName="skillId" (selectionChange)="onSkillChange($event.value)">
+          <mat-option [value]="null">Any skill</mat-option>
+          @for (group of skillGroups(); track group.label) {
+            <mat-optgroup [label]="group.label">
+              @for (skill of group.skills; track skill.id) {
+                <mat-option [value]="skill.id">{{ skill.name }}</mat-option>
+              }
+            </mat-optgroup>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      @if (form.controls.skillId.value !== null) {
+        <div class="employee-search__level">
+          <span class="employee-search__level-label">Minimum level</span>
+          <app-skill-level-picker formControlName="minLevel" ariaLabel="Minimum skill level" />
+        </div>
+      }
+    </div>
+
+    <div class="employee-search__row">
+      <mat-form-field appearance="outline">
+        <mat-label>Seniority</mat-label>
+        <mat-select formControlName="seniority">
+          <mat-option [value]="null">Any seniority</mat-option>
+          @for (option of seniorities; track option) {
+            <mat-option [value]="option">{{ seniorityLabels[option] }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Department</mat-label>
+        <mat-select formControlName="departmentId">
+          <mat-option [value]="null">Any department</mat-option>
+          @for (department of departments(); track department.id) {
+            <mat-option [value]="department.id">{{ department.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="employee-search__row">
+      <app-date-range-picker
+        class="employee-search__period"
+        formControlName="period"
+        label="Available in"
+        [required]="freeGiven()"
+      />
+
+      <mat-form-field appearance="outline" class="employee-search__free">
+        <mat-label>Minimum free %</mat-label>
+        <input
+          matInput
+          type="number"
+          min="0"
+          max="100"
+          step="10"
+          formControlName="minFreePercent"
+          [required]="periodGiven()"
+        />
+        <mat-hint>On every working day</mat-hint>
+        @if (form.controls.minFreePercent.hasError('required')) {
+          <mat-error>Enter the free % needed in the period</mat-error>
+        } @else if (
+          form.controls.minFreePercent.hasError('min') ||
+          form.controls.minFreePercent.hasError('max')
+        ) {
+          <mat-error>Enter a % from 0 to 100</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    <div class="employee-search__actions">
+      <button mat-flat-button type="submit">Search</button>
+      <button mat-button type="button" (click)="clear()">Clear</button>
+    </div>
+  </form>
+
+  <app-paged-table
+    [columns]="columns()"
+    [fetch]="fetch()"
+    emptyText="No employees match these filters."
+  >
+    <ng-template appPagedTableCell="topSkills" let-row>
+      @if (row.topSkills.length) {
+        <mat-chip-set [attr.aria-label]="'Main skills of ' + row.firstName">
+          @for (skill of row.topSkills; track skill.skillId) {
+            <mat-chip>{{ skill.name }} {{ skill.level }}</mat-chip>
+          }
+        </mat-chip-set>
+      } @else {
+        —
+      }
+    </ng-template>
+    <ng-template appPagedTableCell="free" let-row>
+      <app-capacity-bar
+        class="employee-search__capacity"
+        [load]="row.load"
+        [capacity]="row.capacityPercent"
+        [label]="freeLabel(row)"
+      />
+    </ng-template>
+  </app-paged-table>
+</section>

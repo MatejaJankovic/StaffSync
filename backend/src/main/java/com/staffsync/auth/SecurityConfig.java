@@ -77,6 +77,8 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
 						.requestMatchers(HttpMethod.PUT, "/api/users/*").hasRole("ADMIN")
 						.requestMatchers(HttpMethod.PATCH, "/api/users/*/deactivate").hasRole("ADMIN")
+						// And for employee search: another role sending a malformed filter gets 403, not 400
+						.requestMatchers(HttpMethod.GET, "/api/employees/search").hasAnyRole("PM", "RM")
 						.anyRequest().authenticated())
 				.addFilterBefore(new JwtAuthenticationFilter(jwtService, userRepository), UsernamePasswordAuthenticationFilter.class)
 				.build();
