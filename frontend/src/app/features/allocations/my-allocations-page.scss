@@ -1,0 +1,28 @@
+.my-allocations {
+  padding: 24px;
+  max-width: 960px;
+}
+
+.my-allocations__header {
+  margin-bottom: 16px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0;
+  }
+}
+
+.my-allocations__load {
+  max-width: 360px;
+  margin-bottom: 24px;
+
+  h2 {
+    font: var(--mat-sys-title-medium);
+    margin: 0 0 8px;
+  }
+}
+
+.my-allocations__message {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+}

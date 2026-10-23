@@ -1,0 +1,33 @@
+<section class="my-allocations">
+  <header class="my-allocations__header">
+    <h1>My allocations</h1>
+  </header>
+
+  <section class="my-allocations__load" aria-labelledby="my-allocations-load">
+    <h2 id="my-allocations-load">Current load</h2>
+    @if (loading()) {
+      <p class="my-allocations__message">Loading your load…</p>
+    } @else if (loadFailed()) {
+      <p class="my-allocations__message" role="alert">
+        Unable to load your current load.
+        <button mat-button (click)="loadCurrent()">Retry</button>
+      </p>
+    } @else if (current(); as current) {
+      <app-capacity-bar
+        [load]="current.load"
+        [capacity]="current.capacity"
+        [label]="current.label"
+      />
+    }
+  </section>
+
+  <app-paged-table [columns]="columns" [fetch]="fetch" emptyText="You have no allocations yet">
+    <ng-template appPagedTableCell="project" let-row>
+      <a [routerLink]="['/projects', row.projectId]">{{ row.projectName }}</a>
+    </ng-template>
+
+    <ng-template appPagedTableCell="status" let-row>
+      <app-status-chip [status]="row.status" />
+    </ng-template>
+  </app-paged-table>
+</section>

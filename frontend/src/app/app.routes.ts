@@ -25,7 +25,10 @@ export const routes: Routes = [
       menuRoute('profile', {
         loadComponent: () => import('./features/profile/profile-page').then((m) => m.ProfilePage),
       }),
-      menuRoute('my-allocations'),
+      menuRoute('my-allocations', {
+        loadComponent: () =>
+          import('./features/allocations/my-allocations-page').then((m) => m.MyAllocationsPage),
+      }),
       // PM
       menuRoute('projects', {
         loadComponent: () =>
