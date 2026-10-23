@@ -4,6 +4,7 @@ import com.staffsync.auth.AuthUser;
 import com.staffsync.common.ErrorResponse;
 import com.staffsync.project.dto.ProjectDto;
 import com.staffsync.project.dto.ProjectRequest;
+import com.staffsync.project.dto.ProjectStatusRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -19,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -30,7 +32,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/projects")
-@Tag(name = "Projects", description = "Everyone can read projects, a PM creates and edits their own")
+@Tag(name = "Projects",
+		description = "Everyone can read projects, a PM creates, edits and changes the status of their own")
 @SecurityRequirement(name = "bearerAuth")
 public class ProjectController {
 
@@ -101,6 +104,29 @@ public class ProjectController {
 	public ProjectDto update(@PathVariable Long id, @Valid @RequestBody ProjectRequest request,
 			@AuthenticationPrincipal AuthUser user) {
 		return projectService.update(id, request, user);
+	}
+
+	@Operation(summary = "Change a project's status (PM who owns it)",
+			description = "PLANNED → ACTIVE → COMPLETED, or PLANNED / ACTIVE → CANCELLED. Completing or cancelling "
+					+ "runs the BR-11 clean-up with today as the closing day: OPEN and PARTIALLY_FILLED requests and "
+					+ "PROPOSED allocations are cancelled, pending changes are voided, approved allocations that "
+					+ "haven't started are cancelled and the others end today")
+	@ApiResponse(responseCode = "200", description = "The project with its new status")
+	@ApiResponse(responseCode = "400", description = "The status is missing or unknown",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not a PM, or not the PM who owns this project (BR-4)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No project with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409", description = "The move isn't allowed from the current status (§9)",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('PM')")
+	@PatchMapping("/{id}/status")
+	public ProjectDto changeStatus(@PathVariable Long id, @Valid @RequestBody ProjectStatusRequest request,
+			@AuthenticationPrincipal AuthUser user) {
+		return projectService.changeStatus(id, request.status(), user);
 	}
 
 }

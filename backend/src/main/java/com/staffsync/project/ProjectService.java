@@ -1,14 +1,18 @@
 package com.staffsync.project;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import com.staffsync.allocation.AllocationService;
 import com.staffsync.auth.AuthUser;
 import com.staffsync.common.BusinessException;
 import com.staffsync.common.NotFoundException;
 import com.staffsync.project.dto.ProjectDto;
 import com.staffsync.project.dto.ProjectRequest;
+import com.staffsync.request.RequestStatus;
+import com.staffsync.request.StaffingRequestRepository;
 import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
 import jakarta.persistence.criteria.Predicate;
@@ -31,9 +35,16 @@ public class ProjectService {
 
 	private final UserRepository userRepository;
 
-	public ProjectService(ProjectRepository projectRepository, UserRepository userRepository) {
+	private final StaffingRequestRepository requestRepository;
+
+	private final AllocationService allocationService;
+
+	public ProjectService(ProjectRepository projectRepository, UserRepository userRepository,
+			StaffingRequestRepository requestRepository, AllocationService allocationService) {
 		this.projectRepository = projectRepository;
 		this.userRepository = userRepository;
+		this.requestRepository = requestRepository;
+		this.allocationService = allocationService;
 	}
 
 	@Transactional(readOnly = true)
@@ -88,6 +99,38 @@ public class ProjectService {
 		return ProjectDto.from(project);
 	}
 
+	/**
+	 * The PM who owns the project moves it to its next status (§9): {@code PLANNED → ACTIVE → COMPLETED}, or
+	 * {@code PLANNED}/{@code ACTIVE → CANCELLED}. The checks run in this order: BR-4 (403), the move is allowed
+	 * (409 INVALID_STATUS_TRANSITION, which includes staying in the same status). Completing or cancelling it
+	 * runs the BR-11 clean-up in this one transaction, with today as the closing day (T-21): first the
+	 * allocations ({@link AllocationService#closeForProject}, which also recalculates their requests), then the
+	 * requests left {@code OPEN} or {@code PARTIALLY_FILLED} are cancelled. A request still filled by its
+	 * shortened allocations stays {@code FILLED}.
+	 */
+	@Transactional
+	public ProjectDto changeStatus(Long id, ProjectStatus next, AuthUser currentUser) {
+		Project project = find(id);
+		if (!project.getPm().getId().equals(currentUser.id())) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER",
+					"Only the project manager who owns this project can change its status");
+		}
+		ProjectStatus current = project.getStatus();
+		if (!current.canMoveTo(next)) {
+			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_STATUS_TRANSITION",
+					"A " + label(current) + " project can't become " + label(next));
+		}
+
+		project.setStatus(next);
+		if (next.isClosed()) {
+			allocationService.closeForProject(id, LocalDate.now());
+			requestRepository
+				.findByProjectIdAndStatusIn(id, List.of(RequestStatus.OPEN, RequestStatus.PARTIALLY_FILLED))
+				.forEach(request -> request.setStatus(RequestStatus.CANCELLED));
+		}
+		return ProjectDto.from(project);
+	}
+
 	private Project find(Long id) {
 		return projectRepository.findById(id).orElseThrow(() -> new NotFoundException("Project", id));
 	}
@@ -98,6 +141,11 @@ public class ProjectService {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_PERIOD",
 					"Start date must not be after end date");
 		}
+	}
+
+	/** A status as the messages write it: {@code COMPLETED} → {@code "completed"}. */
+	private static String label(ProjectStatus status) {
+		return status.name().toLowerCase();
 	}
 
 	private static String cleanDescription(ProjectRequest request) {

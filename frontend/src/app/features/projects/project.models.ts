@@ -46,6 +46,21 @@ export function formatPeriod(project: Pick<Project, 'startDate' | 'endDate'>): s
   return `${shortDate(project.startDate)} – ${shortDate(project.endDate)}`;
 }
 
+/**
+ * The statuses a project can move to from this one (§9): `PLANNED → ACTIVE → COMPLETED`, and
+ * `CANCELLED` from PLANNED or ACTIVE. The API answers 409 to anything else.
+ */
+export function nextStatuses(status: ProjectStatus): ProjectStatus[] {
+  switch (status) {
+    case 'PLANNED':
+      return ['ACTIVE', 'CANCELLED'];
+    case 'ACTIVE':
+      return ['COMPLETED', 'CANCELLED'];
+    default:
+      return [];
+  }
+}
+
 /** A COMPLETED or CANCELLED project can't be edited (the API answers 409). */
 export function isEditable(project: Pick<Project, 'status'>): boolean {
   return project.status === 'PLANNED' || project.status === 'ACTIVE';

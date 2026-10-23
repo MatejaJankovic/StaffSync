@@ -122,6 +122,11 @@ export class TeamPanel {
   /** A completed or cancelled project takes no cancellations (the API answers 409), as in `ProjectRequests`. */
   protected readonly canChange = computed(() => this.isOwner() && isEditable(this.project()));
 
+  /** Loads the current page again, e.g. after the project is completed or cancelled (BR-11). */
+  reload(): void {
+    this.table().reload();
+  }
+
   protected canWithdraw(allocation: Allocation): boolean {
     return this.canChange() && isWithdrawable(allocation);
   }

@@ -12,15 +12,23 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.staffsync.allocation.Allocation;
+import com.staffsync.allocation.AllocationRepository;
+import com.staffsync.allocation.AllocationStatus;
 import com.staffsync.project.Project;
 import com.staffsync.project.ProjectRepository;
 import com.staffsync.project.ProjectStatus;
+import com.staffsync.request.RequestStatus;
+import com.staffsync.request.StaffingRequest;
+import com.staffsync.request.StaffingRequestRepository;
 import com.staffsync.user.Role;
+import com.staffsync.user.Seniority;
 import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
 import io.restassured.RestAssured;
@@ -64,6 +72,12 @@ class ProjectControllerTests {
 
 	@Autowired
 	PasswordEncoder passwordEncoder;
+
+	@Autowired
+	StaffingRequestRepository requestRepository;
+
+	@Autowired
+	AllocationRepository allocationRepository;
 
 	@BeforeEach
 	void setUp() {
@@ -456,6 +470,188 @@ class ProjectControllerTests {
 			.body("code", equalTo("PROJECT_CLOSED"));
 	}
 
+	// ---- status (US-24, §9, BR-11)
+
+	@Test
+	void theOwnerMovesAProjectFromPlannedToActiveToCompleted() {
+		LoggedIn pm = login(PM);
+		int id = createProject(pm.token(), "Lifecycle-" + UUID.randomUUID());
+
+		changeStatus(pm.token(), id, "ACTIVE").statusCode(200).body("id", equalTo(id)).body("status", equalTo("ACTIVE"));
+		changeStatus(pm.token(), id, "COMPLETED").statusCode(200).body("status", equalTo("COMPLETED"));
+
+		given().auth().oauth2(pm.token())
+			.when().get("/api/projects/" + id)
+			.then()
+			.statusCode(200)
+			.body("status", equalTo("COMPLETED"));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "PLANNED", "ACTIVE" })
+	void aPlannedOrActiveProjectCanBeCancelled(String from) {
+		LoggedIn pm = login(PM);
+		int id = createProject(pm.token(), "Cancel-" + UUID.randomUUID());
+		setStatus(id, ProjectStatus.valueOf(from));
+
+		changeStatus(pm.token(), id, "CANCELLED").statusCode(200).body("status", equalTo("CANCELLED"));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "PLANNED>PLANNED", "PLANNED>COMPLETED", "ACTIVE>PLANNED", "COMPLETED>ACTIVE",
+			"COMPLETED>CANCELLED", "CANCELLED>PLANNED", "CANCELLED>ACTIVE" })
+	void anyOtherMoveIs409AndTheStatusStays(String move) {
+		String[] statuses = move.split(">");
+		LoggedIn pm = login(PM);
+		int id = createProject(pm.token(), "Move-" + UUID.randomUUID());
+		setStatus(id, ProjectStatus.valueOf(statuses[0]));
+
+		changeStatus(pm.token(), id, statuses[1]).statusCode(409).body("code", equalTo("INVALID_STATUS_TRANSITION"));
+
+		assertThat(projectRepository.findById((long) id).orElseThrow().getStatus())
+			.isEqualTo(ProjectStatus.valueOf(statuses[0]));
+	}
+
+	@Test
+	void anotherPmCannotChangeTheStatus() {
+		int id = createProject(login(PM).token(), "Owned-" + UUID.randomUUID());
+
+		changeStatus(newPm().token(), id, "ACTIVE").statusCode(403).body("code", equalTo("NOT_PROJECT_OWNER"));
+
+		assertThat(projectRepository.findById((long) id).orElseThrow().getStatus()).isEqualTo(ProjectStatus.PLANNED);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { RM, EMPLOYEE, ADMIN })
+	void otherRolesGet403OnStatus(String email) {
+		int id = createProject(login(PM).token(), "Owned-" + UUID.randomUUID());
+
+		changeStatus(login(email).token(), id, "ACTIVE").statusCode(403);
+	}
+
+	@Test
+	void aMissingOrUnknownStatusIs400() {
+		LoggedIn pm = login(PM);
+		int id = createProject(pm.token(), "Invalid-" + UUID.randomUUID());
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(Map.of())
+			.when().patch("/api/projects/" + id + "/status")
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("VALIDATION_ERROR"));
+		changeStatus(pm.token(), id, "ARCHIVED").statusCode(400);
+	}
+
+	@Test
+	void theStatusOfAnUnknownProjectIs404AndWithoutATokenIs401() {
+		changeStatus(login(PM).token(), 999999, "ACTIVE").statusCode(404);
+		given().contentType(ContentType.JSON).body(Map.of("status", "ACTIVE"))
+			.when().patch("/api/projects/1/status")
+			.then()
+			.statusCode(401);
+	}
+
+	// T-21
+	@Test
+	void cancellingAProjectCleansUpItsRequestsAndAllocations() {
+		LoggedIn pm = login(PM);
+		User owner = userRepository.findById((long) pm.id()).orElseThrow();
+		LocalDate today = LocalDate.now();
+		Project project = new Project("T-21-" + UUID.randomUUID(), "Acme", null, today.minusYears(1),
+				today.plusYears(1), owner);
+		project.setStatus(ProjectStatus.ACTIVE);
+		project = projectRepository.save(project);
+		// Three of its allocations stay approved, so a headcount of 5 keeps it partially filled
+		StaffingRequest open = newRequest(project, 5);
+		StaffingRequest filled = newRequest(project, 1);
+		filled.setStatus(RequestStatus.FILLED);
+		requestRepository.save(filled);
+
+		Allocation proposed = newAllocation(open, AllocationStatus.PROPOSED, today.minusDays(5), today.plusDays(20));
+		Allocation running = newAllocation(open, AllocationStatus.APPROVED, today.minusDays(5), today.plusDays(20));
+		Allocation changed = new Allocation(open, newEmployee(), 60, today.minusDays(5), today.plusDays(20), owner);
+		changed.setStatus(AllocationStatus.APPROVED);
+		changed.requestChange(80, today.minusDays(5), today.plusDays(40), "The client asked for more reporting work");
+		changed = allocationRepository.save(changed);
+		Allocation future = newAllocation(open, AllocationStatus.APPROVED, today.plusDays(1), today.plusDays(20));
+		Allocation ended = newAllocation(open, AllocationStatus.APPROVED, today.minusDays(20), today.minusDays(1));
+		Allocation futureOnFilled = newAllocation(filled, AllocationStatus.APPROVED, today.plusDays(1),
+				today.plusDays(20));
+
+		changeStatus(pm.token(), project.getId().intValue(), "CANCELLED").statusCode(200)
+			.body("status", equalTo("CANCELLED"));
+
+		assertThat(reload(proposed).getStatus()).isEqualTo(AllocationStatus.CANCELLED);
+		assertThat(reload(running).getStatus()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(reload(running).getEndDate()).isEqualTo(today);
+		Allocation voided = reload(changed);
+		assertThat(voided.getStatus()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(voided.getPercent()).isEqualTo(60);
+		assertThat(voided.getEndDate()).isEqualTo(today);
+		assertThat(voided.getPendingPercent()).isNull();
+		assertThat(voided.getPendingEndDate()).isNull();
+		assertThat(voided.getChangeReason()).isNull();
+		assertThat(reload(future).getStatus()).isEqualTo(AllocationStatus.CANCELLED);
+		assertThat(reload(ended).getStatus()).isEqualTo(AllocationStatus.APPROVED);
+		assertThat(reload(ended).getEndDate()).isEqualTo(today.minusDays(1));
+		assertThat(reload(futureOnFilled).getStatus()).isEqualTo(AllocationStatus.CANCELLED);
+		// Both requests end up cancelled: the filled one lost its only allocation, so it was no longer filled
+		assertThat(requestRepository.findById(open.getId()).orElseThrow().getStatus())
+			.isEqualTo(RequestStatus.CANCELLED);
+		assertThat(requestRepository.findById(filled.getId()).orElseThrow().getStatus())
+			.isEqualTo(RequestStatus.CANCELLED);
+	}
+
+	@Test
+	void completingAProjectKeepsARequestThatIsStillFilled() {
+		LoggedIn pm = login(PM);
+		User owner = userRepository.findById((long) pm.id()).orElseThrow();
+		LocalDate today = LocalDate.now();
+		Project project = new Project("Filled-" + UUID.randomUUID(), "Acme", null, today.minusYears(1),
+				today.plusYears(1), owner);
+		project.setStatus(ProjectStatus.ACTIVE);
+		project = projectRepository.save(project);
+		StaffingRequest filled = newRequest(project, 1);
+		filled.setStatus(RequestStatus.FILLED);
+		requestRepository.save(filled);
+		Allocation running = newAllocation(filled, AllocationStatus.APPROVED, today.minusDays(5), today.plusDays(20));
+
+		changeStatus(pm.token(), project.getId().intValue(), "COMPLETED").statusCode(200);
+
+		assertThat(reload(running).getEndDate()).isEqualTo(today);
+		assertThat(requestRepository.findById(filled.getId()).orElseThrow().getStatus())
+			.isEqualTo(RequestStatus.FILLED);
+	}
+
+	private ValidatableResponse changeStatus(String token, int id, String status) {
+		return given().auth().oauth2(token).contentType(ContentType.JSON).body(Map.of("status", status))
+			.when().patch("/api/projects/" + id + "/status")
+			.then();
+	}
+
+	/** A request over the whole project, for the T-21 scenarios. */
+	private StaffingRequest newRequest(Project project, int headcount) {
+		return requestRepository.save(new StaffingRequest(project, "Java Developer", Seniority.MEDIOR, 60,
+				project.getStartDate(), project.getEndDate(), headcount));
+	}
+
+	/** A 60% allocation of a new employee, already in this status. */
+	private Allocation newAllocation(StaffingRequest request, AllocationStatus status, LocalDate start,
+			LocalDate end) {
+		Allocation allocation = new Allocation(request, newEmployee(), 60, start, end, request.getProject().getPm());
+		allocation.setStatus(status);
+		return allocationRepository.save(allocation);
+	}
+
+	private User newEmployee() {
+		return userRepository.save(new User("employee-" + UUID.randomUUID() + "@staffsync.local",
+				passwordEncoder.encode(PASSWORD), "Test", "Employee", Role.EMPLOYEE));
+	}
+
+	private Allocation reload(Allocation allocation) {
+		return allocationRepository.findById(allocation.getId()).orElseThrow();
+	}
+
 	private static Map<String, Object> body(String name, String client, String start, String end) {
 		Map<String, Object> body = new HashMap<>();
 		body.put("name", name);
@@ -474,7 +670,7 @@ class ProjectControllerTests {
 		return response.extract().path("id");
 	}
 
-	/** There is no status endpoint yet (US-24), so tests set it directly. */
+	/** Sets the status directly, so a test can start from any status without going through §9. */
 	private void setStatus(int id, ProjectStatus status) {
 		Project project = projectRepository.findById((long) id).orElseThrow();
 		project.setStatus(status);
