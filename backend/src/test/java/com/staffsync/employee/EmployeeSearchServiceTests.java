@@ -230,6 +230,24 @@ class EmployeeSearchServiceTests {
 	}
 
 	@Test
+	void namesSortWithoutRegardToCaseOrAccents() {
+		User zoric = employee(10L, "Ana", "Zoric", null);
+		User deSouza = employee(11L, "Ana", "de Souza", null);
+		User colic = employee(12L, "Ana", "Čolić", null);
+		User avramovic = employee(13L, "Ana", "Avramovic", null);
+		givenEmployees(List.of(zoric, deSouza, colic, avramovic));
+		List.of(zoric, deSouza, colic, avramovic).forEach(employee -> givenLoad(employee, 0));
+
+		// The default order and an explicit one: "de Souza" is not after "Zoric", nor Čolić after everyone
+		assertThat(employeeSearchService.search(NO_FILTERS, BY_LAST_NAME, TODAY).getContent())
+			.extracting(EmployeeSearchResultDto::id)
+			.containsExactly(13L, 12L, 11L, 10L);
+		assertThat(employeeSearchService
+			.search(NO_FILTERS, PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "lastName")), TODAY)
+			.getContent()).extracting(EmployeeSearchResultDto::id).containsExactly(10L, 11L, 12L, 13L);
+	}
+
+	@Test
 	void sortsBySeniorityFromJuniorToSenior() {
 		User senior = employee(10L, "Ana", "Aaa", null);
 		senior.setSeniority(Seniority.SENIOR);

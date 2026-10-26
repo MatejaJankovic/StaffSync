@@ -1,10 +1,12 @@
 package com.staffsync.employee;
 
+import java.text.Collator;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -51,16 +53,22 @@ public class EmployeeSearchService {
 	/** How many skills a result shows as the employee's main skills. */
 	static final int TOP_SKILLS = 3;
 
+	/**
+	 * How names and departments are ordered: by letter, not by character code, so "de Souza" doesn't come after
+	 * "Zoric" and "Čolić" doesn't come after every name that starts with a plain letter.
+	 */
+	private static final Comparator<String> TEXT = Collator.getInstance(Locale.ROOT)::compare;
+
 	/** Highest level first, then by name, so equal levels keep a stable order. */
 	private static final Comparator<EmployeeSkill> BY_LEVEL = Comparator
 		.comparingInt(EmployeeSkill::getLevel)
 		.reversed()
-		.thenComparing(rating -> rating.getSkill().getName());
+		.thenComparing(rating -> rating.getSkill().getName(), TEXT);
 
 	/** Last name, then first name, then id: the order of ties, so pages don't shuffle. */
 	private static final Comparator<EmployeeSearchResultDto> BY_NAME = Comparator
-		.comparing(EmployeeSearchResultDto::lastName)
-		.thenComparing(EmployeeSearchResultDto::firstName)
+		.comparing(EmployeeSearchResultDto::lastName, TEXT)
+		.thenComparing(EmployeeSearchResultDto::firstName, TEXT)
 		.thenComparing(EmployeeSearchResultDto::id);
 
 	/**
@@ -70,10 +78,10 @@ public class EmployeeSearchService {
 	 */
 	private static final Map<String, Function<Sort.Direction, Comparator<EmployeeSearchResultDto>>> SORTABLE = Map.of(
 			"id", key(EmployeeSearchResultDto::id),
-			"firstName", key(EmployeeSearchResultDto::firstName),
-			"lastName", key(EmployeeSearchResultDto::lastName),
+			"firstName", key(EmployeeSearchResultDto::firstName, TEXT),
+			"lastName", key(EmployeeSearchResultDto::lastName, TEXT),
 			"seniority", key(EmployeeSearchResultDto::seniority),
-			"department", key(row -> row.department() != null ? row.department().name() : null),
+			"department", key(row -> row.department() != null ? row.department().name() : null, TEXT),
 			"level", key(EmployeeSearchResultDto::skillLevel),
 			"free", key(EmployeeSearchResultDto::free));
 
@@ -247,8 +255,14 @@ public class EmployeeSearchService {
 
 	private static <K extends Comparable<? super K>> Function<Sort.Direction, Comparator<EmployeeSearchResultDto>> key(
 			Function<EmployeeSearchResultDto, K> property) {
-		return direction -> Comparator.comparing(property, Comparator
-			.nullsLast(direction.isAscending() ? Comparator.<K>naturalOrder() : Comparator.<K>reverseOrder()));
+		return key(property, Comparator.<K>naturalOrder());
+	}
+
+	/** Missing values (null) go last in both directions. */
+	private static <K> Function<Sort.Direction, Comparator<EmployeeSearchResultDto>> key(
+			Function<EmployeeSearchResultDto, K> property, Comparator<K> order) {
+		return direction -> Comparator.comparing(property,
+				Comparator.nullsLast(direction.isAscending() ? order : order.reversed()));
 	}
 
 }
