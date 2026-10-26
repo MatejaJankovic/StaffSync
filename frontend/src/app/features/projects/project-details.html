@@ -27,7 +27,12 @@
           <span class="project__spacer"></span>
           @if (statusActions().length > 0) {
             <div class="project__status-action">
-              <button mat-stroked-button type="button" [matMenuTriggerFor]="statusMenu">
+              <button
+                mat-stroked-button
+                type="button"
+                [matMenuTriggerFor]="statusMenu"
+                [disabled]="changingStatus()"
+              >
                 <mat-icon>swap_horiz</mat-icon>
                 Change status
               </button>

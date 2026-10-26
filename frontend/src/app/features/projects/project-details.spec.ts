@@ -315,6 +315,22 @@ describe('ProjectDetails', () => {
       expect(success).toHaveBeenCalledWith('Project activated');
     });
 
+    it('disables the status menu until the API has answered, so a double click sends one change', async () => {
+      await openAs();
+
+      await choose('Activate');
+      const call = httpMock.expectOne(`${PROJECTS_URL}/5/status`);
+      expect(statusButton()!.disabled).toBe(true);
+
+      call.flush({ ...ALPHA, status: 'ACTIVE' });
+      await settle();
+      httpMock.expectOne(`${PROJECTS_URL}/5/requests?page=0&size=10`).flush(EMPTY_PAGE);
+      httpMock.expectOne(`/api/allocations?projectId=5&page=0&size=10`).flush(EMPTY_PAGE);
+      await settle();
+
+      expect(statusButton()!.disabled).toBe(false);
+    });
+
     it('explains the clean-up before completing the project', async () => {
       await openAs({}, { ...ALPHA, status: 'ACTIVE' });
       confirm.mockReturnValue(of(true));
@@ -356,6 +372,7 @@ describe('ProjectDetails', () => {
 
       httpMock.expectNone(`${PROJECTS_URL}/5/status`);
       expect(el().querySelector('app-status-chip')?.textContent?.trim()).toBe('Planned');
+      expect(statusButton()!.disabled).toBe(false);
       expect(success).not.toHaveBeenCalled();
     });
 
@@ -363,12 +380,13 @@ describe('ProjectDetails', () => {
       await openAs();
 
       await choose('Activate');
-      httpMock
-        .expectOne(`${PROJECTS_URL}/5/status`)
-        .flush(
-          { code: 'INVALID_STATUS_TRANSITION', message: 'A cancelled project can’t become active' },
-          { status: 409, statusText: 'Conflict' },
-        );
+      httpMock.expectOne(`${PROJECTS_URL}/5/status`).flush(
+        {
+          code: 'INVALID_STATUS_TRANSITION',
+          message: 'A project can’t move from cancelled to active',
+        },
+        { status: 409, statusText: 'Conflict' },
+      );
       await settle();
       await respond({ ...ALPHA, status: 'CANCELLED' });
 

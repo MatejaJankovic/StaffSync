@@ -9,6 +9,7 @@ import {
   catchError,
   combineLatest,
   filter,
+  finalize,
   map,
   of,
   startWith,
@@ -133,6 +134,12 @@ export class ProjectDetails {
     return nextStatuses(project.status).map((status) => STATUS_ACTIONS[status]!);
   });
 
+  /**
+   * True from choosing a status until the API has answered or the confirmation is declined, so a double
+   * click doesn't send the same change twice (the second one would be a 409).
+   */
+  protected readonly changingStatus = signal(false);
+
   protected readonly isPm = computed(() => this.auth.role() === 'PM');
 
   constructor() {
@@ -182,13 +189,15 @@ export class ProjectDetails {
    */
   protected changeStatus(action: StatusAction): void {
     const project = this.project();
-    if (!project) {
+    if (!project || this.changingStatus()) {
       return;
     }
+    this.changingStatus.set(true);
     (action.confirm ? this.confirmDialog.confirm(action.confirm) : of(true))
       .pipe(
         filter(Boolean),
         switchMap(() => this.projects.changeStatus(project.id, action.status)),
+        finalize(() => this.changingStatus.set(false)),
       )
       .subscribe({
         next: (updated) => {

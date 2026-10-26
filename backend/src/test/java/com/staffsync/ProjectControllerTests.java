@@ -529,6 +529,18 @@ class ProjectControllerTests {
 		changeStatus(login(email).token(), id, "ACTIVE").statusCode(403);
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = { RM, EMPLOYEE, ADMIN })
+	void aNonPmGets403OnStatusEvenWithAnInvalidBody(String email) {
+		int id = createProject(login(PM).token(), "Owned-" + UUID.randomUUID());
+
+		given().auth().oauth2(login(email).token()).contentType(ContentType.JSON).body(Map.of())
+			.when().patch("/api/projects/" + id + "/status")
+			.then()
+			.statusCode(403);
+		changeStatus(login(email).token(), id, "ARCHIVED").statusCode(403);
+	}
+
 	@Test
 	void aMissingOrUnknownStatusIs400() {
 		LoggedIn pm = login(PM);

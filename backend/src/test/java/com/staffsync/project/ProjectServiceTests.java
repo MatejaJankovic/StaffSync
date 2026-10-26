@@ -132,7 +132,7 @@ class ProjectServiceTests {
 		givenProject(ProjectStatus.COMPLETED);
 
 		assertThatThrownBy(() -> projectService.changeStatus(PROJECT_ID, ProjectStatus.ACTIVE, PM))
-			.hasMessage("A completed project can't become active");
+			.hasMessage("A project can't move from completed to active");
 	}
 
 	// ---- BR-4

@@ -86,9 +86,9 @@ public class ProjectService {
 			throw new BusinessException(HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER",
 					"Only the project manager who owns this project can change it");
 		}
-		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
+		if (project.getStatus().isClosed()) {
 			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
-					"A " + project.getStatus().name().toLowerCase() + " project can't be edited");
+					"A " + label(project.getStatus()) + " project can't be edited");
 		}
 		checkPeriod(request);
 		project.setName(request.name().trim());
@@ -118,7 +118,7 @@ public class ProjectService {
 		ProjectStatus current = project.getStatus();
 		if (!current.canMoveTo(next)) {
 			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_STATUS_TRANSITION",
-					"A " + label(current) + " project can't become " + label(next));
+					"A project can't move from " + label(current) + " to " + label(next));
 		}
 
 		project.setStatus(next);

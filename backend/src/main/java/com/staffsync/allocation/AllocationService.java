@@ -23,7 +23,6 @@ import com.staffsync.common.NotFoundException;
 import com.staffsync.employeeskill.EmployeeSkill;
 import com.staffsync.employeeskill.EmployeeSkillRepository;
 import com.staffsync.project.Project;
-import com.staffsync.project.ProjectStatus;
 import com.staffsync.request.RequestSkill;
 import com.staffsync.request.RequestStatus;
 import com.staffsync.request.StaffingRequest;
@@ -285,7 +284,7 @@ public class AllocationService {
 
 	/**
 	 * The allocation side of BR-11, when a project is completed or cancelled on {@code closingDate} (T-21).
-	 * The project's status change (US-24) calls it in its own transaction and has already checked the PM.
+	 * The project's status change (US-24) calls it in the same transaction and has already checked the PM.
 	 * For every allocation on the project's requests:
 	 * <ul>
 	 * <li>{@code PROPOSED → CANCELLED} (§9)</li>
@@ -446,7 +445,7 @@ public class AllocationService {
 	 * names the action in the message, e.g. {@code "cancellations"}.
 	 */
 	private static void checkProjectOpen(Project project, String what) {
-		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
+		if (project.getStatus().isClosed()) {
 			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
 					"A " + label(project.getStatus()) + " project takes no " + what);
 		}
