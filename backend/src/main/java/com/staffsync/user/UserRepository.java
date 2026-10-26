@@ -23,6 +23,11 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 	@EntityGraph(attributePaths = { "department", "manager" })
 	Page<User> findAll(Specification<User> spec, Pageable pageable);
 
+	// *Employee search* shows the department of every result
+	@Override
+	@EntityGraph(attributePaths = "department")
+	List<User> findAll(Specification<User> spec);
+
 	/** The users of a role who can still log in and be staffed, with their department for the matching list. */
 	@EntityGraph(attributePaths = "department")
 	List<User> findByRoleAndActiveTrue(Role role);
