@@ -23,7 +23,6 @@ import com.staffsync.common.NotFoundException;
 import com.staffsync.employeeskill.EmployeeSkill;
 import com.staffsync.employeeskill.EmployeeSkillRepository;
 import com.staffsync.project.Project;
-import com.staffsync.project.ProjectStatus;
 import com.staffsync.request.RequestSkill;
 import com.staffsync.request.RequestStatus;
 import com.staffsync.request.StaffingRequest;
@@ -284,6 +283,45 @@ public class AllocationService {
 	}
 
 	/**
+	 * The allocation side of BR-11, when a project is completed or cancelled on {@code closingDate} (T-21).
+	 * The project's status change (US-24) calls it in the same transaction and has already checked the PM.
+	 * For every allocation on the project's requests:
+	 * <ul>
+	 * <li>{@code PROPOSED → CANCELLED} (§9)</li>
+	 * <li>a pending change is voided: {@code CHANGE_PENDING → APPROVED} with the current values (BR-15), and
+	 * then it is treated like any approved allocation</li>
+	 * <li>an approved allocation that hasn't started by the closing date is cancelled, one that runs past it
+	 * ends on it, and one that has already ended is left alone</li>
+	 * </ul>
+	 * Then the status of each request that had one of them is recalculated (BR-10), so a {@code FILLED}
+	 * request that lost an allocation no longer counts it. Cancelling the open requests is up to the caller.
+	 */
+	@Transactional
+	public void closeForProject(Long projectId, LocalDate closingDate) {
+		List<Allocation> allocations = allocationRepository.findByRequestProjectIdAndStatusIn(projectId,
+				AllocationStatus.ACTIVE_OR_PROPOSED);
+		for (Allocation allocation : allocations) {
+			if (allocation.getStatus() == AllocationStatus.PROPOSED) {
+				allocation.setStatus(AllocationStatus.CANCELLED);
+				continue;
+			}
+			if (allocation.hasPendingChange()) {
+				allocation.clearPendingChange();
+			}
+			if (allocation.getStartDate().isAfter(closingDate)) {
+				allocation.setStatus(AllocationStatus.CANCELLED);
+			}
+			else if (allocation.getEndDate().isAfter(closingDate)) {
+				allocation.setEndDate(closingDate);
+			}
+		}
+		allocations.stream()
+			.map(allocation -> allocation.getRequest().getId())
+			.distinct()
+			.forEach(requestStatusService::recalculate);
+	}
+
+	/**
 	 * Searches allocations, always within what the caller may see (§10, "filtered by role"): an EMPLOYEE
 	 * their own, a PM those on their projects, an RM those of their team ({@code employee.manager_id}),
 	 * an ADMIN all. The filters narrow that further, so a filter outside the caller's scope gives an empty
@@ -407,7 +445,7 @@ public class AllocationService {
 	 * names the action in the message, e.g. {@code "cancellations"}.
 	 */
 	private static void checkProjectOpen(Project project, String what) {
-		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
+		if (project.getStatus().isClosed()) {
 			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
 					"A " + label(project.getStatus()) + " project takes no " + what);
 		}

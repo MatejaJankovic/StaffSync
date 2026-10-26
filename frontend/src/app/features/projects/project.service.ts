@@ -12,7 +12,7 @@ export interface ProjectFilters {
   pmId?: number;
 }
 
-/** Talks to the projects API. Everyone can read, a PM creates and edits their own. */
+/** Talks to the projects API. Everyone can read, a PM creates, edits and changes the status of their own. */
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
   private readonly http = inject(HttpClient);
@@ -38,5 +38,10 @@ export class ProjectService {
 
   update(id: number, request: ProjectRequest): Observable<Project> {
     return this.http.put<Project>(`${PROJECTS_URL}/${id}`, request);
+  }
+
+  /** Completing or cancelling also runs the BR-11 clean-up on the server. */
+  changeStatus(id: number, status: ProjectStatus): Observable<Project> {
+    return this.http.patch<Project>(`${PROJECTS_URL}/${id}/status`, { status });
   }
 }

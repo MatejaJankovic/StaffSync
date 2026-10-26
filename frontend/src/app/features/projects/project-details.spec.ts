@@ -11,6 +11,8 @@ import { routes } from '../../app.routes';
 import { Role } from '../../core/auth/auth.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { Notifications } from '../../core/error/notifications';
+import { ConfirmDialogData } from '../../shared/confirm-dialog/confirm-dialog';
+import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import { Allocation } from '../allocations/allocation.models';
 import { TeamPanel } from '../allocations/team-panel';
 import { Project } from './project.models';
@@ -212,6 +214,186 @@ describe('ProjectDetails', () => {
 
     expect(el().querySelector('h1')?.textContent).toContain('Project Alpha');
     expect(success).not.toHaveBeenCalled();
+  });
+
+  describe('status action (US-24)', () => {
+    const EMPTY_PAGE = {
+      content: [],
+      page: { size: 10, number: 0, totalElements: 0, totalPages: 0 },
+    };
+    let confirm: ReturnType<typeof vi.spyOn>;
+
+    async function openAs(
+      options: { userId?: number; role?: Role } = {},
+      project: Project = ALPHA,
+    ) {
+      await open(options);
+      confirm = vi.spyOn(TestBed.inject(ConfirmDialogService), 'confirm');
+      await respond(project);
+    }
+
+    function statusButton(): HTMLButtonElement | undefined {
+      return [...el().querySelectorAll('button')].find((b) =>
+        b.textContent?.includes('Change status'),
+      );
+    }
+
+    async function menuItems(): Promise<HTMLButtonElement[]> {
+      statusButton()!.click();
+      await settle();
+      return [...document.querySelectorAll<HTMLButtonElement>('.mat-mdc-menu-item')];
+    }
+
+    async function choose(label: string): Promise<void> {
+      (await menuItems()).find((item) => item.textContent?.includes(label))!.click();
+      await settle();
+    }
+
+    /** The PATCH, then the requests and the team load again, since BR-11 may have changed them. */
+    async function expectStatusChange(status: string, project: Project): Promise<void> {
+      const call = httpMock.expectOne(`${PROJECTS_URL}/5/status`);
+      expect(call.request.method).toBe('PATCH');
+      expect(call.request.body).toEqual({ status });
+      call.flush(project);
+      await settle();
+      httpMock.expectOne(`${PROJECTS_URL}/5/requests?page=0&size=10`).flush(EMPTY_PAGE);
+      httpMock.expectOne(`/api/allocations?projectId=5&page=0&size=10`).flush(EMPTY_PAGE);
+      await settle();
+    }
+
+    it('offers a planned project’s owner to activate or cancel it', async () => {
+      await openAs();
+
+      const labels = (await menuItems()).map((item) => item.textContent?.trim());
+
+      expect(labels).toEqual([
+        expect.stringContaining('Activate'),
+        expect.stringContaining('Cancel project'),
+      ]);
+    });
+
+    it('offers an active project’s owner to complete or cancel it', async () => {
+      await openAs({}, { ...ALPHA, status: 'ACTIVE' });
+
+      const labels = (await menuItems()).map((item) => item.textContent?.trim());
+
+      expect(labels).toEqual([
+        expect.stringContaining('Complete'),
+        expect.stringContaining('Cancel project'),
+      ]);
+    });
+
+    it.each(['COMPLETED', 'CANCELLED'] as const)(
+      'offers no status change once the project is %s',
+      async (status) => {
+        await openAs({}, { ...ALPHA, status });
+
+        expect(statusButton()).toBeUndefined();
+      },
+    );
+
+    it('offers no status change to another PM', async () => {
+      await openAs({ userId: 8 });
+
+      expect(statusButton()).toBeUndefined();
+    });
+
+    it('offers no status change to other roles', async () => {
+      await openAs({ role: 'RM', userId: 3 }, { ...ALPHA, pmId: 99 });
+
+      expect(statusButton()).toBeUndefined();
+    });
+
+    it('activates without asking, then shows the new status and loads the sections again', async () => {
+      await openAs();
+
+      await choose('Activate');
+      await expectStatusChange('ACTIVE', { ...ALPHA, status: 'ACTIVE' });
+
+      expect(confirm).not.toHaveBeenCalled();
+      expect(el().querySelector('app-status-chip')?.textContent?.trim()).toBe('Active');
+      expect(success).toHaveBeenCalledWith('Project activated');
+    });
+
+    it('disables the status menu until the API has answered, so a double click sends one change', async () => {
+      await openAs();
+
+      await choose('Activate');
+      const call = httpMock.expectOne(`${PROJECTS_URL}/5/status`);
+      expect(statusButton()!.disabled).toBe(true);
+
+      call.flush({ ...ALPHA, status: 'ACTIVE' });
+      await settle();
+      httpMock.expectOne(`${PROJECTS_URL}/5/requests?page=0&size=10`).flush(EMPTY_PAGE);
+      httpMock.expectOne(`/api/allocations?projectId=5&page=0&size=10`).flush(EMPTY_PAGE);
+      await settle();
+
+      expect(statusButton()!.disabled).toBe(false);
+    });
+
+    it('explains the clean-up before completing the project', async () => {
+      await openAs({}, { ...ALPHA, status: 'ACTIVE' });
+      confirm.mockReturnValue(of(true));
+
+      await choose('Complete');
+      await expectStatusChange('COMPLETED', { ...ALPHA, status: 'COMPLETED' });
+
+      const data = confirm.mock.calls[0][0] as ConfirmDialogData;
+      expect(data.title).toBe('Complete project?');
+      expect(data.message).toContain('open requests and proposals are cancelled');
+      expect(data.message).toContain('pending changes are dropped');
+      expect(data.message).toContain('active allocations end today');
+      expect(data.destructive).toBeFalsy();
+      expect(success).toHaveBeenCalledWith('Project completed');
+      // A completed project is closed, so neither the status menu nor Edit is offered any more
+      expect(statusButton()).toBeUndefined();
+      expect(editButton()).toBeUndefined();
+    });
+
+    it('asks before cancelling the project, as a destructive action', async () => {
+      await openAs();
+      confirm.mockReturnValue(of(true));
+
+      await choose('Cancel project');
+      await expectStatusChange('CANCELLED', { ...ALPHA, status: 'CANCELLED' });
+
+      const data = confirm.mock.calls[0][0] as ConfirmDialogData;
+      expect(data.title).toBe('Cancel project?');
+      expect(data.message).toContain('active allocations end today');
+      expect(data.destructive).toBe(true);
+      expect(success).toHaveBeenCalledWith('Project cancelled');
+    });
+
+    it('changes nothing when the confirmation is declined', async () => {
+      await openAs();
+      confirm.mockReturnValue(of(false));
+
+      await choose('Cancel project');
+
+      httpMock.expectNone(`${PROJECTS_URL}/5/status`);
+      expect(el().querySelector('app-status-chip')?.textContent?.trim()).toBe('Planned');
+      expect(statusButton()!.disabled).toBe(false);
+      expect(success).not.toHaveBeenCalled();
+    });
+
+    it('loads the project again when the status change fails', async () => {
+      await openAs();
+
+      await choose('Activate');
+      httpMock.expectOne(`${PROJECTS_URL}/5/status`).flush(
+        {
+          code: 'INVALID_STATUS_TRANSITION',
+          message: 'A project can’t move from cancelled to active',
+        },
+        { status: 409, statusText: 'Conflict' },
+      );
+      await settle();
+      await respond({ ...ALPHA, status: 'CANCELLED' });
+
+      expect(el().querySelector('app-status-chip')?.textContent?.trim()).toBe('Cancelled');
+      expect(statusButton()).toBeUndefined();
+      expect(success).not.toHaveBeenCalled();
+    });
   });
 
   it('says so when the project does not exist', async () => {

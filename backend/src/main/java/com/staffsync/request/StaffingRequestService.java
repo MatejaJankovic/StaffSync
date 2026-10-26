@@ -14,7 +14,6 @@ import com.staffsync.common.GlobalExceptionHandler;
 import com.staffsync.common.NotFoundException;
 import com.staffsync.project.Project;
 import com.staffsync.project.ProjectRepository;
-import com.staffsync.project.ProjectStatus;
 import com.staffsync.request.dto.RequestSkillRequest;
 import com.staffsync.request.dto.StaffingRequestDto;
 import com.staffsync.request.dto.StaffingRequestRequest;
@@ -143,7 +142,7 @@ public class StaffingRequestService {
 
 	/** Requests of a finished project are cancelled by BR-11, so no new or changed ones are accepted. */
 	private static void checkProjectOpen(Project project) {
-		if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.CANCELLED) {
+		if (project.getStatus().isClosed()) {
 			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_CLOSED",
 					"A " + project.getStatus().name().toLowerCase() + " project can't have staffing requests changed");
 		}
