@@ -1,6 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  NonNullableFormBuilder,
+  ReactiveFormsModule,
+  ValidatorFn,
+  Validators,
+} from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -27,6 +32,10 @@ import {
   filtersFromParams,
 } from './employee-search.models';
 import { EmployeeSearchService } from './employee-search.service';
+
+/** The API takes the minimum free % as an integer, and `type="number"` lets `12.5` through. */
+const wholeNumberValidator: ValidatorFn = (control) =>
+  control.value === null || Number.isInteger(control.value) ? null : { wholeNumber: true };
 
 /**
  * PM and RM page (US-23): find employees, e.g. people on the bench, by skill and minimum level,
@@ -78,7 +87,10 @@ export class EmployeeSearchPage {
     seniority: null as Seniority | null,
     departmentId: null as number | null,
     period: { start: null, end: null } as DateRangeValue,
-    minFreePercent: [null as number | null, [Validators.min(0), Validators.max(100)]],
+    minFreePercent: [
+      null as number | null,
+      [Validators.min(0), Validators.max(100), wholeNumberValidator],
+    ],
   });
 
   private readonly formValue = toSignal(this.form.valueChanges, {
@@ -168,6 +180,8 @@ export class EmployeeSearchPage {
   }
 
   protected clear(): void {
+    // Without filters in the URL this navigation changes nothing, so it can't empty the form
+    this.form.reset();
     void this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
 

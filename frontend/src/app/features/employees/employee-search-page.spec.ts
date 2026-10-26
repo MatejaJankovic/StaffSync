@@ -11,6 +11,7 @@ import {
   provideRouter,
   Router,
 } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { BehaviorSubject } from 'rxjs';
 import { routes } from '../../app.routes';
 import { Page } from '../../core/api/page';
@@ -257,6 +258,22 @@ describe('EmployeeSearchPage', () => {
     expect(page().form.controls.period.hasError('required')).toBe(true);
   });
 
+  it('asks for a whole number of free %, as the API takes an integer', async () => {
+    await create();
+    await load();
+    page().form.patchValue({
+      period: { start: new Date(2026, 10, 2), end: new Date(2026, 10, 30) },
+      minFreePercent: 12.5,
+    });
+    await settle();
+
+    button('Search').click();
+    await settle();
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(el().textContent).toContain('Enter a whole number');
+  });
+
   it('clears the filters from the URL and searches again', async () => {
     await create({ seniority: 'SENIOR' });
     await load();
@@ -268,6 +285,47 @@ describe('EmployeeSearchPage', () => {
     expect(navigate.mock.calls[0][1]?.queryParams).toEqual({});
     expect(request.params.has('seniority')).toBe(false);
     expect(page().form.controls.seniority.value).toBeNull();
+  });
+});
+
+// The tests above replace the router's navigation. Here the real router decides, which skips a
+// navigation to the URL it is already on
+describe('EmployeeSearchPage with the real router', () => {
+  it('Clear empties a form whose filters were never searched', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([{ path: 'employees', component: EmployeeSearchPage }]),
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
+      ],
+    });
+    const httpMock = TestBed.inject(HttpTestingController);
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl('/employees', EmployeeSearchPage);
+    await harness.fixture.whenStable();
+    httpMock.expectOne(SKILLS_URL).flush([JAVA, ANGULAR]);
+    httpMock.expectOne(DEPARTMENTS_URL).flush([{ id: 1, name: 'Engineering' }]);
+    httpMock.expectOne((r) => r.url === EMPLOYEE_SEARCH_URL).flush(pageOf(BOGDAN));
+    const form = (component as unknown as { form: EmployeeSearchPage['form'] }).form;
+    form.patchValue({ seniority: 'SENIOR', departmentId: 1, minFreePercent: 30 });
+    harness.fixture.detectChanges();
+
+    const clear = [...(harness.routeNativeElement as HTMLElement).querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === 'Clear',
+    )!;
+    clear.click();
+    await harness.fixture.whenStable();
+
+    expect(form.getRawValue()).toEqual({
+      skillId: null,
+      minLevel: null,
+      seniority: null,
+      departmentId: null,
+      period: { start: null, end: null },
+      minFreePercent: null,
+    });
+    httpMock.verify();
   });
 });
 

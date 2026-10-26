@@ -76,6 +76,8 @@
           form.controls.minFreePercent.hasError('max')
         ) {
           <mat-error>Enter a % from 0 to 100</mat-error>
+        } @else if (form.controls.minFreePercent.hasError('wholeNumber')) {
+          <mat-error>Enter a whole number</mat-error>
         }
       </mat-form-field>
     </div>

@@ -1,4 +1,5 @@
 import { ParamMap } from '@angular/router';
+import { parseIsoDate, toIsoDate } from '../../shared/dates';
 import { Department } from '../departments/department.models';
 import { Seniority } from '../profile/profile.models';
 import { SENIORITIES } from '../requests/request.models';
@@ -68,17 +69,24 @@ export function filtersFromParams(params: ParamMap): EmployeeSearchFilters {
   if (departmentId !== undefined) {
     filters.departmentId = departmentId;
   }
-  const from = params.get('availableFrom');
-  const to = params.get('availableTo');
+  const from = isoDate(params.get('availableFrom'));
+  const to = isoDate(params.get('availableTo'));
   const minFree = wholeNumber(params.get('minFreePercent'));
-  if (from && to && ISO_DATE.test(from) && ISO_DATE.test(to) && minFree !== undefined) {
-    if (minFree <= 100) {
-      filters.availableFrom = from;
-      filters.availableTo = to;
-      filters.minFreePercent = minFree;
-    }
+  // ISO dates compare as text. The API takes the same period, so one that it would refuse is left out
+  if (from && to && from <= to && minFree !== undefined && minFree <= 100) {
+    filters.availableFrom = from;
+    filters.availableTo = to;
+    filters.minFreePercent = minFree;
   }
   return filters;
+}
+
+/** A date such as `2026-11-02`. `2026-02-30` is not one, although it looks like it. */
+function isoDate(value: string | null): string | undefined {
+  if (value === null || !ISO_DATE.test(value)) {
+    return undefined;
+  }
+  return toIsoDate(parseIsoDate(value)) === value ? value : undefined;
 }
 
 function wholeNumber(value: string | null): number | undefined {
