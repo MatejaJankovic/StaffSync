@@ -16,7 +16,7 @@ docker compose up --build
 
 Optionally copy `.env.example` to `.env` to override `DB_USER`, `DB_PASSWORD` and `JWT_SECRET`.
 
-The backend runs with the `dev` Spring profile here, which provides a local JWT secret and the dev accounts below. Without that profile, `JWT_SECRET` is required (at least 32 characters) and the backend won't start without it.
+The backend runs with the `dev` Spring profile here, which provides a local JWT secret and the demo data below. Without that profile, `JWT_SECRET` is required (at least 32 characters) and the backend won't start without it.
 
 **Development (hot reload)**
 
@@ -34,14 +34,59 @@ docker compose down -v
 
 ## Dev accounts
 
-The `dev` profile seeds one account per role from `db/dev-seed` (there is no self-registration). Other environments don't get them.
+The `dev` profile seeds a demo dataset from `db/dev-seed` (there is no self-registration). Other environments don't get it. **Every account has the password `Password123!`.**
 
-| Name | Email | Role | Password |
+The [§4 demo](docs/CLAUDE.md#4-glavni-scenario-demo-tok) personas:
+
+| Name | Email | Role | Department | RM | Demo data |
+|---|---|---|---|---|---|
+| Ana Jovanovic | `ana_pm@staffsync.local` | PM | Engineering | | Creates *Project Alpha* live |
+| Igor Stankovic | `igor_rm@staffsync.local` | RM | Backend | | Marko's and Jelena's RM |
+| Marko Nikolic | `marko_employee@staffsync.local` | EMPLOYEE, SENIOR | Backend | Igor | Java 5, Spring 4, PostgreSQL 3, free from Nov 1 |
+| Jelena Petrovic | `jelena_employee@staffsync.local` | EMPLOYEE, MEDIOR | Backend | Igor | Java 4, Spring 3, no PostgreSQL, 60% on *Helios CRM* until Nov 14 |
+
+Admin and managers:
+
+| Name | Email | Role | Department |
 |---|---|---|---|
-| Vukasin Patkovic | `vukasin_admin@staffsync.local` | ADMIN | `Password123!` |
-| Mateja Jankovic | `mateja_pm@staffsync.local` | PM | `Password123!` |
-| Lazar Dunjic | `lazar_rm@staffsync.local` | RM | `Password123!` |
-| Bogdan Vujic | `bogdan_employee@staffsync.local` | EMPLOYEE (managed by the RM) | `Password123!` |
+| Vukasin Patkovic | `vukasin_admin@staffsync.local` | ADMIN | |
+| Mateja Jankovic | `mateja_pm@staffsync.local` | PM | Engineering |
+| Dragan Simic | `dragan_pm@staffsync.local` | PM | Engineering |
+| Lazar Dunjic | `lazar_rm@staffsync.local` | RM | Engineering |
+| Maja Kovacevic | `maja_rm@staffsync.local` | RM | Frontend |
+
+Employees (capacity 100% unless noted):
+
+| Name | Email | Seniority | Department | RM |
+|---|---|---|---|---|
+| Nikola Djordjevic | `nikola_employee@staffsync.local` | SENIOR | Backend | Igor |
+| Luka Popovic | `luka_employee@staffsync.local` | SENIOR | Backend | Igor |
+| Aleksandar Ristic | `aleksandar_employee@staffsync.local` | MEDIOR | Backend | Igor |
+| Nemanja Pavlovic | `nemanja_employee@staffsync.local` | JUNIOR | Backend | Igor |
+| Vladimir Tomic | `vladimir_employee@staffsync.local` | SENIOR | Backend | Igor |
+| Stefan Milosevic | `stefan_employee@staffsync.local` | MEDIOR, 50% | Backend | Lazar |
+| Milica Lazic | `milica_employee@staffsync.local` | JUNIOR, 80% | Backend | Lazar |
+| Ivana Markovic | `ivana_employee@staffsync.local` | MEDIOR | Backend | Lazar |
+| Teodora Ilic | `teodora_employee@staffsync.local` | SENIOR | Frontend | Maja |
+| Filip Kostic | `filip_employee@staffsync.local` | MEDIOR | Frontend | Maja |
+| Sara Mitrovic | `sara_employee@staffsync.local` | JUNIOR | Frontend | Maja |
+| Uros Zivkovic | `uros_employee@staffsync.local` | MEDIOR, 80% | Frontend | Maja |
+| Katarina Stojanovic | `katarina_employee@staffsync.local` | SENIOR, 50% | Frontend | Maja |
+| Mina Todorovic | `mina_employee@staffsync.local` | JUNIOR | Frontend | Maja |
+| Dusan Obradovic | `dusan_employee@staffsync.local` | MEDIOR | Frontend | Lazar |
+| Jovana Savic | `jovana_employee@staffsync.local` | SENIOR | QA & DevOps | Maja |
+| Marija Bogdanovic | `marija_employee@staffsync.local` | MEDIOR | QA & DevOps | Maja |
+| Ognjen Vasic | `ognjen_employee@staffsync.local` | JUNIOR, 50% | QA & DevOps | Maja |
+| Milan Cvetkovic | `milan_employee@staffsync.local` | SENIOR | QA & DevOps | Lazar |
+| Tamara Antic | `tamara_employee@staffsync.local` | MEDIOR, 80% | QA & DevOps | Lazar |
+| Djordje Radovanovic | `djordje_employee@staffsync.local` | JUNIOR | QA & DevOps | Lazar |
+| Bogdan Vujic | `bogdan_employee@staffsync.local` | MEDIOR | Engineering | Lazar |
+| Lena Grujic | `lena_employee@staffsync.local` | MEDIOR | Engineering | Igor |
+| Vuk Krstic | `vuk_employee@staffsync.local` | SENIOR, 80% | Engineering | Igor |
+| Nina Arsic | `nina_employee@staffsync.local` | MEDIOR | Engineering | Igor |
+| Petar Jovic | `petar_employee@staffsync.local` | SENIOR, 80% | Engineering | Lazar |
+| Andjela Pesic | `andjela_employee@staffsync.local` | JUNIOR | Engineering | Lazar |
+| Bojan Lukic | `bojan_employee@staffsync.local` | MEDIOR, 50% | Engineering | Maja |
 
 ## API conventions
 
