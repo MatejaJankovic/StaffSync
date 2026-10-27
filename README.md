@@ -16,7 +16,7 @@ docker compose up --build
 
 Optionally copy `.env.example` to `.env` to override `DB_USER`, `DB_PASSWORD` and `JWT_SECRET`.
 
-The backend runs with the `dev` Spring profile here, which provides a local JWT secret and the dev accounts below. Without that profile, `JWT_SECRET` is required (at least 32 characters) and the backend won't start without it.
+The backend runs with the `dev` Spring profile here, which provides a local JWT secret and the demo data below. Without that profile, `JWT_SECRET` is required (at least 32 characters) and the backend won't start without it.
 
 **Development (hot reload)**
 
@@ -32,16 +32,92 @@ Then start the backend with `backend/run-dev.cmd` (or from the IDE with the `dev
 docker compose down -v
 ```
 
+This deletes the database volume. On the next start Flyway runs every migration again, seed included, so you're back to the demo data below. Reset before every rehearsal and before the demo, because the demo changes the data. Do the same when your local database is out of sync with the migrations.
+
+## Demo
+
+The [§4 scenario](docs/CLAUDE.md#4-glavni-scenario-demo-tok), step by step. It takes about 5 minutes.
+
+**Before you start:** reset and start the stack with one command, and wait for the backend log line `Started StaffsyncBackendApplication` (Flyway applies V1–V10 just before it):
+
+```bash
+docker compose down -v && docker compose up --build
+```
+
+Open http://localhost:4200. Use *Logout* in the user menu (top right) to switch roles. The password is always `Password123!`. *Approve* in *Pending approvals* asks for a confirmation, so click *Approve* in the dialog too.
+
+| # | Log in as | Do | You should see |
+|---|---|---|---|
+| 1 | Ana, `ana_pm@staffsync.local` | *My projects* → *New project*: **Project Alpha**, any client, 1 Nov 2026 – 31 Mar 2027 (dates as DD/MM/YYYY) → *Save* | *Project created*, and Project Alpha in the list as *Planned* |
+| 2 | Ana | Open Project Alpha → *New request*: **Java Developer**, Medior, 60%, headcount 2, period 1 Nov 2026 – 31 Jan 2027. *Add skill* three times: Java ≥ 4 required, Spring ≥ 3 required, PostgreSQL ≥ 2 nice to have → *Save* | The request in the project, *Open* |
+| 3 | Ana | *Find candidates* on the request | **Marko 85** (40 + 40 + 5, *Seniority SENIOR (MEDIOR requested)*), **Jelena 67** (23 + 34 + 10, *Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)*, *Missing PostgreSQL*), then Nikola 61, Luka 60, Stefan 47, Milica 41. The other 24 employees don't have the required skills |
+| 4 | Ana | *Propose* on Marko, keep 60% and the whole period | Marko is *Proposed* |
+| 5 | Igor, `igor_rm@staffsync.local` | *Pending approvals* → Marko on Java Developer, marked **New** → *Approve* | Approved. In Ana's project the request is now *Partially filled* (1 of 2) |
+| 6 | Ana, then Igor | Ana: *Find candidates* → *Propose* Jelena for the whole period (the dialog warns about capacity). Igor: *Pending approvals* → *Approve* Jelena, then confirm | A red panel above the list: *Not approved: Jelena Petrovic would be over capacity on 10 working days* with *2 Nov 2026 – 13 Nov 2026: 60% existing + 60% new = 120%*. Jelena stays in the list, *Proposed*. (The API answers 409 with *Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity)*, which you see in Swagger) |
+| 7 | Ana, then Igor | Ana: Project Alpha → *Team* → *Withdraw* Jelena, then *Find candidates* → *Propose* Jelena with the period **15 Nov 2026 – 31 Jan 2027**. Igor: *Approve* | Approved. The request is now *Filled* |
+| 8 | Ana, then Igor | Ana: Project Alpha → *Team* → *Request change* on Marko: **80%**, with a reason. Igor: *Pending approvals* shows Marko marked **Change**, *60% → 80%* → *Approve*, then *Approve change* in the dialog | Marko's allocation is *Approved* at 80% |
+
+**If step 1 or 2 fails live:** Ana's project **Orion Customer Portal** already has the same *Java Developer* request. Open it and continue from step 3. This only works on a freshly reset database.
+
+**What the seed provides for the other screens:** Lazar and Maja each have two items in *Pending approvals* (Maja's include a **Change** on Uros), *My team* shows partial loads and people on the bench, and Jelena's *My allocations* shows her 60% on *Helios CRM*.
+
+**Swagger:** http://localhost:8080/swagger-ui.html. Log in with `POST /api/auth/login`, copy the `token`, click *Authorize* and paste it (see [Swagger](#swagger) below).
+
 ## Dev accounts
 
-The `dev` profile seeds one account per role from `db/dev-seed` (there is no self-registration). Other environments don't get them.
+The `dev` profile seeds a demo dataset from `db/dev-seed` (there is no self-registration). Other environments don't get it. **Every account has the password `Password123!`.**
 
-| Name | Email | Role | Password |
+The [§4 demo](docs/CLAUDE.md#4-glavni-scenario-demo-tok) personas:
+
+| Name | Email | Role | Department | RM | Demo data |
+|---|---|---|---|---|---|
+| Ana Jovanovic | `ana_pm@staffsync.local` | PM | Engineering | | Creates *Project Alpha* live |
+| Igor Stankovic | `igor_rm@staffsync.local` | RM | Backend | | Marko's and Jelena's RM |
+| Marko Nikolic | `marko_employee@staffsync.local` | EMPLOYEE, SENIOR | Backend | Igor | Java 5, Spring 4, PostgreSQL 3, free from Nov 1 |
+| Jelena Petrovic | `jelena_employee@staffsync.local` | EMPLOYEE, MEDIOR | Backend | Igor | Java 4, Spring 3, no PostgreSQL, 60% on *Helios CRM* until Nov 14 |
+
+Admin and managers:
+
+| Name | Email | Role | Department |
 |---|---|---|---|
-| Vukasin Patkovic | `vukasin_admin@staffsync.local` | ADMIN | `Password123!` |
-| Mateja Jankovic | `mateja_pm@staffsync.local` | PM | `Password123!` |
-| Lazar Dunjic | `lazar_rm@staffsync.local` | RM | `Password123!` |
-| Bogdan Vujic | `bogdan_employee@staffsync.local` | EMPLOYEE (managed by the RM) | `Password123!` |
+| Vukasin Patkovic | `vukasin_admin@staffsync.local` | ADMIN | |
+| Mateja Jankovic | `mateja_pm@staffsync.local` | PM | Engineering |
+| Dragan Simic | `dragan_pm@staffsync.local` | PM | Engineering |
+| Lazar Dunjic | `lazar_rm@staffsync.local` | RM | Engineering |
+| Maja Kovacevic | `maja_rm@staffsync.local` | RM | Frontend |
+
+Employees (capacity 100% unless noted):
+
+| Name | Email | Seniority | Department | RM |
+|---|---|---|---|---|
+| Nikola Djordjevic | `nikola_employee@staffsync.local` | SENIOR | Backend | Igor |
+| Luka Popovic | `luka_employee@staffsync.local` | SENIOR | Backend | Igor |
+| Aleksandar Ristic | `aleksandar_employee@staffsync.local` | MEDIOR | Backend | Igor |
+| Nemanja Pavlovic | `nemanja_employee@staffsync.local` | JUNIOR | Backend | Igor |
+| Vladimir Tomic | `vladimir_employee@staffsync.local` | SENIOR | Backend | Igor |
+| Stefan Milosevic | `stefan_employee@staffsync.local` | MEDIOR, 50% | Backend | Lazar |
+| Milica Lazic | `milica_employee@staffsync.local` | JUNIOR, 80% | Backend | Lazar |
+| Ivana Markovic | `ivana_employee@staffsync.local` | MEDIOR | Backend | Lazar |
+| Teodora Ilic | `teodora_employee@staffsync.local` | SENIOR | Frontend | Maja |
+| Filip Kostic | `filip_employee@staffsync.local` | MEDIOR | Frontend | Maja |
+| Sara Mitrovic | `sara_employee@staffsync.local` | JUNIOR | Frontend | Maja |
+| Uros Zivkovic | `uros_employee@staffsync.local` | MEDIOR, 80% | Frontend | Maja |
+| Katarina Stojanovic | `katarina_employee@staffsync.local` | SENIOR, 50% | Frontend | Maja |
+| Mina Todorovic | `mina_employee@staffsync.local` | JUNIOR | Frontend | Maja |
+| Dusan Obradovic | `dusan_employee@staffsync.local` | MEDIOR | Frontend | Lazar |
+| Jovana Savic | `jovana_employee@staffsync.local` | SENIOR | QA & DevOps | Maja |
+| Marija Bogdanovic | `marija_employee@staffsync.local` | MEDIOR | QA & DevOps | Maja |
+| Ognjen Vasic | `ognjen_employee@staffsync.local` | JUNIOR, 50% | QA & DevOps | Maja |
+| Milan Cvetkovic | `milan_employee@staffsync.local` | SENIOR | QA & DevOps | Lazar |
+| Tamara Antic | `tamara_employee@staffsync.local` | MEDIOR, 80% | QA & DevOps | Lazar |
+| Djordje Radovanovic | `djordje_employee@staffsync.local` | JUNIOR | QA & DevOps | Lazar |
+| Bogdan Vujic | `bogdan_employee@staffsync.local` | MEDIOR | Engineering | Lazar |
+| Lena Grujic | `lena_employee@staffsync.local` | MEDIOR | Engineering | Igor |
+| Vuk Krstic | `vuk_employee@staffsync.local` | SENIOR, 80% | Engineering | Igor |
+| Nina Arsic | `nina_employee@staffsync.local` | MEDIOR | Engineering | Igor |
+| Petar Jovic | `petar_employee@staffsync.local` | SENIOR, 80% | Engineering | Lazar |
+| Andjela Pesic | `andjela_employee@staffsync.local` | JUNIOR | Engineering | Lazar |
+| Bojan Lukic | `bojan_employee@staffsync.local` | MEDIOR, 50% | Engineering | Maja |
 
 ## API conventions
 
