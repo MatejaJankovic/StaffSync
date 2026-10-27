@@ -120,11 +120,17 @@ test/
 | Jelena | `jelena_employee@staffsync.local` | EMPLOYEE, MEDIOR | Second candidate (67), 60% busy until Nov 14 |
 | Lazar | `lazar_rm@staffsync.local` | RM | "Another team's RM" in negative tests |
 | Vukasin | `vukasin_admin@staffsync.local` | ADMIN | Admin actions, deactivating a user |
+| Stefan | `stefan_employee@staffsync.local` | EMPLOYEE, part-time 50% | Part-time over capacity. His PROPOSED 50% doesn't count (BR-2) |
+| Milica | `milica_employee@staffsync.local` | EMPLOYEE, part-time 80% | Part-time at exactly her capacity. APPROVED 50% Dec 1 – Jan 29 |
 
-The personas come from the demo seed in PR #131 (US-15), which isn't merged yet (see [Risks](#7-risks)).
+The personas come from the demo seed (US-15, `backend/src/main/resources/db/dev-seed/V8`–`V10`). Stefan and Milica are in Lazar's team, so Lazar approves them.
 
-- **Boundary data**, taken from §7 and §16 of the spec: exactly 100% load (40% + 60%), 110% load, an overlap only on the boundary day, adjacent periods, an overlap only on a weekend, and part-time employees at 50% and 80% (Stefan, Milica).
-- **Clean data for every run:** tests that change data either start from a freshly reset database (`docker compose down -v`) or create their own project with a unique name, so a test can be run again without a reset.
+- **Boundary data**, taken from §7 and §16 of the spec. Each item has an API test case in [TEST_CASES.md §2](TEST_CASES.md#2-api-main-flow-and-allocation-rules):
+  - exactly 100% load (40% + 60%) and 110% load: Jelena on Nov 2 – 13
+  - an overlap only on the boundary day, adjacent periods, and an overlap only on a weekend: Jelena's Helios allocation ends on Sat Nov 14
+  - part-time employees at 50% and 80%: Stefan and Milica
+- The first capacity example in §7 skips absence days. Absences are stretch work, so without them the overloaded days in that example are Nov 10 – 13 and Nov 16 – 20.
+- **Clean data for every run:** the API suite and the E2E test start from a freshly reset database (`docker compose down -v && docker compose up --build`). A unique project name isn't enough, because load is counted per employee across all projects: a second run would find Marko and Jelena already booked. Boundary cases that approve an allocation only to check the status code cancel it at the end, so they don't affect the next case.
 
 ## 5. Entry and exit criteria
 
@@ -133,6 +139,12 @@ The personas come from the demo seed in PR #131 (US-15), which isn't merged yet 
 - the feature is merged into `main`
 - the full stack starts with `docker compose up --build`, and login works
 - for E2E: the demo seed (US-15) is merged
+
+QA tests merged code on `main`, as §13 of the spec says. QA approval isn't required on pull requests. When a developer asks QA to look at a pull request before it merges, QA does it as soon as possible, but the pull request doesn't wait for QA.
+
+### Bugs
+
+A bug found on `main` is reported straight to the story owner on the team channel, so it can be fixed right away. If it isn't fixed the same day, it becomes a GitHub issue from the *Bug* template, linked to the story and assigned to its owner.
 
 ### Exit: QA signs off for the demo when
 
@@ -155,6 +167,6 @@ The personas come from the demo seed in PR #131 (US-15), which isn't merged yet 
 
 | Risk | Mitigation |
 |---|---|
-| The demo seed (PR #131) merges late or changes | The E2E test reads the persona data from one fixture file, so changes stay in one place. Until it merges, test on the PR branch |
-| Tests that change data fail on the second run | Reset the database before a run, or create data with unique names |
+| The demo seed changes | The tests read the persona data from one fixture file, so changes stay in one place |
+| Tests that change data fail on the second run, because capacity is counted per employee across projects | The API suite and the E2E test always start from a reset database. Boundary cases cancel the allocations they approve |
 | UI selectors break when the UI changes | Use roles and labels (`getByRole`, `getByLabel`) instead of CSS classes, all inside page objects |

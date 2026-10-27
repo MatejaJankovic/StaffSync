@@ -49,9 +49,9 @@ Endpoint: `POST /api/auth/login` with body `{ "email": "...", "password": "..." 
 
 ## 2. API: Main flow and allocation rules
 
-These cases use the §4 demo data. Unless stated otherwise, the PM is Ana and the RM is Igor. The setup (project and request) is created through the API with a unique project name, so the tests can run again.
+These cases use the §4 demo data on a freshly reset database (see [test plan §4](TEST_PLAN.md#4-test-environment-and-data)). Unless stated otherwise, the PM is Ana and the RM is Igor. The setup (project and requests) is created through the API.
 
-**Setup used by the cases below:** a project (Nov 1, 2026 – Mar 31, 2027) and a request *Java Developer*, MEDIOR, 60%, Nov 1, 2026 – Jan 31, 2027, headcount 2, Java ≥ 4 and Spring ≥ 3 required, PostgreSQL ≥ 2 nice to have.
+**Setup used by the cases below:** a project (Nov 1, 2026 – Mar 31, 2027) and a request *Java Developer*, MEDIOR, 60%, Nov 1, 2026 – Jan 31, 2027, headcount 2, Java ≥ 4 and Spring ≥ 3 required, PostgreSQL ≥ 2 nice to have. The boundary cases (TC_API_FLOW_006 and 017 – 023) each create **their own request** with the same period and skills, so they don't fill the main request or overlap each other (BR-8). At the end, each one withdraws or cancels the allocations it created, so capacity is clean for the next case.
 
 | ID | Scenario | Preconditions | Test data | Expected result | Type | Priority | Ref | Automated |
 |---|---|---|---|---|---|---|---|---|
@@ -71,6 +71,14 @@ These cases use the §4 demo data. Unless stated otherwise, the PM is Ana and th
 | TC_API_FLOW_014 | Change request 60% → 80%, approved by the RM | Marko `APPROVED` at 60% | `POST /api/allocations/{id}/change-request` with `percent` = 80 and a reason, then `approve` as Igor | After the change request: `CHANGE_PENDING`, still 60%, and Igor's pending list has it with `type` = `CHANGE`. After approve: `APPROVED` at 80% | Positive | High | US-13, BR-15, T-29 | `tests/api/allocations.spec.ts` |
 | TC_API_FLOW_015 | Second change while one is pending | Marko `CHANGE_PENDING` | Another `change-request` | 409, `code` = `CHANGE_ALREADY_PENDING` | Negative | Medium | BR-15, T-31 | `tests/api/allocations.spec.ts` |
 | TC_API_FLOW_016 | REST Assured: login and one allocation rule | – | TC_API_AUTH_001, TC_API_AUTH_003 and TC_API_FLOW_005 written in REST Assured | Same results as the Playwright tests | Positive / Negative | Medium | Practice | `backend/.../qa/*Tests.java` |
+| TC_API_FLOW_017 | Overlap on the boundary day | Jelena's Helios 60% ends Sat Nov 14 | Propose Jelena at 60% for Nov 13 – Jan 31, `approve` as Igor | 409, `CAPACITY_EXCEEDED`, the message names 2026-11-13 only (Fri, 120%) | Boundary | High | BR-1, T-03 | `tests/api/allocations.spec.ts` |
+| TC_API_FLOW_018 | Adjacent periods | Same | Propose Jelena at 60% for Nov 15 – Jan 31, `approve` as Igor | 200, `APPROVED`. The periods don't overlap | Boundary | High | BR-1, T-04 | `tests/api/allocations.spec.ts` |
+| TC_API_FLOW_019 | Overlap only on a weekend | Same | Propose Jelena at 60% for Nov 14 – Jan 31, `approve` as Igor | 200, `APPROVED`. The only shared day is Saturday, which doesn't count | Boundary | High | BR-1, T-06 | `tests/api/allocations.spec.ts` |
+| TC_API_FLOW_020 | Part-time 50% employee over capacity | Stefan (50%) has a PROPOSED 50% from the seed | Propose Stefan at 60% for Nov 2 – Jan 29, `approve` as Lazar | 409, `CAPACITY_EXCEEDED`, the message ends with *(60% of 50% capacity)*. His PROPOSED 50% isn't counted | Boundary | High | BR-1, BR-2, T-05 | `tests/api/allocations.spec.ts` |
+| TC_API_FLOW_021 | Part-time 80% employee at and over capacity | Milica (80%) is APPROVED 50% Dec 1 – Jan 29 | Propose Milica at 30% for Dec 1 – Jan 29, `approve` as Lazar. Cancel it, then the same at 40% | 30%: 200, `APPROVED` (exactly 80%). 40%: 409, `CAPACITY_EXCEEDED`, *(90% of 80% capacity)* | Boundary | Medium | BR-1, T-01 | `tests/api/allocations.spec.ts` |
+| TC_API_FLOW_022 | Capacity uses the old values while a change is pending | Marko `CHANGE_PENDING` 60% → 80% on the main request (TC_API_FLOW_014 before the approve) | Propose Marko at 40% for Nov 1 – Jan 31 on this case's own request, `approve` as Igor | 200, `APPROVED` (60% + 40% = 100%). The pending 80% isn't counted | Boundary | High | BR-16, T-36 | `tests/api/allocations.spec.ts` |
+| TC_API_FLOW_023 | Approve a change that goes over capacity | Jelena `APPROVED` at 40% for Nov 2 – 13, as in TC_API_FLOW_006 | `change-request` to 60%, then `approve` as Igor | 409, `CAPACITY_EXCEEDED`. Jelena stays `CHANGE_PENDING` at 40%, and the change is still in Igor's pending list | Negative | Medium | BR-15, BR-1, T-30 | `tests/api/allocations.spec.ts` |
+| TC_API_FLOW_024 | Change request on a proposal | Marko `PROPOSED` | `change-request` with `percent` = 80 | 409, `code` = `INVALID_ALLOCATION_STATUS` | Negative | Low | BR-15, T-33 | `tests/api/allocations.spec.ts` |
 
 ## 3. UI: Login and navigation
 
@@ -97,7 +105,7 @@ These cases use the §4 demo data. Unless stated otherwise, the PM is Ana and th
 | TC_UI_PROJ_002 | Project form validation | *New project* dialog open | Leave the name empty, set the end date before the start date | Validation errors are shown and *Save* doesn't create the project | Negative | Medium | US-04, BR-3 | `tests/ui/projects.spec.ts` |
 | TC_UI_REQ_001 | Create a staffing request with skills | Ana's project exists | *New request* → title, seniority, 60%, headcount 2, dates, *Add skill* three times → *Save* | The request is on the project as *Open* | Positive | High | US-05 | `tests/ui/requests.spec.ts` |
 | TC_UI_CAND_001 | Candidates page shows the ranking | Request from TC_UI_REQ_001 | *Find candidates* | Candidates in score order, each with its score breakdown, reasons and warnings. Marko 85 is first | Positive | High | US-11 | `tests/ui/candidates.spec.ts` |
-| TC_UI_CAND_002 | Propose dialog is pre-filled and warns about capacity | Candidates page open | *Propose* on Jelena | The dialog has the request's period and 60%, and shows a capacity warning | Positive | Medium | US-11, BR-2 | `tests/ui/candidates.spec.ts` |
+| TC_UI_CAND_002 | Propose dialog is pre-filled and shows the candidate's warning | Candidates page open | *Propose* on Jelena | The dialog has the request's period and 60%, and shows Jelena's capacity warning from matching | Positive | Medium | US-11 | `tests/ui/candidates.spec.ts` |
 | TC_UI_APPR_001 | Pending approvals show New and Change | Igor has one new proposal and one pending change | Log in as Igor → *Pending approvals* | One item is marked *New*. The other is marked *Change* and shows old → new values | Positive | High | US-14 | `tests/ui/approvals.spec.ts` |
 | TC_UI_APPR_002 | Capacity error is shown on approve | Jelena proposed for the whole period | Igor → *Approve* Jelena | An error message *Capacity exceeded on 2026-11-02 – 2026-11-13 ...*, and Jelena stays in the list | Negative | High | BR-1 | `tests/ui/approvals.spec.ts` |
 | TC_UI_APPR_003 | Reject needs a comment | A proposal is pending | *Reject* → leave the comment empty or type fewer than 10 characters | The dialog shows a validation error and doesn't reject | Negative | Medium | BR-6 | `tests/ui/approvals.spec.ts` |
@@ -118,18 +126,33 @@ These cases use the §4 demo data. Unless stated otherwise, the PM is Ana and th
 
 ## 7. Coverage of the original test matrix
 
-How the T-xx cases from §16 are covered in this sprint. Many of them are already tested by the developers' unit and controller tests in `backend/src/test`.
+How the T-xx cases from §16 are covered in this sprint. *Issue* is the QA issue that tracks the case. *Developer tests* are the existing tests in `backend/src/test`.
 
-| T-xx | Covered by QA in | Not covered by QA (reason) |
-|---|---|---|
-| T-01, T-02 | TC_API_FLOW_006, TC_API_FLOW_005 | |
-| T-03 – T-06 | | Developer unit tests (`CapacityServiceTests`). QA adds them only if time allows |
-| T-07, T-28 | | Stretch, out of this sprint |
-| T-08 | TC_UI_CAND_002 (warning shown) | |
-| T-09 – T-16 | TC_API_FLOW_007 – TC_API_FLOW_013 (T-10 is manual) | |
-| T-17 – T-23 | | Developer tests. QA covers the main parts in the E2E flow (T-19) and exploratory testing |
-| T-24, T-25 | TC_API_FLOW_001, TC_API_FLOW_002 | |
-| T-26, T-27, T-37, T-38, T-39 | TC_API_AUTH_002 – TC_API_AUTH_005, TC_API_AUTH_014, TC_API_AUTH_015, TC_API_AUTH_017, TC_UI_LOGIN_002, TC_UI_LOGIN_003 | |
-| T-29, T-31 | TC_API_FLOW_014, TC_API_FLOW_015 | |
-| T-30, T-32 – T-36 | | Developer tests. QA adds them only if time allows |
-| T-40 | TC_UI_MISC_001 (manual) | |
+| T-xx | Covered by QA in | Developer tests | Issue |
+|---|---|---|---|
+| T-01 | TC_API_FLOW_006, TC_API_FLOW_021 (part-time) | | #94 |
+| T-02 | TC_API_FLOW_005 | | #94 |
+| T-03 | TC_API_FLOW_017 | `AllocationRepositoryTests` (the overlap query only) | #94 |
+| T-04 | TC_API_FLOW_018 | `AllocationRepositoryTests` (the overlap query only) | #94 |
+| T-05 | TC_API_FLOW_020 | `CapacityServiceTests` | #94 |
+| T-06 | TC_API_FLOW_019 | `CapacityServiceTests` (working days only) | #94 |
+| T-07, T-28 | – | – | Stretch, out of this sprint |
+| T-08 | – | `AllocationControllerTests` (201 with a warning) | #94, not automated by QA |
+| T-09 | TC_API_FLOW_013 | | #94 |
+| T-10 | – | `AllocationServiceTests`, `AllocationControllerTests` | #94, not automated by QA |
+| T-11 – T-16 | TC_API_FLOW_009, 007, 008, 010, 011, 012 | | #94 |
+| T-17, T-18, T-20 – T-23 | Exploratory | `AllocationControllerTests`, `AllocationServiceTests`, `ProjectControllerTests`, `UserControllerTests` | #94, not automated by QA |
+| T-19 | TC_E2E_001 (step 7) | `RequestStatusServiceTests`, `AllocationControllerTests` | #98 |
+| T-24, T-25 | TC_API_FLOW_002, TC_API_FLOW_001 | `MatchingServiceTests` | #94 |
+| T-26 | TC_API_AUTH_015 (invalid token) | `AuthControllerTests` (expired token) | #93 |
+| T-27, T-37, T-38 | TC_API_AUTH_002 – 005, TC_API_AUTH_017, TC_UI_LOGIN_002, TC_UI_LOGIN_003 | | #93 |
+| T-29, T-31 | TC_API_FLOW_014, TC_API_FLOW_015 | | #95 |
+| T-30 | TC_API_FLOW_023 | `AllocationServiceTests` | #95 |
+| T-32 | – | `AllocationServiceTests`. Two codes: the change request is 400 `ALLOCATION_ALREADY_STARTED`, and approving such a change after the start date is 409 with the same code | #95, not automated by QA |
+| T-33 | TC_API_FLOW_024 | `AllocationServiceTests` | #95 |
+| T-34, T-35 | – | `AllocationControllerTests` | #95, not automated by QA |
+| T-36 | TC_API_FLOW_022 (capacity uses the old values) | `AllocationControllerTests`, `RequestStatusServiceTests` (the request stays FILLED) | #95 |
+| T-39 | TC_API_AUTH_014 (no token) | `OpenApiDocsTests` (Swagger UI) | #93 |
+| T-40 | TC_UI_MISC_001 (manual) | `DashboardControllerTests` | #99 |
+
+The full authorization matrix (every endpoint × every role) isn't part of this sprint. The key checks are TC_API_AUTH_014 – 016 and TC_API_FLOW_007 – 009.
