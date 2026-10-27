@@ -33,6 +33,15 @@ export class AllocationsApi {
     return this.request.post(`/api/allocations/${id}/cancel`, { headers: bearer(this.token) });
   }
 
+  /** The PM asks to change an approved allocation (BR-15). Values left out keep their current value. */
+  requestChange(id: number, change: { percent?: number; startDate?: string; endDate?: string; reason: string }): Promise<APIResponse> {
+    return this.request.post(`/api/allocations/${id}/change-request`, { data: change, headers: bearer(this.token) });
+  }
+
+  withdrawChange(id: number): Promise<APIResponse> {
+    return this.request.delete(`/api/allocations/${id}/change-request`, { headers: bearer(this.token) });
+  }
+
   pending(): Promise<APIResponse> {
     return this.request.get('/api/allocations/pending', { headers: bearer(this.token) });
   }

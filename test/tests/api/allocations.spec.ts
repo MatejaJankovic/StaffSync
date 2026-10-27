@@ -7,7 +7,8 @@ import { NewRequest, RequestsApi } from '../../api/RequestsApi';
 import { SkillsApi } from '../../api/SkillsApi';
 import { PASSWORD, users } from '../../fixtures/users';
 
-// Test cases TC_API_FLOW_001 – 013 and 017 – 021 in docs/TEST_CASES.md §2: the main flow and the allocation rules.
+// Test cases TC_API_FLOW_001 – 015 and 017 – 024 in docs/TEST_CASES.md §2: the main flow, the allocation rules and
+// the change workflow.
 // Needs a freshly reset database (docker compose down -v): the cases book real capacity of the seeded employees.
 // The cases build on each other (Marko is proposed, then approved), so they run in order.
 test.describe.configure({ mode: 'serial' });
@@ -261,5 +262,76 @@ test.describe('capacity boundaries', () => {
 
     expect(error.message).toContain('(50% existing + 40% new = 90% of 80% capacity)');
     expect((await ana.allocations.cancel(overCapacity)).status()).toBe(200);
+  });
+});
+
+// BR-15 and BR-16. Marko is APPROVED at 60% on the main request since TC_API_FLOW_004.
+test.describe('change workflow', () => {
+  const REASON = 'The client asked for more work on the reporting module';
+
+  test('TC_API_FLOW_024 change request on a proposal', async () => {
+    const id = await propose({ requestId, employeeId: employeeId.jelena, startDate: '2026-11-16', endDate: PERIOD.endDate });
+
+    await expectError(await ana.allocations.requestChange(id, { percent: 80, reason: REASON }), 409, 'INVALID_ALLOCATION_STATUS');
+    expect((await ana.allocations.cancel(id)).status()).toBe(200);
+  });
+
+  test('TC_API_FLOW_014 change request 60% → 80% waits for the RM as CHANGE', async () => {
+    const response = await ana.allocations.requestChange(markoAllocationId, { percent: 80, reason: REASON });
+
+    expect(response.status()).toBe(200);
+    expect((await response.json()).allocation).toMatchObject({ status: 'CHANGE_PENDING', percent: 60, pendingPercent: 80 });
+    const pending: { type: string; allocation: { id: number } }[] = (await (await igor.pending()).json()).content;
+    expect(pending.find((item) => item.allocation.id === markoAllocationId)?.type).toBe('CHANGE');
+  });
+
+  test('TC_API_FLOW_015 second change while one is pending', async () => {
+    const response = await ana.allocations.requestChange(markoAllocationId, { percent: 90, reason: REASON });
+
+    await expectError(response, 409, 'CHANGE_ALREADY_PENDING');
+  });
+
+  test('TC_API_FLOW_022 capacity uses the old values while a change is pending', async () => {
+    // 60% + 40% = 100% passes. With the pending 80% it would be 120%
+    const id = await propose({ requestId: await createRequest('Change pending'), employeeId: employeeId.marko, percent: 40 });
+
+    const response = await igor.approve(id);
+
+    expect(response.status()).toBe(200);
+    expect((await ana.allocations.cancel(id)).status()).toBe(200);
+  });
+
+  test('TC_API_FLOW_014 RM approves the change', async () => {
+    const response = await igor.approve(markoAllocationId);
+
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toMatchObject({ status: 'APPROVED', percent: 80, pendingPercent: null });
+  });
+
+  test('TC_API_FLOW_023 approve a change that goes over capacity', async () => {
+    const id = await propose({
+      requestId: await createRequest('Change over capacity'),
+      employeeId: employeeId.jelena,
+      percent: 40,
+      startDate: '2026-11-02',
+      endDate: '2026-11-13',
+    });
+    expect((await igor.approve(id)).status()).toBe(200);
+    expect((await ana.allocations.requestChange(id, { percent: 60, reason: REASON })).status()).toBe(200);
+
+    const error = await expectError(await igor.approve(id), 409, 'CAPACITY_EXCEEDED');
+
+    expect(error.message).toBe(
+      'Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity)',
+    );
+    const pending: { type: string; allocation: { id: number; status: string; percent: number } }[] = (
+      await (await igor.pending()).json()
+    ).content;
+    expect(pending.find((item) => item.allocation.id === id)).toMatchObject({
+      type: 'CHANGE',
+      allocation: { status: 'CHANGE_PENDING', percent: 40 },
+    });
+    expect((await ana.allocations.withdrawChange(id)).status()).toBe(200);
+    expect((await ana.allocations.cancel(id)).status()).toBe(200);
   });
 });
