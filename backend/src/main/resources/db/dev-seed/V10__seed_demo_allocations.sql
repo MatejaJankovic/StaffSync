@@ -45,7 +45,7 @@ FROM (VALUES
     ('Atlas Analytics Platform', 'QA Engineer', 'marija', 50, '2026-09-15', '2027-01-29', 'APPROVED',
      '2026-09-02 10:30+02', '2026-09-03 09:40+02', NULL, NULL, NULL, NULL),
     ('Nova HR Self-service', 'Angular Developer', 'teodora', 100, '2026-12-01', '2027-03-31', 'PROPOSED',
-     '2026-10-26 09:40+02', NULL, NULL, NULL, NULL, NULL)
+     '2026-10-26 09:40+01', NULL, NULL, NULL, NULL, NULL)
 ) AS v (project, title, employee, percent, start_date, end_date, status, created_at, decided_at,
         pending_percent, pending_start_date, pending_end_date, change_reason)
 LEFT JOIN project p ON p.name = v.project

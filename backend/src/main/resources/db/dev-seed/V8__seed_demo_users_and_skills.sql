@@ -2,7 +2,8 @@
 -- Adds to the accounts from V2. Same dev password for everyone: Password123! (see README)
 -- The §4 personas: Ana (PM), Igor (RM of Marko and Jelena), Marko and Jelena.
 -- Lookups go through LEFT JOINs, so a typo in an email or a skill name hits a NOT NULL column and
--- the migration fails instead of silently dropping the row.
+-- the migration fails instead of silently dropping the row. department_id and manager_id are nullable,
+-- so a typo there would leave them empty without an error: the check after the employees catches that.
 
 INSERT INTO department (name) VALUES
     ('Backend'),
@@ -65,9 +66,18 @@ FROM (VALUES
 LEFT JOIN department d ON d.name = v.department
 LEFT JOIN users m ON m.email = v.manager || '@staffsync.local';
 
+-- A typo in a department or a manager would otherwise only show up as a person without a team in the demo
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM users WHERE role IN ('PM', 'RM', 'EMPLOYEE') AND department_id IS NULL)
+       OR EXISTS (SELECT 1 FROM users WHERE role = 'EMPLOYEE' AND manager_id IS NULL) THEN
+        RAISE EXCEPTION 'Demo seed: a PM, RM or employee has no department, or an employee has no manager';
+    END IF;
+END $$;
+
 -- The §4 request asks for Java >= 4 and Spring >= 3 (required) and PostgreSQL >= 2 (nice to have).
 -- Marko scores 85 and Jelena 67. Everyone else who passes the filter (Nikola, Luka, Stefan, Milica) stays
--- below 67 because of their load or capacity (V10). Aleksandar, Nemanja, Vuk, Dusan, Bogdan and Jovana
+-- below 67 because of their load or capacity (V10). Aleksandar, Nemanja, Vuk, Petar, Dusan, Bogdan and Jovana
 -- know some Java or Spring, but not enough, so the filter removes them.
 INSERT INTO employee_skill (user_id, skill_id, level, years_of_experience)
 SELECT u.id, s.id, v.level, v.years

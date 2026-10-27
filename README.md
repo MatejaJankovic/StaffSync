@@ -44,7 +44,7 @@ The [§4 scenario](docs/CLAUDE.md#4-glavni-scenario-demo-tok), step by step. It 
 docker compose down -v && docker compose up --build
 ```
 
-Open http://localhost:4200. Log out between roles from the user menu in the top right. The password is always `Password123!`.
+Open http://localhost:4200. Use *Logout* in the user menu (top right) to switch roles. The password is always `Password123!`. *Approve* in *Pending approvals* asks for a confirmation, so click *Approve* in the dialog too.
 
 | # | Log in as | Do | You should see |
 |---|---|---|---|
@@ -53,9 +53,9 @@ Open http://localhost:4200. Log out between roles from the user menu in the top 
 | 3 | Ana | *Find candidates* on the request | **Marko 85** (40 + 40 + 5, *Seniority SENIOR (MEDIOR requested)*), **Jelena 67** (23 + 34 + 10, *Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)*, *Missing PostgreSQL*), then Nikola 61, Luka 60, Stefan 47, Milica 41. The other 24 employees don't have the required skills |
 | 4 | Ana | *Propose* on Marko, keep 60% and the whole period | Marko is *Proposed* |
 | 5 | Igor, `igor_rm@staffsync.local` | *Pending approvals* → Marko on Java Developer, marked **New** → *Approve* | Approved. In Ana's project the request is now *Partially filled* (1 of 2) |
-| 6 | Ana, then Igor | Ana: *Find candidates* → *Propose* Jelena for the whole period (the dialog warns about capacity). Igor: *Pending approvals* → *Approve* Jelena | Error: *Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity)*. Jelena stays *Proposed* |
+| 6 | Ana, then Igor | Ana: *Find candidates* → *Propose* Jelena for the whole period (the dialog warns about capacity). Igor: *Pending approvals* → *Approve* Jelena, then confirm | A red panel above the list: *Not approved: Jelena Petrovic would be over capacity on 10 working days* with *2 Nov 2026 – 13 Nov 2026: 60% existing + 60% new = 120%*. Jelena stays in the list, *Proposed*. (The API answers 409 with *Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity)*, which you see in Swagger) |
 | 7 | Ana, then Igor | Ana: Project Alpha → *Team* → *Withdraw* Jelena, then *Find candidates* → *Propose* Jelena with the period **15 Nov 2026 – 31 Jan 2027**. Igor: *Approve* | Approved. The request is now *Filled* |
-| 8 | Ana, then Igor | Ana: Project Alpha → *Team* → *Request change* on Marko: **80%**, with a reason. Igor: *Pending approvals* shows Marko marked **Change**, *60% → 80%* → *Approve change* | Marko's allocation is *Approved* at 80% |
+| 8 | Ana, then Igor | Ana: Project Alpha → *Team* → *Request change* on Marko: **80%**, with a reason. Igor: *Pending approvals* shows Marko marked **Change**, *60% → 80%* → *Approve*, then *Approve change* in the dialog | Marko's allocation is *Approved* at 80% |
 
 **If step 1 or 2 fails live:** Ana's project **Orion Customer Portal** already has the same *Java Developer* request. Open it and continue from step 3. This only works on a freshly reset database.
 
