@@ -1,0 +1,14 @@
+{
+  "name": "staffsync-tests",
+  "private": true,
+  "description": "QA tests for StaffSync: Playwright API, UI and E2E tests",
+  "scripts": {
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.5"
+  }
+}
