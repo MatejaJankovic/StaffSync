@@ -32,6 +32,37 @@ Then start the backend with `backend/run-dev.cmd` (or from the IDE with the `dev
 docker compose down -v
 ```
 
+This deletes the database volume. On the next start Flyway runs every migration again, seed included, so you're back to the demo data below. Reset before every rehearsal and before the demo, because the demo changes the data. Do the same when your local database is out of sync with the migrations.
+
+## Demo
+
+The [§4 scenario](docs/CLAUDE.md#4-glavni-scenario-demo-tok), step by step. It takes about 5 minutes.
+
+**Before you start:** reset and start the stack with one command, and wait for the backend log line `Started StaffsyncBackendApplication` (Flyway applies V1–V10 just before it):
+
+```bash
+docker compose down -v && docker compose up --build
+```
+
+Open http://localhost:4200. Log out between roles from the user menu in the top right. The password is always `Password123!`.
+
+| # | Log in as | Do | You should see |
+|---|---|---|---|
+| 1 | Ana, `ana_pm@staffsync.local` | *My projects* → *New project*: **Project Alpha**, any client, 1 Nov 2026 – 31 Mar 2027 (dates as DD/MM/YYYY) → *Save* | *Project created*, and Project Alpha in the list as *Planned* |
+| 2 | Ana | Open Project Alpha → *New request*: **Java Developer**, Medior, 60%, headcount 2, period 1 Nov 2026 – 31 Jan 2027. *Add skill* three times: Java ≥ 4 required, Spring ≥ 3 required, PostgreSQL ≥ 2 nice to have → *Save* | The request in the project, *Open* |
+| 3 | Ana | *Find candidates* on the request | **Marko 85** (40 + 40 + 5, *Seniority SENIOR (MEDIOR requested)*), **Jelena 67** (23 + 34 + 10, *Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)*, *Missing PostgreSQL*), then Nikola 61, Luka 60, Stefan 47, Milica 41. The other 24 employees don't have the required skills |
+| 4 | Ana | *Propose* on Marko, keep 60% and the whole period | Marko is *Proposed* |
+| 5 | Igor, `igor_rm@staffsync.local` | *Pending approvals* → Marko on Java Developer, marked **New** → *Approve* | Approved. In Ana's project the request is now *Partially filled* (1 of 2) |
+| 6 | Ana, then Igor | Ana: *Find candidates* → *Propose* Jelena for the whole period (the dialog warns about capacity). Igor: *Pending approvals* → *Approve* Jelena | Error: *Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity)*. Jelena stays *Proposed* |
+| 7 | Ana, then Igor | Ana: Project Alpha → *Team* → *Withdraw* Jelena, then *Find candidates* → *Propose* Jelena with the period **15 Nov 2026 – 31 Jan 2027**. Igor: *Approve* | Approved. The request is now *Filled* |
+| 8 | Ana, then Igor | Ana: Project Alpha → *Team* → *Request change* on Marko: **80%**, with a reason. Igor: *Pending approvals* shows Marko marked **Change**, *60% → 80%* → *Approve change* | Marko's allocation is *Approved* at 80% |
+
+**If step 1 or 2 fails live:** Ana's project **Orion Customer Portal** already has the same *Java Developer* request. Open it and continue from step 3. This only works on a freshly reset database.
+
+**What the seed provides for the other screens:** Lazar and Maja each have two items in *Pending approvals* (Maja's include a **Change** on Uros), *My team* shows partial loads and people on the bench, and Jelena's *My allocations* shows her 60% on *Helios CRM*.
+
+**Swagger:** http://localhost:8080/swagger-ui.html. Log in with `POST /api/auth/login`, copy the `token`, click *Authorize* and paste it (see [Swagger](#swagger) below).
+
 ## Dev accounts
 
 The `dev` profile seeds a demo dataset from `db/dev-seed` (there is no self-registration). Other environments don't get it. **Every account has the password `Password123!`.**
