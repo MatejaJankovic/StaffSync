@@ -10,7 +10,7 @@ tests/api/  API tests
 
 ## Run
 
-1. Start the full stack from the repo root, on a freshly reset database:
+1. Start the full stack from the repo root. The first run needs a freshly reset database. After that the tests can run again without a reset, because the allocation tests cancel their QA project at the end, and with it everything they booked:
 
    ```bash
    docker compose down -v && docker compose up --build
@@ -28,3 +28,5 @@ tests/api/  API tests
 3. Open the HTML report of the last run with `npm run report`.
 
 The API URL defaults to `http://localhost:8080`. Set `API_URL` to test another backend.
+
+The allocation tests use the fixed demo dates of the seed (November 2026 – January 2027), so they only work until 2026-10-31. From 2026-11-01 their approved allocations have started and can't be cancelled any more.

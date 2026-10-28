@@ -9,14 +9,15 @@ import { PASSWORD, users } from '../../fixtures/users';
 
 // Test cases TC_API_FLOW_001 – 015 and 017 – 024 in docs/TEST_CASES.md §2: the main flow, the allocation rules and
 // the change workflow.
-// Needs a freshly reset database (docker compose down -v): the cases book real capacity of the seeded employees.
+// Needs a freshly reset database (docker compose down -v) for the first run: the cases book real capacity of the
+// seeded employees. afterAll cancels the QA project, which cancels what the cases booked, so the spec can run again.
 // The cases build on each other (Marko is proposed, then approved), so they run in order.
 test.describe.configure({ mode: 'serial' });
 
 const PERIOD = { startDate: '2026-11-01', endDate: '2027-01-31' };
 
 let api: APIRequestContext;
-let ana: { allocations: AllocationsApi; requests: RequestsApi };
+let ana: { allocations: AllocationsApi; projects: ProjectsApi; requests: RequestsApi };
 let igor: AllocationsApi;
 let lazar: AllocationsApi;
 let employeeId: Record<'marko' | 'jelena' | 'stefan' | 'milica', number>;
@@ -31,7 +32,11 @@ test.beforeAll(async ({ playwright }, testInfo) => {
   const login = async (email: string) => (await (await auth.login(email, PASSWORD)).json()) as { token: string; user: { id: number } };
 
   const anaLogin = await login(users.ana.email);
-  ana = { allocations: new AllocationsApi(api, anaLogin.token), requests: new RequestsApi(api, anaLogin.token) };
+  ana = {
+    allocations: new AllocationsApi(api, anaLogin.token),
+    projects: new ProjectsApi(api, anaLogin.token),
+    requests: new RequestsApi(api, anaLogin.token),
+  };
   igor = new AllocationsApi(api, (await login(users.igor.email)).token);
   lazar = new AllocationsApi(api, (await login(users.lazar.email)).token);
   employeeId = {
@@ -55,7 +60,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
     ],
   });
 
-  const project = await new ProjectsApi(api, anaLogin.token).create({
+  const project = await ana.projects.create({
     name: `QA Project Alpha ${Date.now()}`,
     client: 'QA',
     startDate: '2026-11-01',
@@ -67,6 +72,11 @@ test.beforeAll(async ({ playwright }, testInfo) => {
 });
 
 test.afterAll(async () => {
+  // The BR-11 clean-up cancels the proposals, pending changes and approved allocations left on the project,
+  // also those of a case that failed before its own cancel
+  if (projectId) {
+    expect((await ana.projects.changeStatus(projectId, 'CANCELLED')).status()).toBe(200);
+  }
   await api.dispose();
 });
 
