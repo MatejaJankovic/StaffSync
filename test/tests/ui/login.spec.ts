@@ -3,7 +3,7 @@ import { PASSWORD, users } from '../../fixtures/users';
 import { LoginPage } from '../../pages/LoginPage';
 import { Shell } from '../../pages/Shell';
 
-// Test cases TC_UI_LOGIN_001 – 008 in docs/TEST_CASES.md §3: what the login page shows
+// Test cases TC_UI_LOGIN_001 – 009 in docs/TEST_CASES.md §3: what the login page shows
 const INVALID_CREDENTIALS = 'Invalid email or password.';
 
 let loginPage: LoginPage;
@@ -77,6 +77,12 @@ test('TC_UI_LOGIN_008 correcting the password after an error signs in', async ({
 
   await loginPage.password.fill(PASSWORD);
   await loginPage.signInButton.click();
+
+  await expect(page).toHaveURL(/\/home$/);
+});
+
+test('TC_UI_LOGIN_009 email with spaces around it and in upper case signs in', async ({ page }) => {
+  await loginPage.signIn(`  ${users.ana.email.toUpperCase()}  `, PASSWORD);
 
   await expect(page).toHaveURL(/\/home$/);
 });
