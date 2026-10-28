@@ -8,17 +8,29 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { apiErrorMessage, isApiError } from '../../core/api/api-error';
 import { Role, ROLE_LABELS } from '../../core/auth/auth.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { Notifications } from '../../core/error/notifications';
 import { shortDate } from '../../shared/dates';
+import {
+  SS_DIALOG_DATA,
+  SsDialogActions,
+  SsDialogClose,
+  SsDialogContent,
+  SsDialogRef,
+  SsDialogTitle,
+  SsError,
+  SsField,
+  SsHint,
+  SsInput,
+  SsLabel,
+  SsOption,
+  SsSelect,
+  SsSuffix,
+  SsButton,
+  SsIcon,
+} from '../../shared/ui';
 import { Department } from '../departments/department.models';
 import { Seniority, SENIORITY_LABELS } from '../profile/profile.models';
 import {
@@ -78,219 +90,321 @@ export interface UserDialogData {
   selector: 'app-user-dialog',
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatSelectModule,
+    SsButton,
+    SsDialogActions,
+    SsDialogClose,
+    SsDialogContent,
+    SsDialogTitle,
+    SsIcon,
+    SsError,
+    SsField,
+    SsHint,
+    SsInput,
+    SsLabel,
+    SsOption,
+    SsSelect,
+    SsSuffix,
   ],
   template: `
-    <h2 mat-dialog-title>{{ user ? 'Edit user' : 'Create user' }}</h2>
+    <header class="user-dialog__header">
+      <h2 ssDialogTitle>{{ user ? 'Edit user' : 'Create user' }}</h2>
+      <p class="user-dialog__subtitle">
+        {{
+          user
+            ? fullName(user) + ' · ' + user.email
+            : 'Add an account, then share the temporary password with the person.'
+        }}
+      </p>
+    </header>
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-      <mat-dialog-content class="user-dialog__content">
-        <mat-form-field appearance="outline">
-          <mat-label>Email</mat-label>
-          <input matInput formControlName="email" type="email" autocomplete="off" />
-          @if (form.controls.email.hasError('required')) {
-            <mat-error>Email is required</mat-error>
-          } @else if (form.controls.email.hasError('email')) {
-            <mat-error>Email must be a valid email address</mat-error>
-          } @else if (form.controls.email.hasError('maxlength')) {
-            <mat-error>Email must be at most 255 characters</mat-error>
-          } @else if (form.controls.email.hasError('server')) {
-            <mat-error>{{ form.controls.email.getError('server') }}</mat-error>
-          }
-        </mat-form-field>
+      <ss-dialog-content class="user-dialog__content">
+        <section class="user-dialog__section" aria-labelledby="user-dialog-identity">
+          <h3 class="user-dialog__section-title" id="user-dialog-identity">Identity</h3>
+          <div class="user-dialog__grid">
+            <ss-field class="user-dialog__wide">
+              <ss-label>Email</ss-label>
+              <input ssInput formControlName="email" type="email" autocomplete="off" />
+              @if (form.controls.email.hasError('required')) {
+                <ss-error>Email is required</ss-error>
+              } @else if (form.controls.email.hasError('email')) {
+                <ss-error>Email must be a valid email address</ss-error>
+              } @else if (form.controls.email.hasError('maxlength')) {
+                <ss-error>Email must be at most 255 characters</ss-error>
+              } @else if (form.controls.email.hasError('server')) {
+                <ss-error>{{ form.controls.email.getError('server') }}</ss-error>
+              }
+            </ss-field>
+            <ss-field>
+              <ss-label>First name</ss-label>
+              <input ssInput formControlName="firstName" />
+              <ss-error>{{ nameError(form.controls.firstName, 'First name') }}</ss-error>
+            </ss-field>
+            <ss-field>
+              <ss-label>Last name</ss-label>
+              <input ssInput formControlName="lastName" />
+              <ss-error>{{ nameError(form.controls.lastName, 'Last name') }}</ss-error>
+            </ss-field>
+          </div>
+        </section>
 
-        <div class="user-dialog__row">
-          <mat-form-field appearance="outline">
-            <mat-label>First name</mat-label>
-            <input matInput formControlName="firstName" />
-            <mat-error>{{ nameError(form.controls.firstName, 'First name') }}</mat-error>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Last name</mat-label>
-            <input matInput formControlName="lastName" />
-            <mat-error>{{ nameError(form.controls.lastName, 'Last name') }}</mat-error>
-          </mat-form-field>
-        </div>
-
-        <div class="user-dialog__row">
-          <mat-form-field appearance="outline">
-            <mat-label>Role</mat-label>
-            <mat-select formControlName="role">
-              @for (role of roles; track role) {
-                <mat-option [value]="role">{{ roleLabels[role] }}</mat-option>
-              }
-            </mat-select>
-            @if (ownAccount) {
-              <mat-hint>You can’t change your own role</mat-hint>
-            }
-            @if (form.controls.role.hasError('server')) {
-              <mat-error>{{ form.controls.role.getError('server') }}</mat-error>
-            }
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Department</mat-label>
-            <mat-select formControlName="departmentId">
-              @if (!isEmployee()) {
-                <mat-option [value]="null">None</mat-option>
-              }
-              @for (department of departments(); track department.id) {
-                <mat-option [value]="department.id">{{ department.name }}</mat-option>
-              }
-            </mat-select>
-            @if (form.controls.departmentId.hasError('required')) {
-              <mat-error>An employee needs a department</mat-error>
-            } @else if (form.controls.departmentId.hasError('server')) {
-              <mat-error>{{ form.controls.departmentId.getError('server') }}</mat-error>
-            }
-          </mat-form-field>
-        </div>
-
-        @if (isEmployee()) {
-          <mat-form-field appearance="outline">
-            <mat-label>Resource manager</mat-label>
-            <mat-select formControlName="managerId">
-              @for (rm of managers(); track rm.id) {
-                <mat-option [value]="rm.id">{{ fullName(rm) }}</mat-option>
-              }
-            </mat-select>
-            @if (form.controls.managerId.hasError('required')) {
-              <mat-error>An employee needs a resource manager</mat-error>
-            } @else if (form.controls.managerId.hasError('server')) {
-              <mat-error>{{ form.controls.managerId.getError('server') }}</mat-error>
-            }
-          </mat-form-field>
-        }
-
-        <div class="user-dialog__row">
-          <mat-form-field appearance="outline">
-            <mat-label>Seniority</mat-label>
-            <mat-select formControlName="seniority">
-              <mat-option [value]="null">None</mat-option>
-              @for (seniority of seniorities; track seniority) {
-                <mat-option [value]="seniority">{{ seniorityLabels[seniority] }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Capacity</mat-label>
-            <mat-select formControlName="capacityPercent">
-              @for (capacity of capacities; track capacity) {
-                <mat-option [value]="capacity">{{ capacity }}%</mat-option>
-              }
-            </mat-select>
-            @if (form.controls.capacityPercent.hasError('server')) {
-              <mat-error>{{ form.controls.capacityPercent.getError('server') }}</mat-error>
-            }
-          </mat-form-field>
-        </div>
-
-        @if (conflict(); as conflict) {
-          <div class="user-dialog__conflict" role="alert">
-            <p>{{ conflict.message }}</p>
-            @if (conflict.days.length > 0) {
-              <ul>
-                @for (day of conflict.days.slice(0, maxDaysShown); track day.date) {
-                  <li>{{ formatDay(day.date) }}: {{ day.load }}% allocated</li>
+        <section class="user-dialog__section" aria-labelledby="user-dialog-team">
+          <h3 class="user-dialog__section-title" id="user-dialog-team">Role and team</h3>
+          <div class="user-dialog__grid">
+            <ss-field>
+              <ss-label>Role</ss-label>
+              <ss-select formControlName="role">
+                @for (role of roles; track role) {
+                  <ss-option [value]="role">{{ roleLabels[role] }}</ss-option>
                 }
-              </ul>
-              @if (conflict.days.length > maxDaysShown) {
-                @let more = conflict.days.length - maxDaysShown;
-                <p>and {{ more }} more {{ more === 1 ? 'day' : 'days' }}.</p>
+              </ss-select>
+              @if (ownAccount) {
+                <ss-hint>You can’t change your own role</ss-hint>
               }
+              @if (form.controls.role.hasError('server')) {
+                <ss-error>{{ form.controls.role.getError('server') }}</ss-error>
+              }
+            </ss-field>
+            <ss-field>
+              <ss-label>Department</ss-label>
+              <ss-select formControlName="departmentId">
+                @if (!isEmployee()) {
+                  <ss-option [value]="null">None</ss-option>
+                }
+                @for (department of departments(); track department.id) {
+                  <ss-option [value]="department.id">{{ department.name }}</ss-option>
+                }
+              </ss-select>
+              @if (form.controls.departmentId.hasError('required')) {
+                <ss-error>An employee needs a department</ss-error>
+              } @else if (form.controls.departmentId.hasError('server')) {
+                <ss-error>{{ form.controls.departmentId.getError('server') }}</ss-error>
+              }
+            </ss-field>
+            @if (isEmployee()) {
+              <ss-field class="user-dialog__wide">
+                <ss-label>Resource manager</ss-label>
+                <ss-select formControlName="managerId">
+                  @for (rm of managers(); track rm.id) {
+                    <ss-option [value]="rm.id">{{ fullName(rm) }}</ss-option>
+                  }
+                </ss-select>
+                @if (form.controls.managerId.hasError('required')) {
+                  <ss-error>An employee needs a resource manager</ss-error>
+                } @else if (form.controls.managerId.hasError('server')) {
+                  <ss-error>{{ form.controls.managerId.getError('server') }}</ss-error>
+                }
+              </ss-field>
             }
           </div>
-        }
+        </section>
+
+        <section class="user-dialog__section" aria-labelledby="user-dialog-capacity">
+          <h3 class="user-dialog__section-title" id="user-dialog-capacity">
+            Seniority and capacity
+          </h3>
+          <div class="user-dialog__grid">
+            <ss-field>
+              <ss-label>Seniority</ss-label>
+              <ss-select formControlName="seniority">
+                <ss-option [value]="null">None</ss-option>
+                @for (seniority of seniorities; track seniority) {
+                  <ss-option [value]="seniority">{{ seniorityLabels[seniority] }}</ss-option>
+                }
+              </ss-select>
+            </ss-field>
+            <ss-field>
+              <ss-label>Capacity</ss-label>
+              <ss-select formControlName="capacityPercent">
+                @for (capacity of capacities; track capacity) {
+                  <ss-option [value]="capacity">{{ capacity }}%</ss-option>
+                }
+              </ss-select>
+              @if (form.controls.capacityPercent.hasError('server')) {
+                <ss-error>{{ form.controls.capacityPercent.getError('server') }}</ss-error>
+              }
+            </ss-field>
+          </div>
+
+          @if (conflict(); as conflict) {
+            <div class="user-dialog__conflict" role="alert">
+              <ss-icon aria-hidden="true">error_outline</ss-icon>
+              <div>
+                <p>{{ conflict.message }}</p>
+                @if (conflict.days.length > 0) {
+                  <ul>
+                    @for (day of conflict.days.slice(0, maxDaysShown); track day.date) {
+                      <li class="ss-num">{{ formatDay(day.date) }}: {{ day.load }}% allocated</li>
+                    }
+                  </ul>
+                  @if (conflict.days.length > maxDaysShown) {
+                    @let more = conflict.days.length - maxDaysShown;
+                    <p>and {{ more }} more {{ more === 1 ? 'day' : 'days' }}.</p>
+                  }
+                }
+              </div>
+            </div>
+          }
+        </section>
 
         @if (!user) {
-          <mat-form-field appearance="outline">
-            <mat-label>Temporary password</mat-label>
-            <input
-              matInput
-              formControlName="temporaryPassword"
-              [type]="showPassword() ? 'text' : 'password'"
-              autocomplete="new-password"
-            />
+          <section class="user-dialog__section" aria-labelledby="user-dialog-signin">
+            <h3 class="user-dialog__section-title" id="user-dialog-signin">Sign-in</h3>
+            <ss-field>
+              <ss-label>Temporary password</ss-label>
+              <input
+                ssInput
+                formControlName="temporaryPassword"
+                [type]="showPassword() ? 'text' : 'password'"
+                autocomplete="new-password"
+              />
+              <button
+                ss-button="icon"
+                ssSuffix
+                type="button"
+                [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+                (click)="showPassword.set(!showPassword())"
+              >
+                <ss-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</ss-icon>
+              </button>
+              <ss-hint>Share it with the user. They change it after logging in.</ss-hint>
+              @if (form.controls.temporaryPassword.hasError('required')) {
+                <ss-error>Temporary password is required</ss-error>
+              } @else if (
+                form.controls.temporaryPassword.hasError('minlength') ||
+                form.controls.temporaryPassword.hasError('maxlength')
+              ) {
+                <ss-error>Temporary password must be 8 to 72 characters</ss-error>
+              } @else if (form.controls.temporaryPassword.hasError('maxBytes')) {
+                <ss-error>
+                  Temporary password must be at most 72 bytes (an accented letter counts as 2)
+                </ss-error>
+              } @else if (form.controls.temporaryPassword.hasError('server')) {
+                <ss-error>{{ form.controls.temporaryPassword.getError('server') }}</ss-error>
+              }
+            </ss-field>
             <button
-              mat-icon-button
-              matSuffix
+              ss-button
               type="button"
-              [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
-              (click)="showPassword.set(!showPassword())"
+              class="user-dialog__generate"
+              (click)="generatePassword()"
             >
-              <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              <ss-icon>password</ss-icon>
+              Generate password
             </button>
-            <mat-hint>Share it with the user. They change it after logging in.</mat-hint>
-            @if (form.controls.temporaryPassword.hasError('required')) {
-              <mat-error>Temporary password is required</mat-error>
-            } @else if (
-              form.controls.temporaryPassword.hasError('minlength') ||
-              form.controls.temporaryPassword.hasError('maxlength')
-            ) {
-              <mat-error>Temporary password must be 8 to 72 characters</mat-error>
-            } @else if (form.controls.temporaryPassword.hasError('maxBytes')) {
-              <mat-error>
-                Temporary password must be at most 72 bytes (an accented letter counts as 2)
-              </mat-error>
-            } @else if (form.controls.temporaryPassword.hasError('server')) {
-              <mat-error>{{ form.controls.temporaryPassword.getError('server') }}</mat-error>
-            }
-          </mat-form-field>
-          <button
-            mat-button
-            type="button"
-            class="user-dialog__generate"
-            (click)="generatePassword()"
-          >
-            <mat-icon>password</mat-icon>
-            Generate password
-          </button>
+          </section>
         }
-      </mat-dialog-content>
+      </ss-dialog-content>
 
-      <mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close [disabled]="saving()">Cancel</button>
-        <button mat-flat-button type="submit" [disabled]="saving()">
+      <ss-dialog-actions class="user-dialog__actions">
+        <button ss-button type="button" ssDialogClose [disabled]="saving()">Cancel</button>
+        <button ss-button="filled" type="submit" [disabled]="saving()">
           {{ user ? 'Save' : 'Create' }}
         </button>
-      </mat-dialog-actions>
+      </ss-dialog-actions>
     </form>
   `,
   styles: `
+    :host {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    // Title block and actions are set off from the form by a quiet hairline
+    .user-dialog__header {
+      border-bottom: 1px solid var(--ss-line);
+      padding-bottom: var(--ss-space-3);
+    }
+
+    .user-dialog__subtitle {
+      margin: calc(-1 * var(--ss-space-1)) var(--ss-space-6) 0;
+      font-size: var(--ss-text-sm);
+      color: var(--ss-ink-muted);
+      overflow-wrap: anywhere;
+    }
+
     .user-dialog__content {
       display: flex;
       flex-direction: column;
-      padding-top: 8px;
+      padding-top: 0;
     }
 
-    .user-dialog__row {
-      display: flex;
-      gap: 12px;
+    .user-dialog__section {
+      padding: var(--ss-space-4) 0 var(--ss-space-1);
 
-      mat-form-field {
-        flex: 1;
+      & + & {
+        border-top: 1px solid var(--ss-line);
+      }
+    }
+
+    .user-dialog__section-title {
+      margin: 0 0 var(--ss-space-3);
+      font: var(--ss-type-label-medium);
+      font-weight: 600;
+      letter-spacing: var(--ss-tracking-label);
+      color: var(--ss-ink-muted);
+    }
+
+    .user-dialog__section ss-field {
+      width: 100%;
+    }
+
+    // Two columns on wide, one on a phone; the email and the manager take the full row
+    .user-dialog__grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: var(--ss-space-3);
+
+      ss-field {
         min-width: 0;
       }
     }
 
+    .user-dialog__wide {
+      grid-column: 1 / -1;
+    }
+
+    // The show/hide button keeps a 40px target without making the box taller
+    .user-dialog__section [ssSuffix] {
+      margin-inline-end: calc(-1 * var(--ss-space-2));
+    }
+
     .user-dialog__generate {
-      align-self: flex-start;
-      margin: 8px 0 4px;
+      margin: 0 0 var(--ss-space-3);
     }
 
     .user-dialog__conflict {
-      margin-bottom: 16px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      color: var(--mat-sys-on-error-container);
-      background: var(--mat-sys-error-container);
+      display: flex;
+      gap: var(--ss-space-2);
+      margin-bottom: var(--ss-space-3);
+      padding: var(--ss-space-3);
+      border-radius: var(--ss-radius-md);
+      color: var(--ss-danger);
+      background: var(--ss-danger-tint);
 
       p,
       ul {
-        margin: 4px 0;
+        margin: var(--ss-space-1) 0;
+      }
+
+      ul {
+        padding-inline-start: var(--ss-space-4);
+      }
+    }
+
+    .user-dialog__actions {
+      border-top: 1px solid var(--ss-line);
+    }
+
+    @media (max-width: 599px) {
+      .user-dialog__grid {
+        grid-template-columns: minmax(0, 1fr);
       }
     }
   `,
@@ -298,8 +412,8 @@ export interface UserDialogData {
 export class UserDialog implements OnInit {
   private readonly users = inject(UserService);
   private readonly notifications = inject(Notifications);
-  private readonly dialogRef = inject<MatDialogRef<UserDialog, UserAccount>>(MatDialogRef);
-  private readonly data = inject<UserDialogData>(MAT_DIALOG_DATA);
+  private readonly dialogRef = inject<SsDialogRef<UserDialog, UserAccount>>(SsDialogRef);
+  private readonly data = inject<UserDialogData>(SS_DIALOG_DATA);
 
   protected readonly user = this.data.user;
   /** The API refuses to change your own role (409), so that there is always an Admin left. */

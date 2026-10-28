@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { SS_DIALOG_DATA, SsDialogRef } from '../../shared/ui';
 import { errorInterceptor } from '../../core/error/error.interceptor';
 import { Notifications } from '../../core/error/notifications';
 import { Department } from './department.models';
@@ -23,8 +23,8 @@ describe('DepartmentDialog', () => {
       providers: [
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
-        { provide: MAT_DIALOG_DATA, useValue: data },
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: SS_DIALOG_DATA, useValue: data },
+        { provide: SsDialogRef, useValue: dialogRef },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
@@ -54,7 +54,7 @@ describe('DepartmentDialog', () => {
   }
 
   function cancelButton(): HTMLButtonElement {
-    return el().querySelector<HTMLButtonElement>('button[mat-dialog-close]')!;
+    return el().querySelector<HTMLButtonElement>('button[ss-dialog-close]')!;
   }
 
   it('starts empty for a new department', async () => {

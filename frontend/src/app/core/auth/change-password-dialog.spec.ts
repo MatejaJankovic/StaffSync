@@ -1,10 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MatDialogRef } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
 import { errorInterceptor } from '../error/error.interceptor';
 import { Notifications } from '../error/notifications';
+import { SsDialogRef } from '../../shared/ui';
 import { PASSWORD_URL } from './auth.service';
 import { ChangePasswordDialog } from './change-password-dialog';
 
@@ -24,7 +24,7 @@ describe('ChangePasswordDialog', () => {
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: SsDialogRef, useValue: dialogRef },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);

@@ -1,6 +1,12 @@
 import { Component, inject } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
+import {
+  SS_DIALOG_DATA,
+  SsDialogActions,
+  SsDialogClose,
+  SsDialogContent,
+  SsDialogTitle,
+  SsButton,
+} from '../../shared/ui';
 import { Skill } from './skill.models';
 
 /**
@@ -9,26 +15,41 @@ import { Skill } from './skill.models';
  */
 @Component({
   selector: 'app-skill-delete-dialog',
-  imports: [MatButtonModule, MatDialogModule],
+  imports: [SsButton, SsDialogActions, SsDialogClose, SsDialogContent, SsDialogTitle],
   template: `
-    <h2 mat-dialog-title>Delete skill</h2>
-    <mat-dialog-content>
+    <header class="skill-delete-dialog__header">
+      <h2 ssDialogTitle>Delete skill</h2>
+    </header>
+    <ss-dialog-content class="skill-delete-dialog__message">
       Delete <strong>{{ skill.name }}</strong> from the catalog? This can't be undone.
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button [mat-dialog-close]="false">Cancel</button>
-      <button mat-flat-button class="skill-delete-dialog__confirm" [mat-dialog-close]="true">
+    </ss-dialog-content>
+    <ss-dialog-actions class="skill-delete-dialog__actions">
+      <button ss-button [ssDialogClose]="false">Cancel</button>
+      <button
+        ss-button="filled"
+        class="skill-delete-dialog__confirm ss-button-danger"
+        [ssDialogClose]="true"
+      >
         Delete
       </button>
-    </mat-dialog-actions>
+    </ss-dialog-actions>
   `,
   styles: `
-    .skill-delete-dialog__confirm {
-      --mat-button-filled-container-color: var(--mat-sys-error);
-      --mat-button-filled-label-text-color: var(--mat-sys-on-error);
+    .skill-delete-dialog__header {
+      border-bottom: 1px solid var(--ss-line);
+    }
+
+    .skill-delete-dialog__message {
+      padding-top: var(--ss-space-4);
+      color: var(--ss-ink);
+      line-height: 1.5;
+    }
+
+    .skill-delete-dialog__actions {
+      border-top: 1px solid var(--ss-line);
     }
   `,
 })
 export class SkillDeleteDialog {
-  protected readonly skill = inject<Skill>(MAT_DIALOG_DATA);
+  protected readonly skill = inject<Skill>(SS_DIALOG_DATA);
 }

@@ -1,10 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { errorInterceptor } from '../../core/error/error.interceptor';
 import { Notifications } from '../../core/error/notifications';
+import { SS_DIALOG_DATA, SsDialogRef } from '../../shared/ui';
 import { Allocation, PendingApproval } from './allocation.models';
 import { RejectDialog } from './reject-dialog';
 
@@ -68,9 +67,8 @@ describe('RejectDialog', () => {
       providers: [
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: MAT_DIALOG_DATA, useValue: item },
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: SS_DIALOG_DATA, useValue: item },
+        { provide: SsDialogRef, useValue: dialogRef },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
@@ -109,7 +107,7 @@ describe('RejectDialog', () => {
   }
 
   function fieldError(): string | undefined {
-    return el().querySelector('mat-error')?.textContent?.trim();
+    return el().querySelector('ss-error')?.textContent?.trim();
   }
 
   it('says who is rejected, on which request, and what happens', async () => {
