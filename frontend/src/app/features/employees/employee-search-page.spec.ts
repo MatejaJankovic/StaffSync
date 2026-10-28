@@ -1,7 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import {
   ActivatedRoute,
   convertToParamMap,
@@ -63,7 +62,6 @@ describe('EmployeeSearchPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         { provide: ActivatedRoute, useValue: { queryParamMap: queryParams } },
       ],
     }).compileComponents();
@@ -166,11 +164,11 @@ describe('EmployeeSearchPage', () => {
       'Main skills',
       'Free today',
     ]);
-    const cells = [...el().querySelectorAll('tr.mat-mdc-row td')].map((cell) =>
+    const cells = [...el().querySelectorAll('tr.cdk-row td')].map((cell) =>
       cell.textContent?.replace(/\s+/g, ' ').trim(),
     );
     expect(cells.slice(0, 4)).toEqual(['Bogdan Vujic', 'Medior', 'Engineering', '4/5']);
-    const chips = [...el().querySelectorAll('mat-chip')].map((chip) => chip.textContent?.trim());
+    const chips = [...el().querySelectorAll('ss-chip')].map((chip) => chip.textContent?.trim());
     expect(chips).toEqual(['Java 4', 'Angular 2']);
     expect(cells[5]).toBe('60% / 100% 40% free');
   });
@@ -297,7 +295,6 @@ describe('EmployeeSearchPage with the real router', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([{ path: 'employees', component: EmployeeSearchPage }]),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
       ],
     });
     const httpMock = TestBed.inject(HttpTestingController);

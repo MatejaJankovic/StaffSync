@@ -6,20 +6,28 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { PageQuery } from '../../core/api/page';
 import { CapacityBar } from '../../shared/capacity-bar/capacity-bar';
+import { CapacityRing } from '../../shared/capacity-ring/capacity-ring';
 import { DateRangePicker, DateRangeValue } from '../../shared/date-range-picker/date-range-picker';
 import { parseIsoDate, toIsoDate } from '../../shared/dates';
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { SkillLevelPicker } from '../../shared/skill-level-picker/skill-level-picker';
+import {
+  SsChip,
+  SsError,
+  SsField,
+  SsHint,
+  SsInput,
+  SsLabel,
+  SsOptgroup,
+  SsOption,
+  SsSelect,
+  SsButton,
+} from '../../shared/ui';
 import { DepartmentService } from '../departments/department.service';
 import { Seniority, SENIORITY_LABELS } from '../profile/profile.models';
 import { SENIORITIES } from '../requests/request.models';
@@ -46,16 +54,22 @@ const wholeNumberValidator: ValidatorFn = (control) =>
   selector: 'app-employee-search-page',
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatChipsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
+    SsButton,
     CapacityBar,
+    CapacityRing,
     DateRangePicker,
     PagedTable,
     PagedTableCell,
     SkillLevelPicker,
+    SsChip,
+    SsError,
+    SsField,
+    SsHint,
+    SsInput,
+    SsLabel,
+    SsOptgroup,
+    SsOption,
+    SsSelect,
   ],
   templateUrl: './employee-search-page.html',
   styleUrl: './employee-search-page.scss',
@@ -141,7 +155,7 @@ export class EmployeeSearchPage {
           ]
         : []),
       { key: 'topSkills', header: 'Main skills' },
-      { key: 'free', header: 'Free today', sortable: true },
+      { key: 'free', numeric: true, header: 'Free today', sortable: true },
     ];
   });
 
@@ -187,6 +201,11 @@ export class EmployeeSearchPage {
 
   protected freeLabel(row: EmployeeSearchResult): string {
     return row.free < 0 ? 'Over capacity' : `${row.free}% free`;
+  }
+
+  /** The skill filter, so the row can mark the main skill that was searched for. */
+  protected isSearched(skillId: number): boolean {
+    return this.applied().skillId === skillId;
   }
 
   private toFilters(): EmployeeSearchFilters {

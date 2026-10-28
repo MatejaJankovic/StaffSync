@@ -1,8 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { SsDialog, SsToast } from '../../shared/ui';
 import { of } from 'rxjs';
 import { routes } from '../../app.routes';
 import { Skill } from './skill.models';
@@ -27,10 +26,8 @@ describe('SkillsPage', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
-    dialogOpen = vi.spyOn(TestBed.inject(MatDialog), 'open');
-    snackBarOpen = vi
-      .spyOn(TestBed.inject(MatSnackBar), 'open')
-      .mockReturnValue(undefined as never);
+    dialogOpen = vi.spyOn(TestBed.inject(SsDialog), 'open');
+    snackBarOpen = vi.spyOn(TestBed.inject(SsToast), 'open').mockReturnValue(undefined as never);
     fixture = TestBed.createComponent(SkillsPage);
     fixture.detectChanges();
   });
@@ -59,7 +56,7 @@ describe('SkillsPage', () => {
 
     const headings = [...el().querySelectorAll('h2')].map((h) => h.textContent?.trim());
     expect(headings).toEqual(['Backend', 'Database']);
-    const names = [...el().querySelectorAll('td.mat-column-name')].map((c) =>
+    const names = [...el().querySelectorAll('td.cdk-column-name')].map((c) =>
       c.textContent?.trim(),
     );
     expect(names).toEqual(['Java', 'Spring', 'PostgreSQL']);
@@ -87,7 +84,7 @@ describe('SkillsPage', () => {
     el().querySelector<HTMLButtonElement>('header button')!.click();
     await fixture.whenStable();
 
-    const names = [...el().querySelectorAll('td.mat-column-name')].map((c) =>
+    const names = [...el().querySelectorAll('td.cdk-column-name')].map((c) =>
       c.textContent?.trim(),
     );
     expect(names).toEqual(['Java', 'Python', 'Spring', 'PostgreSQL']);

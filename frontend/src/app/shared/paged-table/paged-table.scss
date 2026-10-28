@@ -2,6 +2,15 @@
   display: block;
 }
 
+// One rounded panel with a hairline edge holds the loading bar, the table and the paginator.
+.paged-table {
+  --ss-progress-track: var(--ss-teal-tint);
+  overflow: hidden;
+  border: 1px solid var(--ss-line);
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface);
+}
+
 // Wide tables scroll sideways on small screens; only the table, so the paginator stays put
 .paged-table__scroll {
   overflow-x: auto;
@@ -10,23 +19,36 @@
 
 // Keeps the table from jumping when the progress bar appears
 .paged-table__progress {
-  height: 4px;
+  height: 3px;
+
+  ss-progress-bar {
+    height: 3px;
+    border-radius: 0;
+  }
 }
 
+// A table is never squashed below this width; the scroll container takes over instead
 table {
-  width: 100%;
+  min-width: 40rem;
 }
 
 .paged-table__row--clickable {
   cursor: pointer;
+}
 
-  &:hover {
-    background: var(--mat-sys-surface-container);
-  }
+// The last row has no divider of its own, so the paginator gets one
+ss-paginator {
+  border-top: 1px solid var(--ss-line);
+}
+
+// Calm empty, loading and failed states
+.paged-table__empty-row:hover {
+  background: transparent;
 }
 
 .paged-table__empty {
-  padding: 24px 16px;
+  padding: var(--ss-space-10) var(--ss-space-4);
   text-align: center;
-  color: var(--mat-sys-on-surface-variant);
+  font-size: var(--ss-text-sm);
+  color: var(--ss-ink-muted);
 }

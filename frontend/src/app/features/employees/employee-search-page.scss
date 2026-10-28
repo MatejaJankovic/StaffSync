@@ -1,53 +1,144 @@
-.employee-search {
-  padding: 24px;
-}
+// The page width, padding and centring come from .ss-page (global base styles)
 
 .employee-search__header {
-  margin-bottom: 16px;
+  margin-bottom: var(--ss-space-6);
 
   h1 {
-    font: var(--mat-sys-headline-small);
     margin: 0;
   }
 }
 
+// The filters are one calm group on the paper, closed by a hairline. One column on a phone, two on
+// a tablet, four on a wide screen; the fields keep their height so the rows line up.
 .employee-search__filters {
-  display: flex;
-  flex-direction: column;
-  max-width: 720px;
-  margin-bottom: 16px;
-}
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 var(--ss-space-4);
+  align-items: start;
+  margin-bottom: var(--ss-space-6);
+  padding-bottom: var(--ss-space-2);
+  border-bottom: 1px solid var(--ss-line);
 
-.employee-search__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0 16px;
+  @media (min-width: 600px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 
-  > mat-form-field,
-  > app-date-range-picker {
-    flex: 1 1 220px;
+  @media (min-width: 960px) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
+// The skill and, once one is picked, its minimum level: they belong together
+.employee-search__skillgroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 var(--ss-space-4);
+
+  > ss-field {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+
+  @media (min-width: 600px) {
+    grid-column: 1 / -1;
+  }
+
+  @media (min-width: 960px) {
+    grid-column: span 2;
+  }
+}
+
+// A label above the picker like the one of an ss-field, and the picker centred in a 44px row, so
+// the level lines up with the skill beside it
 .employee-search__level {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 4px;
-  margin-bottom: 16px;
+  margin-bottom: var(--ss-space-4);
 }
 
 .employee-search__level-label {
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-small);
+  margin-bottom: var(--ss-space-1);
+  color: var(--ss-ink);
+  font-size: var(--ss-text-sm);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.employee-search__level-control {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.employee-search__period {
+  @media (min-width: 600px) {
+    grid-column: 1 / -1;
+  }
+
+  @media (min-width: 960px) {
+    grid-column: span 2;
+  }
 }
 
 .employee-search__actions {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: var(--ss-space-2);
+  min-height: 44px;
+  margin-bottom: var(--ss-space-4);
+
+  @media (min-width: 600px) {
+    // Lines the buttons up with the 44px boxes, below their labels
+    margin-top: 24px;
+  }
+}
+
+.employee-search__results {
+  display: block;
+}
+
+.employee-search__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ss-space-1);
+}
+
+// Main skills: small neutral tags. The skill that was searched for gets a teal-tint tag and a check
+// glyph, so the match is not told by color alone.
+.employee-search__tag {
+  min-height: 24px;
+  padding: 0 var(--ss-space-2);
+  border-radius: var(--ss-radius-sm);
+}
+
+.employee-search__tag--match {
+  background: var(--ss-teal-tint);
+  font-weight: 600;
+}
+
+.employee-search__check {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-right: var(--ss-space-1);
+  fill: none;
+  stroke: var(--ss-teal-strong);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+// Load today: the shared ring and the bar with its numbers
+.employee-search__load {
+  display: flex;
+  align-items: center;
+  gap: var(--ss-space-3);
+  min-width: 210px;
+  padding: var(--ss-space-1) 0;
 }
 
 .employee-search__capacity {
-  min-width: 160px;
+  flex: 1;
+  min-width: 120px;
 }

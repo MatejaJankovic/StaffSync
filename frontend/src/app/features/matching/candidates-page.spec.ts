@@ -1,8 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatDialog } from '@angular/material/dialog';
+import { SsDialog } from '../../shared/ui';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
 import { Notifications } from '../../core/error/notifications';
@@ -108,7 +107,6 @@ describe('CandidatesPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         {
           provide: ActivatedRoute,
           useValue: { paramMap: params, snapshot: { paramMap: params.value } },
@@ -117,7 +115,7 @@ describe('CandidatesPage', () => {
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
     dialogOpen = vi
-      .spyOn(TestBed.inject(MatDialog), 'open')
+      .spyOn(TestBed.inject(SsDialog), 'open')
       .mockImplementation(() => ({ afterClosed: () => of(dialogResult) }) as never);
     success = vi.spyOn(TestBed.inject(Notifications), 'success').mockReturnValue(undefined);
     fixture = TestBed.createComponent(CandidatesPage);
@@ -170,7 +168,7 @@ describe('CandidatesPage', () => {
   }
 
   function rowOf(name: string): HTMLElement {
-    return [...el().querySelectorAll<HTMLElement>('tr.mat-mdc-row')].find((row) =>
+    return [...el().querySelectorAll<HTMLElement>('tr.cdk-row')].find((row) =>
       row.querySelector('.candidate__name')?.textContent?.includes(name),
     )!;
   }
@@ -299,7 +297,7 @@ describe('CandidatesPage', () => {
 
       const jelena = rowOf('Jelena');
       expect(texts(jelena, '.candidate__warnings li > span')).toEqual(JELENA.warnings);
-      expect(texts(jelena, '.candidate__warnings li > mat-icon')).toEqual(['warning', 'warning']);
+      expect(texts(jelena, '.candidate__warnings li > ss-icon')).toEqual(['warning', 'warning']);
       expect(jelena.querySelector('ul[aria-label="Warnings"]')).toBeTruthy();
       expect(texts(rowOf('Marko'), '.candidate__warnings li > span')).toEqual([
         'Seniority SENIOR (MEDIOR requested)',
@@ -349,7 +347,7 @@ describe('CandidatesPage', () => {
 
       await respond(REQUEST, null);
 
-      expect(el().querySelector('mat-progress-bar')).toBeTruthy();
+      expect(el().querySelector('ss-progress-bar')).toBeTruthy();
       expect(el().textContent).toContain('Loading…');
       answer([MARKO]);
       await settle();

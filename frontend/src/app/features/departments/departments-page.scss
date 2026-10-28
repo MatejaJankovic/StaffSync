@@ -1,35 +1,40 @@
-.departments {
-  padding: 24px;
-  max-width: 720px;
+:host {
+  display: block;
 }
 
-.departments__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+.departments__title {
+  min-width: 0;
 
   h1 {
-    font: var(--mat-sys-headline-small);
     margin: 0;
   }
-
-  // "Add department" is long enough to wrap next to the title on a narrow content area
-  button {
-    flex-shrink: 0;
-  }
 }
 
-.departments__table {
-  width: 100%;
+// "Add department" is long enough to wrap next to the title on a narrow content area
+.ss-page-header button {
+  flex-shrink: 0;
 }
 
-.departments__actions {
+// A short list: one rounded panel, kept to a readable width
+.departments__panel {
+  max-width: 720px;
+  overflow: hidden;
+  border: 1px solid var(--ss-line);
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface);
+}
+
+// Two classes, to beat the kit's `.ss-table th, td` alignment
+.departments__table .departments__actions {
   width: 112px;
   text-align: end;
+  white-space: nowrap;
 }
 
+// Loading, failed and empty: a calm sentence, with the next step beside it
 .departments__message {
-  color: var(--mat-sys-on-surface-variant);
+  max-width: 720px;
+  margin: var(--ss-space-8) 0;
+  font-size: var(--ss-text-sm);
+  color: var(--ss-ink-muted);
 }

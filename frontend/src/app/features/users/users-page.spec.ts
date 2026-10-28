@@ -2,9 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSelect } from '@angular/material/select';
+import { SsDialog, SsSelect } from '../../shared/ui';
 import { By } from '@angular/platform-browser';
 import { of } from 'rxjs';
 import { routes } from '../../app.routes';
@@ -63,12 +61,11 @@ describe('UsersPage', () => {
       providers: [
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         { provide: AuthService, useValue: { currentUser: signal({ id: ADMIN.id }) } },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
-    dialogOpen = vi.spyOn(TestBed.inject(MatDialog), 'open');
+    dialogOpen = vi.spyOn(TestBed.inject(SsDialog), 'open');
     notifications = TestBed.inject(Notifications);
     vi.spyOn(notifications, 'error').mockImplementation(() => undefined);
     vi.spyOn(notifications, 'success').mockImplementation(() => undefined);
@@ -117,7 +114,7 @@ describe('UsersPage', () => {
   it('shows each user’s details and status', async () => {
     await load();
 
-    const rows = [...el().querySelectorAll('tr.mat-mdc-row')].map((row) =>
+    const rows = [...el().querySelectorAll('tr.cdk-row')].map((row) =>
       [...row.querySelectorAll('td')].map((cell) => cell.textContent?.trim()),
     );
     expect(rows[1].slice(0, 8)).toEqual([
@@ -136,10 +133,10 @@ describe('UsersPage', () => {
   it('filters by role and goes back to the first page', async () => {
     await load();
 
-    const selects = fixture.debugElement.queryAll(By.directive(MatSelect));
-    (selects[1].componentInstance as MatSelect).open();
+    const selects = fixture.debugElement.queryAll(By.directive(SsSelect));
+    (selects[1].componentInstance as SsSelect).open();
     await settle();
-    [...document.querySelectorAll<HTMLElement>('mat-option')]
+    [...document.querySelectorAll<HTMLElement>('[role="option"]')]
       .find((option) => option.textContent?.trim() === 'Resource Manager')!
       .click();
     await settle();

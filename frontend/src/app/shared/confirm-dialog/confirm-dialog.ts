@@ -1,6 +1,12 @@
 import { Component, inject } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+import {
+  SS_DIALOG_DATA,
+  SsDialogActions,
+  SsDialogClose,
+  SsDialogContent,
+  SsDialogTitle,
+  SsButton,
+} from '../ui';
 
 export interface ConfirmDialogData {
   title: string;
@@ -16,29 +22,30 @@ export interface ConfirmDialogData {
 /** Opened through {@link ConfirmDialogService}, not directly. */
 @Component({
   selector: 'app-confirm-dialog',
-  imports: [MatButtonModule, MatDialogModule],
+  imports: [SsButton, SsDialogActions, SsDialogClose, SsDialogContent, SsDialogTitle],
   template: `
-    <h2 mat-dialog-title>{{ data.title }}</h2>
-    <mat-dialog-content>
+    <h2 ssDialogTitle>{{ data.title }}</h2>
+    <ss-dialog-content>
       <p class="confirm-dialog__message">{{ data.message }}</p>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button type="button" [mat-dialog-close]="false">
+    </ss-dialog-content>
+    <ss-dialog-actions>
+      <button ss-button type="button" [ssDialogClose]="false">
         {{ data.cancelText ?? 'Cancel' }}
       </button>
       <button
-        mat-flat-button
+        ss-button="filled"
         type="button"
         class="confirm-dialog__confirm"
         [class.confirm-dialog__confirm--destructive]="data.destructive"
-        [mat-dialog-close]="true"
+        [class.ss-button-danger]="data.destructive"
+        [ssDialogClose]="true"
       >
         {{ data.confirmText ?? 'Confirm' }}
       </button>
-    </mat-dialog-actions>
+    </ss-dialog-actions>
   `,
   styleUrl: './confirm-dialog.scss',
 })
 export class ConfirmDialog {
-  protected readonly data = inject<ConfirmDialogData>(MAT_DIALOG_DATA);
+  protected readonly data = inject<ConfirmDialogData>(SS_DIALOG_DATA);
 }

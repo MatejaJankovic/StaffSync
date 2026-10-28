@@ -19,7 +19,7 @@ describe('WarningList', () => {
       'Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)',
       'Missing PostgreSQL (nice to have)',
     ]);
-    expect([...items].map((item) => item.querySelector('mat-icon')?.textContent)).toEqual([
+    expect([...items].map((item) => item.querySelector('ss-icon')?.textContent)).toEqual([
       'warning',
       'warning',
     ]);

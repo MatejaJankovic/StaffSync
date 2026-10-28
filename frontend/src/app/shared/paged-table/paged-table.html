@@ -1,18 +1,30 @@
 <div class="paged-table">
   <div class="paged-table__progress">
     @if (loading()) {
-      <mat-progress-bar mode="indeterminate" aria-label="Loading" />
+      <ss-progress-bar mode="indeterminate" aria-label="Loading" />
     }
   </div>
 
   <div class="paged-table__scroll">
-    <table mat-table [dataSource]="rows()" matSort (matSortChange)="sort.set($event)">
+    <table
+      cdk-table
+      class="ss-table"
+      [dataSource]="rows()"
+      ssSort
+      (ssSortChange)="sort.set($event)"
+    >
       @for (column of columns(); track column.key) {
-        <ng-container [matColumnDef]="column.key">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header [disabled]="!column.sortable">
+        <ng-container [cdkColumnDef]="column.key">
+          <th
+            cdk-header-cell
+            *cdkHeaderCellDef
+            ss-sort-header
+            [disabled]="!column.sortable"
+            [class.ss-num]="column.numeric"
+          >
             {{ column.header }}
           </th>
-          <td mat-cell *matCellDef="let row">
+          <td cdk-cell *cdkCellDef="let row" [class.ss-num]="column.numeric">
             @if (cellTemplates().get(column.key); as template) {
               <ng-container *ngTemplateOutlet="template; context: { $implicit: row }" />
             } @else {
@@ -22,22 +34,23 @@
         </ng-container>
       }
 
-      <tr mat-header-row *matHeaderRowDef="columnKeys()"></tr>
+      <tr cdk-header-row *cdkHeaderRowDef="columnKeys()"></tr>
       <tr
-        mat-row
-        *matRowDef="let row; columns: columnKeys()"
+        cdk-row
+        class="paged-table__row"
+        *cdkRowDef="let row; columns: columnKeys()"
         [class.paged-table__row--clickable]="clickableRows()"
         (click)="clickableRows() && rowClick.emit(row)"
       ></tr>
-      <tr class="mat-mdc-row" *matNoDataRow>
-        <td class="mat-mdc-cell paged-table__empty" [attr.colspan]="columnKeys().length">
+      <tr class="paged-table__empty-row" *cdkNoDataRow>
+        <td class="paged-table__empty" [attr.colspan]="columnKeys().length">
           {{ loading() ? 'Loading…' : failed() ? 'Unable to load the data' : emptyText() }}
         </td>
       </tr>
     </table>
   </div>
 
-  <mat-paginator
+  <ss-paginator
     [length]="total()"
     [pageIndex]="pageIndex()"
     [pageSize]="size()"

@@ -1,12 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTableModule } from '@angular/material/table';
+import { CdkTableModule } from '@angular/cdk/table';
 import { filter, switchMap } from 'rxjs';
 import { Notifications } from '../../core/error/notifications';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
+import { SsDialog, SsButton, SsIcon } from '../../shared/ui';
 import { Department } from './department.models';
 import { DepartmentService } from './department.service';
 import { DepartmentDialog, DepartmentDialogData } from './department-dialog';
@@ -19,13 +17,13 @@ const byName = (a: Department, b: Department) => a.name.localeCompare(b.name);
  */
 @Component({
   selector: 'app-departments-page',
-  imports: [MatButtonModule, MatIconModule, MatTableModule],
+  imports: [SsButton, SsIcon, CdkTableModule],
   templateUrl: './departments-page.html',
   styleUrl: './departments-page.scss',
 })
 export class DepartmentsPage implements OnInit {
   private readonly departmentService = inject(DepartmentService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(SsDialog);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly notifications = inject(Notifications);
 
@@ -96,7 +94,7 @@ export class DepartmentsPage implements OnInit {
     this.dialog
       .open<DepartmentDialog, DepartmentDialogData, Department>(DepartmentDialog, {
         data,
-        width: '400px',
+        width: '440px',
       })
       .afterClosed()
       .subscribe((saved) => {

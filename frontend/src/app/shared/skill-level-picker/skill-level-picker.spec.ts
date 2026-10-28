@@ -24,12 +24,10 @@ describe('SkillLevelPicker', () => {
   it('shows the five levels and marks the current one', () => {
     const { el, button } = render();
 
-    expect(el.querySelectorAll('mat-button-toggle')).toHaveLength(5);
+    expect(el.querySelectorAll('ss-toggle')).toHaveLength(5);
     expect(button(3).getAttribute('aria-checked')).toBe('true');
     expect(button(4).getAttribute('aria-checked')).toBe('false');
-    expect(el.querySelector('mat-button-toggle-group')?.getAttribute('aria-label')).toBe(
-      'Level of Java',
-    );
+    expect(el.querySelector('ss-toggle-group')?.getAttribute('aria-label')).toBe('Level of Java');
   });
 
   it('writes the clicked level to the form control and marks it touched', () => {

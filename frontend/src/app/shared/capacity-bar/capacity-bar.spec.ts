@@ -35,7 +35,7 @@ describe('CapacityBar', () => {
 
     expect(text(el)).toBe('60% / 100%');
     expect(el.querySelector('.capacity-bar__label')).toBeNull();
-    const bar = el.querySelector('mat-progress-bar');
+    const bar = el.querySelector('ss-progress-bar');
     expect(bar?.getAttribute('aria-valuenow')).toBe('60');
     expect(bar?.getAttribute('aria-hidden')).toBe('true');
   });
@@ -44,7 +44,7 @@ describe('CapacityBar', () => {
     const el = render({ load: 40, capacity: 50 });
 
     expect(text(el)).toBe('40% / 50%');
-    expect(el.querySelector('mat-progress-bar')?.getAttribute('aria-valuenow')).toBe('80');
+    expect(el.querySelector('ss-progress-bar')?.getAttribute('aria-valuenow')).toBe('80');
     expect(el.classList).toContain('capacity-bar--nearly-full');
   });
 
@@ -52,7 +52,7 @@ describe('CapacityBar', () => {
     const el = render({ load: 120, capacity: 100, label: 'Over capacity' });
 
     expect(text(el)).toBe('120% / 100% Over capacity');
-    expect(el.querySelector('mat-progress-bar')?.getAttribute('aria-valuenow')).toBe('100');
+    expect(el.querySelector('ss-progress-bar')?.getAttribute('aria-valuenow')).toBe('100');
     expect(el.classList).toContain('capacity-bar--full');
   });
 
@@ -60,6 +60,6 @@ describe('CapacityBar', () => {
     const el = render({ load: 0, capacity: 100 });
 
     expect(el.classList).toContain('capacity-bar--free');
-    expect(el.querySelector('mat-progress-bar')?.getAttribute('aria-valuenow')).toBe('0');
+    expect(el.querySelector('ss-progress-bar')?.getAttribute('aria-valuenow')).toBe('0');
   });
 });

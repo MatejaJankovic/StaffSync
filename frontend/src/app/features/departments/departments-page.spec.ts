@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MatDialog } from '@angular/material/dialog';
+import { SsDialog } from '../../shared/ui';
 import { of } from 'rxjs';
 import { routes } from '../../app.routes';
 import { errorInterceptor } from '../../core/error/error.interceptor';
@@ -33,7 +33,7 @@ describe('DepartmentsPage', () => {
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
-    dialogOpen = vi.spyOn(TestBed.inject(MatDialog), 'open');
+    dialogOpen = vi.spyOn(TestBed.inject(SsDialog), 'open');
     notifications = TestBed.inject(Notifications);
     vi.spyOn(notifications, 'error').mockImplementation(() => undefined);
     vi.spyOn(notifications, 'success').mockImplementation(() => undefined);
@@ -53,7 +53,7 @@ describe('DepartmentsPage', () => {
   }
 
   function names(): (string | undefined)[] {
-    return [...el().querySelectorAll('td.mat-column-name')].map((c) => c.textContent?.trim());
+    return [...el().querySelectorAll('td.cdk-column-name')].map((c) => c.textContent?.trim());
   }
 
   function closeDialogWith(result: unknown): void {

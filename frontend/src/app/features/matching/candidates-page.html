@@ -1,6 +1,6 @@
-<section class="candidates">
-  <a mat-button [routerLink]="backLink()" class="candidates__back">
-    <mat-icon>arrow_back</mat-icon>
+<section class="candidates ss-page">
+  <a ss-button [routerLink]="backLink()" class="candidates__back">
+    <ss-icon>arrow_back</ss-icon>
     {{ request() ? 'Back to project' : 'My projects' }}
   </a>
 
@@ -19,14 +19,18 @@
     @case ('failed') {
       <p class="candidates__message" role="alert">
         Unable to load the request.
-        <button mat-button (click)="retry()">Retry</button>
+        <button ss-button="outlined" type="button" (click)="retry()">Retry</button>
       </p>
     }
     @default {
       @if (request(); as current) {
         <header class="candidates__header">
-          <h1>Candidates for {{ current.title }}</h1>
-          <app-status-chip [status]="current.status" />
+          <p class="ss-eyebrow">Staffing request</p>
+          <div class="candidates__title">
+            <h1>Candidates for {{ current.title }}</h1>
+            <app-status-chip [status]="current.status" />
+          </div>
+          <p class="ss-page-context">People who fit the mandatory skills, best match first.</p>
         </header>
 
         <dl class="candidates__request">
@@ -36,15 +40,15 @@
           </div>
           <div>
             <dt>Allocation</dt>
-            <dd>{{ current.allocationPercent }}%</dd>
+            <dd class="ss-num">{{ current.allocationPercent }}%</dd>
           </div>
           <div>
             <dt>Period</dt>
-            <dd>{{ period() }}</dd>
+            <dd class="ss-num">{{ period() }}</dd>
           </div>
           <div>
             <dt>Headcount</dt>
-            <dd>{{ current.headcount }}</dd>
+            <dd class="ss-num">{{ current.headcount }}</dd>
           </div>
           <div class="candidates__skills">
             <dt>Required skills</dt>
@@ -72,10 +76,10 @@
              always a region that appears together with its content -->
         <div class="candidates__notices" role="status">
           @for (notice of notices(); track notice.allocationId) {
-            <div class="candidates__notice">
-              <mat-icon>warning</mat-icon>
-              <div class="candidates__notice-text">
-                <p class="candidates__notice-title">
+            <div class="candidates__notice ss-notice ss-notice--warning">
+              <ss-icon class="ss-notice__icon" aria-hidden="true">warning</ss-icon>
+              <div class="ss-notice__text">
+                <p class="candidates__notice-title ss-notice__title">
                   {{ notice.employeeName }} was proposed, with warnings
                 </p>
                 <ul>
@@ -89,12 +93,12 @@
                 </p>
               </div>
               <button
-                mat-icon-button
+                ss-button="icon"
                 type="button"
                 [attr.aria-label]="'Dismiss the warnings for ' + notice.employeeName"
                 (click)="dismiss(notice)"
               >
-                <mat-icon>close</mat-icon>
+                <ss-icon>close</ss-icon>
               </button>
             </div>
           }
@@ -102,6 +106,7 @@
 
         @if (fetchCandidates(); as fetch) {
           <app-paged-table
+            class="candidates__table"
             [columns]="columns"
             [fetch]="fetch"
             [emptyText]="emptyText"
@@ -116,14 +121,14 @@
 
             <ng-template appPagedTableCell="score" let-row>
               <div class="candidate__cell">
-                <span class="candidate__score"
+                <span class="candidate__score ss-num"
                   >{{ row.score }}<span class="candidate__score-max">/100</span></span
                 >
               </div>
             </ng-template>
 
             <ng-template appPagedTableCell="breakdown" let-row>
-              <dl class="candidate__cell candidate__breakdown">
+              <dl class="candidate__cell candidate__breakdown ss-num">
                 @for (part of scoreParts(row); track part.label) {
                   <div>
                     <dt>{{ part.label }}</dt>
@@ -144,7 +149,7 @@
                   <ul class="candidate__reasons" aria-label="Reasons">
                     @for (reason of row.reasons; track $index) {
                       <li>
-                        <mat-icon>check_circle</mat-icon>
+                        <ss-icon>check_circle</ss-icon>
                         <span>{{ reason }}</span>
                       </li>
                     }
@@ -157,12 +162,12 @@
             <ng-template appPagedTableCell="actions" let-row>
               <div class="candidate__cell">
                 <button
-                  mat-flat-button
+                  ss-button="filled"
                   type="button"
                   [attr.aria-label]="'Propose ' + row.fullName"
                   (click)="propose(row)"
                 >
-                  <mat-icon>person_add</mat-icon>
+                  <ss-icon>person_add</ss-icon>
                   Propose
                 </button>
               </div>

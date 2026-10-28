@@ -1,9 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, DestroyRef, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   catchError,
@@ -21,6 +18,7 @@ import { Notifications } from '../../core/error/notifications';
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
+import { SsDialog, SsButton, SsIcon } from '../../shared/ui';
 import { WarningList } from '../../shared/warning-list/warning-list';
 import { AllocationProposal } from '../allocations/allocation.models';
 import { formatPeriod } from '../projects/project.models';
@@ -53,22 +51,14 @@ interface ProposalNotice {
  */
 @Component({
   selector: 'app-candidates-page',
-  imports: [
-    MatButtonModule,
-    MatIconModule,
-    PagedTable,
-    PagedTableCell,
-    RouterLink,
-    StatusChip,
-    WarningList,
-  ],
+  imports: [SsButton, SsIcon, PagedTable, PagedTableCell, RouterLink, StatusChip, WarningList],
   templateUrl: './candidates-page.html',
   styleUrl: './candidates-page.scss',
 })
 export class CandidatesPage {
   private readonly requests = inject(RequestService);
   private readonly candidates = inject(CandidateService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(SsDialog);
   private readonly notifications = inject(Notifications);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
@@ -89,7 +79,7 @@ export class CandidatesPage {
   // The API sorts by score, so no column can be sorted
   protected readonly columns: PagedTableColumn<Candidate>[] = [
     { key: 'candidate', header: 'Candidate' },
-    { key: 'score', header: 'Score' },
+    { key: 'score', numeric: true, header: 'Score' },
     { key: 'breakdown', header: 'Breakdown' },
     { key: 'notes', header: 'Reasons and warnings' },
     { key: 'actions', header: '' },

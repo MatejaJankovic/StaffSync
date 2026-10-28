@@ -1,116 +1,155 @@
-<section class="employee-search">
+<section class="employee-search ss-page">
   <header class="employee-search__header">
+    <p class="ss-eyebrow">People</p>
     <h1>Employee search</h1>
+    <p class="ss-page-context">
+      Find people by skill, seniority, department and the capacity they have free.
+    </p>
   </header>
 
   <form class="employee-search__filters" [formGroup]="form" (ngSubmit)="search()">
-    <div class="employee-search__row">
-      <mat-form-field appearance="outline" class="employee-search__skill">
-        <mat-label>Skill</mat-label>
-        <mat-select formControlName="skillId" (selectionChange)="onSkillChange($event.value)">
-          <mat-option [value]="null">Any skill</mat-option>
+    <div class="employee-search__skillgroup">
+      <ss-field class="employee-search__skill">
+        <ss-label>Skill</ss-label>
+        <ss-select formControlName="skillId" (selectionChange)="onSkillChange($event.value)">
+          <ss-option [value]="null">Any skill</ss-option>
           @for (group of skillGroups(); track group.label) {
-            <mat-optgroup [label]="group.label">
+            <ss-optgroup [label]="group.label">
               @for (skill of group.skills; track skill.id) {
-                <mat-option [value]="skill.id">{{ skill.name }}</mat-option>
+                <ss-option [value]="skill.id">{{ skill.name }}</ss-option>
               }
-            </mat-optgroup>
+            </ss-optgroup>
           }
-        </mat-select>
-      </mat-form-field>
+        </ss-select>
+      </ss-field>
 
       @if (form.controls.skillId.value !== null) {
         <div class="employee-search__level">
           <span class="employee-search__level-label">Minimum level</span>
-          <app-skill-level-picker formControlName="minLevel" ariaLabel="Minimum skill level" />
+          <div class="employee-search__level-control">
+            <app-skill-level-picker formControlName="minLevel" ariaLabel="Minimum skill level" />
+          </div>
         </div>
       }
     </div>
 
-    <div class="employee-search__row">
-      <mat-form-field appearance="outline">
-        <mat-label>Seniority</mat-label>
-        <mat-select formControlName="seniority">
-          <mat-option [value]="null">Any seniority</mat-option>
-          @for (option of seniorities; track option) {
-            <mat-option [value]="option">{{ seniorityLabels[option] }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Department</mat-label>
-        <mat-select formControlName="departmentId">
-          <mat-option [value]="null">Any department</mat-option>
-          @for (department of departments(); track department.id) {
-            <mat-option [value]="department.id">{{ department.name }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-    </div>
-
-    <div class="employee-search__row">
-      <app-date-range-picker
-        class="employee-search__period"
-        formControlName="period"
-        label="Available in"
-        [required]="freeGiven()"
-      />
-
-      <mat-form-field appearance="outline" class="employee-search__free">
-        <mat-label>Minimum free %</mat-label>
-        <input
-          matInput
-          type="number"
-          min="0"
-          max="100"
-          step="10"
-          formControlName="minFreePercent"
-          [required]="periodGiven()"
-        />
-        <mat-hint>On every working day</mat-hint>
-        @if (form.controls.minFreePercent.hasError('required')) {
-          <mat-error>Enter the free % needed in the period</mat-error>
-        } @else if (
-          form.controls.minFreePercent.hasError('min') ||
-          form.controls.minFreePercent.hasError('max')
-        ) {
-          <mat-error>Enter a % from 0 to 100</mat-error>
-        } @else if (form.controls.minFreePercent.hasError('wholeNumber')) {
-          <mat-error>Enter a whole number</mat-error>
+    <ss-field>
+      <ss-label>Seniority</ss-label>
+      <ss-select formControlName="seniority">
+        <ss-option [value]="null">Any seniority</ss-option>
+        @for (option of seniorities; track option) {
+          <ss-option [value]="option">{{ seniorityLabels[option] }}</ss-option>
         }
-      </mat-form-field>
-    </div>
+      </ss-select>
+    </ss-field>
+
+    <ss-field>
+      <ss-label>Department</ss-label>
+      <ss-select formControlName="departmentId">
+        <ss-option [value]="null">Any department</ss-option>
+        @for (department of departments(); track department.id) {
+          <ss-option [value]="department.id">{{ department.name }}</ss-option>
+        }
+      </ss-select>
+    </ss-field>
+
+    <app-date-range-picker
+      class="employee-search__period"
+      formControlName="period"
+      label="Available in"
+      [required]="freeGiven()"
+    />
+
+    <ss-field class="employee-search__free">
+      <ss-label>
+        Minimum free %
+        @if (periodGiven()) {
+          <!-- The control has no Validators.required (the attribute adds it), so the kit cannot show the star -->
+          <span class="ss-field__required" aria-hidden="true">*</span>
+        }
+      </ss-label>
+      <input
+        ssInput
+        type="number"
+        min="0"
+        max="100"
+        step="10"
+        formControlName="minFreePercent"
+        [required]="periodGiven()"
+      />
+      <ss-hint>On every working day</ss-hint>
+      @if (form.controls.minFreePercent.hasError('required')) {
+        <ss-error>Enter the free % needed in the period</ss-error>
+      } @else if (
+        form.controls.minFreePercent.hasError('min') || form.controls.minFreePercent.hasError('max')
+      ) {
+        <ss-error>Enter a % from 0 to 100</ss-error>
+      } @else if (form.controls.minFreePercent.hasError('wholeNumber')) {
+        <ss-error>Enter a whole number</ss-error>
+      }
+    </ss-field>
 
     <div class="employee-search__actions">
-      <button mat-flat-button type="submit">Search</button>
-      <button mat-button type="button" (click)="clear()">Clear</button>
+      <button ss-button="filled" type="submit">Search</button>
+      <button ss-button type="button" (click)="clear()">Clear</button>
     </div>
   </form>
 
   <app-paged-table
+    class="employee-search__results"
     [columns]="columns()"
     [fetch]="fetch()"
     emptyText="No employees match these filters."
   >
     <ng-template appPagedTableCell="topSkills" let-row>
       @if (row.topSkills.length) {
-        <mat-chip-set [attr.aria-label]="'Main skills of ' + row.firstName">
+        <div
+          class="employee-search__tags"
+          role="list"
+          [attr.aria-label]="'Main skills of ' + row.firstName"
+        >
           @for (skill of row.topSkills; track skill.skillId) {
-            <mat-chip>{{ skill.name }} {{ skill.level }}</mat-chip>
+            <ss-chip
+              role="listitem"
+              class="employee-search__tag"
+              [class.employee-search__tag--match]="isSearched(skill.skillId)"
+            >
+              @if (isSearched(skill.skillId)) {
+                <svg
+                  class="employee-search__check"
+                  viewBox="0 0 16 16"
+                  role="img"
+                  aria-label="Matches the skill you searched for"
+                  focusable="false"
+                >
+                  <path d="M3.5 8.5l3 3 6-7" />
+                </svg>
+              }
+              {{ skill.name }} {{ skill.level }}
+            </ss-chip>
           }
-        </mat-chip-set>
+        </div>
       } @else {
         —
       }
     </ng-template>
     <ng-template appPagedTableCell="free" let-row>
-      <app-capacity-bar
-        class="employee-search__capacity"
-        [load]="row.load"
-        [capacity]="row.capacityPercent"
-        [label]="freeLabel(row)"
-      />
+      <div class="employee-search__load">
+        <!-- The shared ring beside the bar: the same load as the bar, which carries the text -->
+        <app-capacity-ring
+          size="sm"
+          [decorative]="true"
+          [showValue]="false"
+          [load]="row.load"
+          [capacity]="row.capacityPercent"
+        />
+        <app-capacity-bar
+          class="employee-search__capacity"
+          [load]="row.load"
+          [capacity]="row.capacityPercent"
+          [label]="freeLabel(row)"
+        />
+      </div>
     </ng-template>
   </app-paged-table>
 </section>

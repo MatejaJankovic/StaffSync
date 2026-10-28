@@ -1,168 +1,177 @@
-.candidates {
-  padding: 24px;
-  max-width: 1100px;
-}
+// The page width, padding and centring come from .ss-page (global base styles)
 
 .candidates__back {
-  margin: 0 0 8px -12px;
+  margin: 0 0 var(--ss-space-2) calc(var(--ss-space-3) * -1);
 }
 
+// Title block: a small label, the title with the status beside it, one line of context
 .candidates__header {
+  margin-bottom: var(--ss-space-6);
+}
+
+.candidates__title {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--ss-space-2) var(--ss-space-3);
 
   h1 {
-    font: var(--mat-sys-headline-small);
     margin: 0;
   }
 }
 
+// The request as a band of facts between two hairlines, on the paper, not in a box
 .candidates__request {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px 24px;
-  margin: 0 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ss-space-4) var(--ss-space-6);
+  margin: 0 0 var(--ss-space-6);
+  padding: var(--ss-space-4) 0;
+  border-block: 1px solid var(--ss-line);
 
   dt {
-    color: var(--mat-sys-on-surface-variant);
-    font: var(--mat-sys-label-medium);
+    color: var(--ss-ink-muted);
+    font: var(--ss-type-label-medium);
+    letter-spacing: var(--ss-tracking-label);
   }
 
   dd {
-    margin: 2px 0 0;
-    font: var(--mat-sys-body-large);
+    margin: var(--ss-space-1) 0 0;
+    font: var(--ss-type-body-large);
+    font-weight: 500;
+  }
+
+  @media (min-width: 720px) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
+// Each list of skills takes half of the band on wide screens, the whole width on phones
 .candidates__skills {
   grid-column: 1 / -1;
+
+  @media (min-width: 720px) {
+    grid-column: span 2;
+  }
 }
 
+// Small neutral tags. Required levels are part of the text ("Java ≥ 4"), not of the color.
 .candidates__skill {
   display: inline-block;
-  margin: 0 8px 4px 0;
-  padding: 2px 10px;
-  border-radius: 12px;
-  background: var(--mat-sys-surface-container-high);
-  font: var(--mat-sys-label-large);
+  margin: 0 var(--ss-space-2) var(--ss-space-1) 0;
+  padding: 2px var(--ss-space-2);
+  border-radius: var(--ss-radius-sm);
+  background: var(--ss-neutral-tint);
+  color: var(--ss-ink);
+  font-size: var(--ss-text-xs);
+  font-weight: 500;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
 }
 
+// Loading, empty and error sentences: calm, on the paper
 .candidates__message {
-  color: var(--mat-sys-on-surface-variant);
-  margin: 0;
+  margin: var(--ss-space-6) 0;
+  color: var(--ss-ink-muted);
 }
 
-// The warning colors, as on the warning status chip and the warnings of a candidate
 .candidates__notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 12px 8px 12px 16px;
-  border-radius: 8px;
-  background: var(--app-warning-container);
-  color: var(--app-on-warning-container);
+  margin-bottom: var(--ss-space-4);
 }
 
-.candidates__notice-text {
-  flex: 1;
-
-  p {
-    margin: 0;
-  }
-
-  ul {
-    margin: 4px 0;
-    padding-left: 20px;
-  }
-}
-
-.candidates__notice-title {
-  font: var(--mat-sys-title-small);
+.candidates__table {
+  margin-top: var(--ss-space-2);
 }
 
 // A row has several lines, so its content needs room above and below
 .candidate__cell {
   display: block;
-  padding: 12px 0;
+  padding: var(--ss-space-3) 0;
 }
 
 // The wide reasons column would squeeze the name into several lines
 .candidate__cell--name {
-  min-width: 180px;
+  min-width: 170px;
 }
 
 .candidate__name {
-  font: var(--mat-sys-title-small);
+  font: var(--ss-type-title-small);
+  letter-spacing: var(--ss-tracking-snug);
 }
 
 .candidate__meta {
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-body-small);
+  color: var(--ss-ink-muted);
+  font: var(--ss-type-body-small);
 }
 
+// The match score is the rank: a large, tight figure. The rows already come best first.
 .candidate__score {
   display: inline-flex;
   align-items: baseline;
-  padding: 4px 12px;
-  border-radius: 16px;
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
-  font: var(--mat-sys-title-medium);
+  gap: 1px;
+  white-space: nowrap;
+  font-size: var(--ss-text-lg);
+  font-weight: 700;
+  letter-spacing: var(--ss-tracking-tight);
 }
 
 .candidate__score-max {
-  font: var(--mat-sys-label-small);
-  opacity: 0.75;
+  color: var(--ss-ink-muted);
+  font-size: var(--ss-text-xs);
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
+// How the score adds up: a label, "23/50" and a thin bar for each of the three parts
 .candidate__breakdown {
   display: grid;
-  gap: 6px;
-  min-width: 150px;
+  gap: var(--ss-space-2);
+  min-width: 140px;
   margin: 0;
 
   > div {
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: 2px 16px;
+    gap: 2px var(--ss-space-4);
   }
 
   dt {
-    color: var(--mat-sys-on-surface-variant);
-    font: var(--mat-sys-body-small);
+    color: var(--ss-ink-muted);
+    font: var(--ss-type-body-small);
   }
 
   dd {
     margin: 0;
-    font: var(--mat-sys-label-large);
+    font: var(--ss-type-label-large);
   }
 }
 
 .candidate__breakdown-max {
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-body-small);
+  color: var(--ss-ink-muted);
+  font: var(--ss-type-body-small);
 }
 
 .candidate__bar {
   grid-column: 1 / -1;
   height: 4px;
-  border-radius: 2px;
-  background: var(--mat-sys-surface-container-highest);
+  border-radius: var(--ss-radius-pill);
+  background: var(--ss-line);
   overflow: hidden;
 
   > span {
     display: block;
     height: 100%;
-    background: var(--mat-sys-primary);
+    border-radius: var(--ss-radius-pill);
+    background: var(--ss-teal);
   }
 }
 
-// Laid out like the warnings below them (shared/warning-list), without the warning colors
+// The skills they match: teal-tint with a check glyph, so the match is not told by color alone.
+// Laid out like the warnings below them (shared/warning-list).
 .candidate__reasons {
+  display: grid;
+  gap: var(--ss-space-1);
+  justify-items: start;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -170,20 +179,25 @@
   li {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    padding: 2px 0;
-    font: var(--mat-sys-body-medium);
+    gap: var(--ss-space-2);
+    padding: 2px var(--ss-space-2) 2px 6px;
+    border-radius: var(--ss-radius-sm);
+    background: var(--ss-teal-tint);
+    color: var(--ss-ink);
+    font: var(--ss-type-body-medium);
+    font-variant-numeric: tabular-nums;
   }
 
-  mat-icon {
+  ss-icon {
     flex: none;
     width: 18px;
     height: 18px;
+    margin-top: 2px;
     font-size: 18px;
-    color: var(--mat-sys-primary);
+    color: var(--ss-teal);
   }
 }
 
 .candidate__reasons + .candidate__warnings {
-  margin-top: 8px;
+  margin-top: var(--ss-space-2);
 }

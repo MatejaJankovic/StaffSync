@@ -1,19 +1,15 @@
 import { TestBed } from '@angular/core/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatDialog } from '@angular/material/dialog';
+import { SsDialog } from '../ui';
 import { ConfirmDialogService } from './confirm-dialog.service';
 
 describe('ConfirmDialogService', () => {
   let service: ConfirmDialogService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [{ provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } }],
-    });
     service = TestBed.inject(ConfirmDialogService);
   });
 
-  afterEach(() => TestBed.inject(MatDialog).closeAll());
+  afterEach(() => TestBed.inject(SsDialog).closeAll());
 
   function open(destructive = false): { result: () => boolean | undefined } {
     let result: boolean | undefined;
@@ -69,7 +65,7 @@ describe('ConfirmDialogService', () => {
 
   it('emits false when closed without a choice (Escape, click outside)', async () => {
     const { result } = open();
-    TestBed.inject(MatDialog).closeAll();
+    TestBed.inject(SsDialog).closeAll();
     await settle();
     expect(result()).toBe(false);
   });

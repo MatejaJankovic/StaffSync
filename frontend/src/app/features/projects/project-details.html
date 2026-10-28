@@ -1,7 +1,7 @@
-<section class="project">
+<section class="project ss-page">
   @if (isPm()) {
-    <a mat-button routerLink="/projects" class="project__back">
-      <mat-icon>arrow_back</mat-icon>
+    <a ss-button routerLink="/projects" class="project__back">
+      <ss-icon>arrow_back</ss-icon>
       My projects
     </a>
   }
@@ -16,53 +16,62 @@
     @case ('failed') {
       <p class="project__message" role="alert">
         Unable to load the project.
-        <button mat-button (click)="retry()">Retry</button>
+        <button ss-button="outlined" type="button" (click)="retry()">Retry</button>
       </p>
     }
     @default {
       @if (project(); as current) {
         <header class="project__header">
-          <h1>{{ current.name }}</h1>
-          <app-status-chip [status]="current.status" />
-          <span class="project__spacer"></span>
-          @if (statusActions().length > 0) {
-            <div class="project__status-action">
-              <button
-                mat-stroked-button
-                type="button"
-                [matMenuTriggerFor]="statusMenu"
-                [disabled]="changingStatus()"
-              >
-                <mat-icon>swap_horiz</mat-icon>
-                Change status
-              </button>
-              <mat-menu #statusMenu="matMenu" xPosition="before">
-                @for (action of statusActions(); track action.status) {
-                  <button mat-menu-item type="button" (click)="changeStatus(action)">
-                    <mat-icon>{{ action.icon }}</mat-icon>
-                    <span>{{ action.label }}</span>
-                  </button>
-                }
-              </mat-menu>
+          <div class="project__title">
+            <p class="ss-eyebrow">Project</p>
+            <div class="project__heading">
+              <h1>{{ current.name }}</h1>
+              <app-status-chip [status]="current.status" />
             </div>
-          }
-          @if (canEdit()) {
-            <button mat-stroked-button (click)="edit()">
-              <mat-icon>edit</mat-icon>
-              Edit
-            </button>
+            <p class="ss-page-context">{{ current.client }} · {{ period() }}</p>
+          </div>
+          @if (statusActions().length > 0 || canEdit()) {
+            <div class="project__actions">
+              @if (statusActions().length > 0) {
+                <div class="project__status-action">
+                  <button
+                    ss-button="outlined"
+                    type="button"
+                    [ssMenuTriggerFor]="statusMenu"
+                    [ssMenuPosition]="statusMenuPosition"
+                    [disabled]="changingStatus()"
+                  >
+                    <ss-icon>swap_horiz</ss-icon>
+                    Change status
+                  </button>
+                  <ng-template #statusMenu>
+                    <div ssMenu aria-label="Change status">
+                      @for (action of statusActions(); track action.status) {
+                        <button
+                          ssMenuItem
+                          type="button"
+                          [class.project__menu-item--danger]="action.status === 'CANCELLED'"
+                          (click)="changeStatus(action)"
+                        >
+                          <ss-icon>{{ action.icon }}</ss-icon>
+                          <span>{{ action.label }}</span>
+                        </button>
+                      }
+                    </div>
+                  </ng-template>
+                </div>
+              }
+              @if (canEdit()) {
+                <button ss-button="outlined" (click)="edit()">
+                  <ss-icon>edit</ss-icon>
+                  Edit
+                </button>
+              }
+            </div>
           }
         </header>
 
         <dl class="project__info">
-          <div>
-            <dt>Client</dt>
-            <dd>{{ current.client }}</dd>
-          </div>
-          <div>
-            <dt>Period</dt>
-            <dd>{{ period() }}</dd>
-          </div>
           <div>
             <dt>Project manager</dt>
             <dd>{{ current.pmName }}</dd>

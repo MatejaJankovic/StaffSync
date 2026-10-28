@@ -1,11 +1,9 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatPaginator } from '@angular/material/paginator';
-import { MatSort } from '@angular/material/sort';
 import { Observable, of, throwError } from 'rxjs';
 import { Page, PageQuery } from '../../core/api/page';
+import { SsPaginator, SsSort } from '../ui';
 import { PagedTable, PagedTableColumn } from './paged-table';
 import { PagedTableCell } from './paged-table-cell';
 
@@ -59,7 +57,6 @@ describe('PagedTable', () => {
   async function render(result: () => Observable<Page<Row>>): Promise<HTMLElement> {
     TestBed.configureTestingModule({
       imports: [Host],
-      providers: [{ provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } }],
     });
     fetch = vi.fn<Fetch>(() => result());
     fixture = TestBed.createComponent(Host);
@@ -79,7 +76,7 @@ describe('PagedTable', () => {
   }
 
   function cells(el: HTMLElement): string[] {
-    return [...el.querySelectorAll('td.mat-mdc-cell')].map((td) => td.textContent!.trim());
+    return [...el.querySelectorAll('td.cdk-cell')].map((td) => td.textContent!.trim());
   }
 
   it('loads the first page with the default size and shows the rows', async () => {
@@ -89,13 +86,13 @@ describe('PagedTable', () => {
     expect(lastQuery()).toEqual({ page: 0, size: 20 });
     expect(cells(el)).toEqual(['Marko', '#7', '[APPROVED]']);
     expect(el.querySelector('.custom-status')).toBeTruthy();
-    expect(el.querySelector('.mat-mdc-paginator-range-label')?.textContent).toContain('of 45');
+    expect(el.querySelector('.ss-paginator__range')?.textContent).toContain('of 45');
   });
 
   it('requests the next page from the paginator', async () => {
     await render(() => of(pageOf([{ id: 1, name: 'A', status: 'OPEN' }])));
 
-    fixture.debugElement.query(By.directive(MatPaginator)).injector.get(MatPaginator).nextPage();
+    fixture.debugElement.query(By.directive(SsPaginator)).injector.get(SsPaginator).nextPage();
     await settle();
 
     expect(lastQuery()).toEqual({ page: 1, size: 20 });
@@ -103,12 +100,12 @@ describe('PagedTable', () => {
 
   it('sends the sort and goes back to the first page', async () => {
     await render(() => of(pageOf([{ id: 1, name: 'A', status: 'OPEN' }])));
-    fixture.debugElement.query(By.directive(MatPaginator)).injector.get(MatPaginator).nextPage();
+    fixture.debugElement.query(By.directive(SsPaginator)).injector.get(SsPaginator).nextPage();
     await settle();
 
     fixture.debugElement
-      .query(By.directive(MatSort))
-      .injector.get(MatSort)
+      .query(By.directive(SsSort))
+      .injector.get(SsSort)
       .sort({ id: 'name', start: 'desc', disableClear: false });
     await settle();
 
@@ -117,7 +114,7 @@ describe('PagedTable', () => {
 
   it('reloads from the first page when the fetch function changes', async () => {
     await render(() => of(pageOf([{ id: 1, name: 'A', status: 'OPEN' }])));
-    fixture.debugElement.query(By.directive(MatPaginator)).injector.get(MatPaginator).nextPage();
+    fixture.debugElement.query(By.directive(SsPaginator)).injector.get(SsPaginator).nextPage();
     await settle();
 
     const filtered = vi.fn<Fetch>(() => of(emptyPage()));
@@ -167,8 +164,8 @@ describe('PagedTable', () => {
   it('moves to the new last page when the current page no longer exists', async () => {
     const el = await render(() => of(pageOf([{ id: 1, name: 'A', status: 'OPEN' }])));
     const paginator = fixture.debugElement
-      .query(By.directive(MatPaginator))
-      .injector.get(MatPaginator);
+      .query(By.directive(SsPaginator))
+      .injector.get(SsPaginator);
     paginator.nextPage();
     await settle();
     paginator.nextPage();
@@ -198,7 +195,7 @@ describe('PagedTable', () => {
   });
 
   describe('row click', () => {
-    const rows = (el: HTMLElement) => [...el.querySelectorAll<HTMLElement>('tr.mat-mdc-row')];
+    const rows = (el: HTMLElement) => [...el.querySelectorAll<HTMLElement>('tr.cdk-row')];
     const page = () =>
       of(
         pageOf([

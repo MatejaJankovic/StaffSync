@@ -1,31 +1,45 @@
-.team {
-  padding: 24px;
-  max-width: 960px;
-}
-
+// Page frame, width and padding come from .ss-page
 .team__header {
-  margin-bottom: 16px;
-
-  h1 {
-    font: var(--mat-sys-headline-small);
-    margin: 0;
-  }
+  align-items: flex-end;
 }
 
-// Like paged-table: on a narrow screen only the table scrolls sideways, not the page
+// A quiet panel. On a narrow screen only the table scrolls sideways, not the page.
 .team__scroll {
   overflow-x: auto;
   overflow-y: hidden;
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface);
+  box-shadow: 0 0 0 1px var(--ss-line);
 }
 
 .team__table {
   width: 100%;
+  min-width: 720px;
+  background: transparent;
+}
+
+// A narrow column for the small ring
+.team__ring-cell {
+  width: 72px;
+  padding-inline-end: 0;
+}
+
+.team__name {
+  font-weight: 600;
+  color: var(--ss-ink);
 }
 
 .team__load {
-  min-width: 160px;
+  min-width: 180px;
 }
 
 .team__message {
-  color: var(--mat-sys-on-surface-variant);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ss-space-3);
+  margin: 0;
+  padding-block: var(--ss-space-6);
+  border-top: 1px solid var(--ss-line);
+  color: var(--ss-ink-muted);
 }

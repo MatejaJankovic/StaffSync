@@ -1,21 +1,27 @@
-<section class="projects">
-  <header class="projects__header">
-    <h1>My projects</h1>
-    <button mat-flat-button (click)="create()">
-      <mat-icon>add</mat-icon>
+<section class="projects ss-page">
+  <header class="ss-page-header projects__header">
+    <div>
+      <p class="ss-eyebrow">Project manager</p>
+      <h1>My projects</h1>
+      <p class="ss-page-context">The projects you manage, with their client, period and status.</p>
+    </div>
+    <button ss-button="filled" (click)="create()">
+      <ss-icon>add</ss-icon>
       New project
     </button>
   </header>
 
-  <mat-form-field appearance="outline" class="projects__filter" subscriptSizing="dynamic">
-    <mat-label>Status</mat-label>
-    <mat-select [value]="status()" (selectionChange)="status.set($event.value)">
-      <mat-option value="">All statuses</mat-option>
-      @for (option of statuses; track option) {
-        <mat-option [value]="option">{{ statusLabels[option] }}</mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
+  <div class="projects__toolbar">
+    <ss-field class="projects__filter">
+      <ss-label>Status</ss-label>
+      <ss-select [value]="status()" (selectionChange)="status.set($event.value)">
+        <ss-option value="">All statuses</ss-option>
+        @for (option of statuses; track option) {
+          <ss-option [value]="option">{{ statusLabels[option] }}</ss-option>
+        }
+      </ss-select>
+    </ss-field>
+  </div>
 
   <app-paged-table
     [columns]="columns"
@@ -25,7 +31,12 @@
     (rowClick)="open($event)"
   >
     <ng-template appPagedTableCell="name" let-row>
-      <a [routerLink]="['/projects', row.id]" (click)="$event.stopPropagation()">{{ row.name }}</a>
+      <a
+        class="projects__name"
+        [routerLink]="['/projects', row.id]"
+        (click)="$event.stopPropagation()"
+        >{{ row.name }}</a
+      >
     </ng-template>
     <ng-template appPagedTableCell="status" let-row>
       <app-status-chip [status]="row.status" />
@@ -33,11 +44,11 @@
     <ng-template appPagedTableCell="actions" let-row>
       @if (isEditable(row)) {
         <button
-          mat-icon-button
+          ss-button="icon"
           [attr.aria-label]="'Edit ' + row.name"
           (click)="$event.stopPropagation(); edit(row)"
         >
-          <mat-icon>edit</mat-icon>
+          <ss-icon>edit</ss-icon>
         </button>
       }
     </ng-template>

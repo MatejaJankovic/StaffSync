@@ -1,8 +1,8 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatSortModule, Sort, SortDirection } from '@angular/material/sort';
-import { MatTableModule } from '@angular/material/table';
+import { CdkTableModule } from '@angular/cdk/table';
+import { SsSort, SsSortChange, SsSortDirection, SsSortHeader, SsButton } from '../../shared/ui';
 import { CapacityBar } from '../../shared/capacity-bar/capacity-bar';
+import { CapacityRing } from '../../shared/capacity-ring/capacity-ring';
 import { SENIORITY_LABELS } from '../profile/profile.models';
 import { fullName } from '../users/user.models';
 import { TeamMember } from './team.models';
@@ -24,19 +24,19 @@ const usage = (member: TeamMember) =>
  */
 @Component({
   selector: 'app-team-page',
-  imports: [CapacityBar, MatButtonModule, MatSortModule, MatTableModule],
+  imports: [CapacityBar, CapacityRing, SsButton, CdkTableModule, SsSort, SsSortHeader],
   templateUrl: './team-page.html',
   styleUrl: './team-page.scss',
 })
 export class TeamPage implements OnInit {
   private readonly teamService = inject(TeamService);
 
-  protected readonly columns = ['name', 'seniority', 'department', 'capacity', 'load'];
+  protected readonly columns = ['ring', 'name', 'seniority', 'department', 'capacity', 'load'];
   protected readonly fullName = fullName;
   protected readonly members = signal<TeamMember[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadFailed = signal(false);
-  protected readonly sort = signal<{ active: SortColumn; direction: SortDirection }>({
+  protected readonly sort = signal<{ active: SortColumn; direction: SsSortDirection }>({
     active: 'load',
     direction: 'asc',
   });
@@ -71,7 +71,7 @@ export class TeamPage implements OnInit {
   }
 
   // Clearing the sort (a third click) goes back to the default: the people free today first
-  protected sortBy(sort: Sort): void {
+  protected sortBy(sort: SsSortChange): void {
     this.sort.set(
       sort.direction
         ? { active: sort.active as SortColumn, direction: sort.direction }

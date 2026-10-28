@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
+import { SsIcon } from '../ui';
 
 /**
  * Warnings that must stand out, e.g. the warnings of a candidate (too little capacity, a missing
@@ -13,12 +13,12 @@ import { MatIconModule } from '@angular/material/icon';
  */
 @Component({
   selector: 'app-warning-list',
-  imports: [MatIconModule],
+  imports: [SsIcon],
   template: `
     <ul aria-label="Warnings">
       @for (warning of warnings(); track $index) {
         <li>
-          <mat-icon>warning</mat-icon>
+          <ss-icon>warning</ss-icon>
           <span>{{ warning }}</span>
         </li>
       }
@@ -34,23 +34,26 @@ import { MatIconModule } from '@angular/material/icon';
     ul {
       list-style: none;
       margin: 0;
-      padding: 6px 12px;
-      border-radius: 8px;
-      background: var(--app-warning-container);
-      color: var(--app-on-warning-container);
+      padding: var(--ss-space-2) var(--ss-space-3);
+      border-radius: var(--ss-radius-md);
+      background: var(--ss-sand-tint);
+      color: var(--ss-sand);
     }
     li {
       display: flex;
       align-items: flex-start;
-      gap: 8px;
-      padding: 2px 0;
-      font: var(--mat-sys-body-medium);
+      gap: var(--ss-space-2);
+      padding: var(--ss-space-1) 0;
+      font: var(--ss-type-body-medium);
+      font-weight: 500;
     }
-    mat-icon {
+    ss-icon {
       flex: none;
       width: 18px;
       height: 18px;
       font-size: 18px;
+      /* Lines the icon up with the first line of text (22px line height) */
+      margin-top: 2px;
     }
   `,
   host: {
