@@ -69,7 +69,7 @@ Svaki korisnik ima tačno jednu rolu. Svaki Employee ima tačno jednog RM-a (`ma
 | Headcount | Jedan zahtev može tražiti ≥ 1 osobu | Daje statuse `PARTIALLY_FILLED` i `FILLED` |
 | **API dokumentacija** | **Swagger (springdoc) sa JWT „Authorize“ i anotacijama** | Obavezno. Služi timu, QA-u i za demo |
 | Migracije baze | Flyway | Verzionisana šema, dovoljno je znati SQL |
-| UI biblioteka | Angular Material | Gotove tabele, dijalozi, datepicker |
+| UI biblioteka | Angular CDK + sopstveni UI kit (`frontend/src/app/shared/ui`) | Bez Angular Material-a: CDK daje overlay, dijalog, meni i pristupačnost, a izgled je naš (`--ss-*` tokeni) |
 | **Pokretanje** | **Ceo stack u Docker-u** | `docker compose up --build` diže sve za demo |
 | Nalozi | Kreira ih Admin, nema registracije | Interni enterprise alat |
 | JWT | Samo access token (8h) | Bez refresh tokena |
@@ -395,7 +395,7 @@ UI je na **engleskom**.
 
 **Zajedničko:** login, layout sa menijem koji zavisi od role, `AuthGuard` i `RoleGuard`, JWT `HttpInterceptor` (na 401 briše token i vraća korisnika na login), globalni error handler (snackbar), *Change password* dijalog, pretraga zaposlenih.
 
-**Početna stranica (*Home*)** je za svaku rolu nekoliko Material kartica sa brojem i linkom ka listi. Nema grafikona.
+**Početna stranica (*Home*)** je za svaku rolu nekoliko kartica sa brojem i linkom ka listi. Nema grafikona.
 
 | Rola | Kartice na početnoj stranici |
 |---|---|
@@ -421,7 +421,7 @@ UI je na **engleskom**.
 |---|---|
 | Backend | Java 21, Spring Boot 3, Spring Web, Spring Data JPA, Spring Security + JWT, Bean Validation, Flyway, **springdoc-openapi (Swagger UI)** |
 | Baza | PostgreSQL 16 |
-| Frontend | Angular (standalone komponente), Angular Material, Reactive Forms, RxJS |
+| Frontend | Angular (standalone komponente), Angular CDK sa sopstvenim UI kitom, Reactive Forms, RxJS |
 | Testovi | JUnit 5, Mockito, Spring Boot Test, Testcontainers, REST Assured, Playwright |
 | Infrastruktura | Docker + Docker Compose (ceo stack) |
 | Alati | Git (feature grane, PR, code review), GitHub Issues za sprint backlog, zadatke i bagove, Discord/Teams za komunikaciju |
