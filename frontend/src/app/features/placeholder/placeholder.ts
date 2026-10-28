@@ -7,22 +7,23 @@ import { map } from 'rxjs';
 @Component({
   selector: 'app-placeholder',
   template: `
-    <section class="placeholder">
-      <h1>{{ title() }}</h1>
-      <p>This page is coming soon.</p>
+    <section class="placeholder ss-page">
+      <header class="ss-page-header">
+        <h1>{{ title() }}</h1>
+      </header>
+      <hr class="ss-hairline" />
+      <p class="placeholder__note">This page is coming soon.</p>
     </section>
   `,
   styles: `
-    .placeholder {
-      padding: 24px;
-    }
     h1 {
-      font: var(--mat-sys-headline-small);
-      margin: 0 0 8px;
+      font: var(--ss-type-headline-small);
+      letter-spacing: var(--ss-tracking-tight);
     }
-    p {
-      color: var(--mat-sys-on-surface-variant);
+
+    .placeholder__note {
       margin: 0;
+      color: var(--ss-ink-muted);
     }
   `,
 })

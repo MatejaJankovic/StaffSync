@@ -1,0 +1,58 @@
+.ss-progress {
+  display: block;
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--ss-radius-pill);
+  background: var(--ss-progress-track, var(--ss-line));
+}
+
+.ss-progress__bar {
+  height: 100%;
+  width: var(--ss-progress-value, 0%);
+  border-radius: inherit;
+  background: var(--ss-progress-color, var(--ss-teal));
+  transition: width var(--ss-dur) var(--ss-ease);
+}
+
+.ss-progress--indeterminate .ss-progress__bar {
+  width: 40%;
+  animation: ss-progress-slide 1.4s var(--ss-ease) infinite;
+}
+
+@keyframes ss-progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.ss-spinner {
+  display: inline-block;
+  flex: none;
+  color: var(--ss-teal);
+
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    animation: ss-spinner-turn 0.9s linear infinite;
+  }
+
+  circle {
+    fill: none;
+    stroke: currentcolor;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 70 100;
+  }
+}
+
+@keyframes ss-spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}

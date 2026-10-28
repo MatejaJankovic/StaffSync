@@ -1,0 +1,245 @@
+// Base styles and shared utilities. Everything here reads --ss-* tokens (see _tokens.scss).
+//
+// Selectors that style bare elements use :where() so they carry zero specificity: any component
+// rule overrides them without a fight.
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  // Light mode only.
+  color-scheme: light;
+  margin: 0;
+  height: 100%;
+  background-color: var(--ss-paper);
+  color: var(--ss-ink);
+  font: var(--ss-type-body-medium);
+  -webkit-font-smoothing: antialiased;
+}
+
+// Native controls do not inherit the font by default.
+:where(button, input, select, textarea) {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  color: var(--ss-ink);
+  text-wrap: balance;
+}
+
+:where(h1) {
+  font: var(--ss-type-headline-small);
+  letter-spacing: var(--ss-tracking-tight);
+}
+
+:where(h2) {
+  font: var(--ss-type-title-large);
+  letter-spacing: var(--ss-tracking-snug);
+}
+
+:where(h3) {
+  font: var(--ss-type-title-medium);
+  letter-spacing: var(--ss-tracking-snug);
+}
+
+:where(h4, h5, h6) {
+  font: var(--ss-type-title-small);
+}
+
+// Links: teal, underlined with an offset on hover. Only bare anchors are styled; anchors that carry
+// a class (buttons, nav items, cards) style themselves.
+a:where(:not([class])) {
+  color: var(--ss-teal);
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+  transition: color var(--ss-dur-fast) var(--ss-ease);
+
+  &:hover {
+    color: var(--ss-teal-strong);
+    text-decoration: underline;
+  }
+}
+
+// Keyboard focus: a 2px teal ring with a 2px offset on every interactive element. The kit select
+// shows the focused outline of its field instead, so it is skipped.
+:where(
+    a,
+    button,
+    summary,
+    [tabindex],
+    [role='button'],
+    input[type='checkbox'],
+    input[type='radio']
+  ):focus-visible:not(.ss-select__trigger, [tabindex='-1']) {
+  outline: var(--ss-focus-ring);
+  outline-offset: var(--ss-focus-offset);
+}
+
+::selection {
+  background: var(--ss-teal-tint);
+  color: var(--ss-ink);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------------------------
+
+// Tabular figures for every percentage, date and count.
+.ss-num {
+  font-variant-numeric: tabular-nums;
+}
+
+// Page wrapper: centered column, 32px padding (16px on phones).
+.ss-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--ss-page-max);
+  margin-inline: auto;
+  padding: var(--ss-page-pad);
+}
+
+// Page header: eyebrow, title and optional actions on one row; wraps on narrow screens.
+.ss-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--ss-space-2) var(--ss-space-4);
+  margin-block: 0 var(--ss-space-6);
+
+  > :where(h1, h2) {
+    margin: 0;
+  }
+}
+
+// The one context line under a page title: 14px, muted, at most 60 characters wide. Home keeps
+// its own 16px line under its 40px hero title.
+.ss-page-context {
+  margin: var(--ss-space-1) 0 0;
+  max-width: 60ch;
+  color: var(--ss-ink-muted);
+  font-size: var(--ss-text-sm);
+}
+
+// Small label above a title or section: 12px, medium weight, muted, slightly tracked.
+.ss-eyebrow {
+  margin: 0 0 var(--ss-space-1);
+  color: var(--ss-ink-muted);
+  font: var(--ss-type-label-medium);
+  letter-spacing: var(--ss-tracking-label);
+}
+
+// Notice: a callout for a warning or an error, one look everywhere. Tinted block, ink text, and an
+// icon in the tone color; the words always say what it is. Modifiers: --warning, --danger.
+// Markup: .ss-notice > ss-icon.ss-notice__icon + .ss-notice__text (title, paragraphs, a list),
+// and optionally a trailing icon button to dismiss it.
+.ss-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ss-space-3);
+  box-sizing: border-box;
+  padding: var(--ss-space-3) var(--ss-space-4);
+  border-radius: var(--ss-radius-md);
+  color: var(--ss-ink);
+
+  // The dismiss button sits in the corner, its tap target running past the padding
+  > .ss-button {
+    flex: none;
+    margin-block: calc(var(--ss-space-2) * -1);
+    margin-inline-end: calc(var(--ss-space-3) * -1);
+  }
+}
+
+.ss-notice--warning {
+  background: var(--ss-sand-tint);
+  --ss-notice-tone: var(--ss-sand);
+}
+
+.ss-notice--danger {
+  background: var(--ss-danger-tint);
+  --ss-notice-tone: var(--ss-danger);
+}
+
+.ss-notice__icon {
+  flex: none;
+  color: var(--ss-notice-tone);
+}
+
+.ss-notice__text {
+  flex: 1;
+  min-width: 0;
+
+  p {
+    margin: 0;
+  }
+
+  ul {
+    margin: var(--ss-space-1) 0 var(--ss-space-2);
+    padding-left: var(--ss-space-6);
+  }
+}
+
+.ss-notice__title {
+  font: var(--ss-type-title-small);
+}
+
+// 1px divider in the hairline color.
+.ss-hairline {
+  height: 0;
+  margin: var(--ss-space-4) 0;
+  border: 0;
+  border-top: 1px solid var(--ss-line);
+}
+
+// Visually hidden, still read by screen readers.
+.ss-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Motion. The one orchestrated moment is on Home: cards rise in a short stagger (the rise itself
+// lives in stat-card.scss, driven by --ss-i and --ss-stagger) and a capacity ring may sweep in.
+// Home has no capacity data today, so no ring sweeps yet: `.ss-ring-sweep` and the ring's
+// `animate` input are the tested extension point for when it does. Everything else only
+// transitions state (120-200ms). The reduced-motion block at the bottom turns all of it off.
+// ---------------------------------------------------------------------------------------------
+
+// Ring sweep. Rings draw their arc with pathLength="100" and stroke-dasharray="100", so the sweep
+// only needs a start offset; the end state is the element's own stroke-dashoffset.
+@keyframes ss-ring-sweep {
+  from {
+    stroke-dashoffset: 100;
+  }
+}
+
+// Home only. Put on the ring's arc element.
+.ss-ring-sweep {
+  animation: ss-ring-sweep var(--ss-dur-slow) var(--ss-ease) both;
+  animation-delay: calc(var(--ss-i, 0) * var(--ss-stagger) + 120ms);
+}
+
+// Respect prefers-reduced-motion everywhere. !important is needed here: it has to beat the
+// durations that component styles set with higher specificity. Animations still
+// jump to their end state (fill-mode both), so nothing is left half-drawn.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -88,7 +88,7 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/departments/departments-page').then((m) => m.DepartmentsPage),
       }),
-      // Lazy, so the Material table and dialogs stay out of the initial bundle
+      // Lazy, so the table and dialogs stay out of the initial bundle
       menuRoute('admin/skills', {
         loadComponent: () => import('./features/skills/skills-page').then((m) => m.SkillsPage),
       }),

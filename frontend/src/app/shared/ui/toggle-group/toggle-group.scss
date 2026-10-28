@@ -1,0 +1,48 @@
+.ss-toggle-group {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--ss-control-border);
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface-raised);
+  font-variant-numeric: tabular-nums;
+}
+
+.ss-toggle + .ss-toggle {
+  border-inline-start: 1px solid var(--ss-control-border);
+}
+
+.ss-toggle__button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 var(--ss-space-3);
+  border: 0;
+  background: var(--ss-toggle-bg, transparent);
+  color: var(--ss-toggle-fg, var(--ss-ink-muted));
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--ss-dur-fast) var(--ss-ease);
+
+  &:hover:not(:disabled) {
+    background: var(--ss-wash-hover);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  // The focus ring sits inside the group, so overflow:hidden does not clip it.
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
+.ss-toggle--selected .ss-toggle__button {
+  background: var(--ss-toggle-selected-bg, var(--ss-teal));
+  color: var(--ss-toggle-selected-fg, var(--ss-on-teal));
+
+  &:hover:not(:disabled) {
+    background: var(--ss-teal-strong);
+  }
+}

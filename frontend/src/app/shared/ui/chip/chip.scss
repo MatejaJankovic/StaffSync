@@ -1,0 +1,41 @@
+.ss-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ss-space-1);
+  box-sizing: border-box;
+  min-height: 28px;
+  padding: 0 var(--ss-space-3);
+  border-radius: var(--ss-radius-pill);
+  background: var(--ss-neutral-tint);
+  color: var(--ss-ink);
+  font-size: var(--ss-text-xs);
+  font-weight: 500;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.ss-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-inline: calc(var(--ss-space-1) * -1) calc(var(--ss-space-2) * -1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ss-radius-pill);
+  background: transparent;
+  color: var(--ss-ink-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--ss-wash-pressed);
+    color: var(--ss-ink);
+  }
+
+  .ss-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+}

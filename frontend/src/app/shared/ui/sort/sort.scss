@@ -1,0 +1,45 @@
+.ss-sort__button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ss-space-1);
+  min-height: 40px;
+  cursor: pointer;
+  user-select: none;
+
+  &.ss-sort__button--disabled {
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: var(--ss-focus-ring);
+    outline-offset: var(--ss-focus-offset);
+    border-radius: var(--ss-radius-sm);
+  }
+}
+
+// The arrow is always there so the header does not shift when it is sorted; faint until it is on.
+// The glyph is generated content, so it never becomes part of the header cell's text.
+.ss-sort__arrow {
+  &::before {
+    content: 'arrow_upward';
+  }
+
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  opacity: 0;
+  transition: opacity var(--ss-dur-fast) var(--ss-ease);
+}
+
+.ss-sort__button:hover .ss-sort__arrow {
+  opacity: 0.5;
+}
+
+.ss-sort__arrow--on,
+.ss-sort__button:hover .ss-sort__arrow--on {
+  opacity: 1;
+}
+
+.ss-sort__arrow--desc::before {
+  content: 'arrow_downward';
+}

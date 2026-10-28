@@ -1,0 +1,144 @@
+// StaffSync design tokens.
+//
+// Single source of truth for the visual language: sage paper, ink green-black, one deep teal
+// accent. Calm, editorial, light mode only. Components consume these custom properties and never
+// hardcode colors. Raw color values live in this file and nowhere else.
+//
+// Contrast (WCAG 2.x, computed, not guessed). AA needs 4.5:1 for text, 3:1 for large text and UI.
+//   ink          on paper / surface / surface-raised        13.21 / 14.47 / 15.20
+//   ink-muted    on paper / surface / surface-raised        5.65 / 6.19 / 6.50
+//   ink-muted    on neutral-tint / teal-tint                5.13 / 5.10
+//   on-teal      on teal / teal-strong                      6.37 / 8.67
+//   teal         on paper / surface / surface-raised        5.53 / 6.06 / 6.37
+//   teal         on teal-tint                               5.00
+//   teal-strong  on teal-tint                               6.80
+//   danger       on danger-tint / paper / surface           4.64 / 5.21 / 5.71   (danger adjusted, see below)
+//   on-teal      on danger                                  6.00
+//   sand         on sand-tint / surface                     5.13 / 6.06
+//   success      on success-tint / surface                  5.16 / 6.08
+//   info         on info-tint / surface                     5.80 / 6.92
+//   control-border on surface / paper / surface-raised      3.52 / 3.21 / 3.70   (UI boundary, 3:1)
+//   teal-on-ink  on ink                                     8.69                 (snack bar action)
+//
+// Adjustment: the brief's danger #B5412E gave only 4.32:1 on danger-tint (needs 4.5:1 for the
+// overbooked/error text). It is darkened slightly to #AD3E2B (4.64:1).
+// Addition: line and line-strong are decorative hairlines (1.4:1 and 1.75:1 on surface). Anything
+// that is the only visible edge of a control uses --ss-control-border (3:1) instead.
+
+:root {
+  // Surfaces
+  --ss-paper: #edf0ea; // page background
+  --ss-surface: #f8faf6; // panels, table bodies, cards
+  --ss-surface-raised: #fff; // dialogs, menus, select panels
+
+  // Text
+  --ss-ink: #172926;
+  --ss-ink-muted: #4e625e; // secondary text, >= 4.5:1 on paper and surface
+
+  // Lines
+  --ss-line: #d3dad2; // hairlines, dividers
+  --ss-line-strong: #b7c2b9; // decorative strong divider, not a control edge
+  --ss-control-border: #78897f; // edge of inputs, checkboxes, outlined buttons (>= 3:1)
+
+  // Accent
+  --ss-teal: #0e6b62; // primary buttons, links, focus
+  --ss-teal-strong: #0a554e; // hover, pressed
+  --ss-teal-tint: #d5e8e3; // selected, active nav
+  --ss-on-teal: #fff; // text on teal and teal-strong
+  --ss-teal-on-ink: #8fd0c6; // teal on the ink-colored snack bar and tooltip
+
+  // Status. Each status is a text color plus a tint; a label always carries the meaning.
+  --ss-danger: #ad3e2b; // overbooked, errors, rejected, cancelled
+  --ss-danger-strong: #8c3a2a; // hover and pressed of the danger-filled button (white on it 8.1:1)
+  --ss-danger-tint: #f6ddd7;
+  --ss-sand: #7a5a12; // change pending, nearly full, warnings (text color)
+  --ss-sand-tint: #f3e6c4;
+  --ss-success: #2e6b3f;
+  --ss-success-tint: #dcebdd;
+  --ss-info: #3c5a70;
+  --ss-info-tint: #dde7ee;
+  --ss-neutral: var(--ss-ink-muted); // neutral status text, on --ss-neutral-tint
+  --ss-neutral-tint: #e1e6df;
+
+  // Capacity semantics (ring, bar). Free is teal, nearly full is sand, full and over are danger.
+  // The unfilled track is --ss-line.
+  --ss-cap-free: var(--ss-teal);
+  --ss-cap-near: var(--ss-sand);
+  --ss-cap-over: var(--ss-danger);
+
+  // Interaction washes (hover and pressed overlays on transparent or surface backgrounds)
+  --ss-wash-hover: rgb(23 41 38 / 6%);
+  --ss-wash-pressed: rgb(23 41 38 / 10%);
+  --ss-scrim: rgb(23 41 38 / 40%); // behind a dialog
+
+  // Shape
+  --ss-radius-sm: 6px;
+  --ss-radius-md: 10px;
+  --ss-radius-lg: 14px; // dialogs
+  --ss-radius-pill: 999px; // status tags and the capacity ring only
+
+  // Elevation. A hairline ring replaces the heavy shadow.
+  --ss-shadow-raised: 0 0 0 1px var(--ss-line), 0 1px 2px rgb(23 41 38 / 5%);
+  --ss-shadow-overlay:
+    0 0 0 1px var(--ss-line), 0 12px 32px rgb(23 41 38 / 12%), 0 2px 6px rgb(23 41 38 / 6%);
+
+  // Type
+  --ss-font:
+    'Schibsted Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --ss-text-xs: 0.75rem; // 12px
+  --ss-text-sm: 0.875rem; // 14px
+  --ss-text-md: 1rem; // 16px
+  --ss-text-lg: 1.25rem; // 20px
+  --ss-text-xl: 1.75rem; // 28px
+  --ss-text-2xl: 2.5rem; // 40px
+  --ss-tracking-tight: -0.02em; // headings
+  --ss-tracking-snug: -0.01em;
+  --ss-tracking-label: 0.02em; // small uppercase-free labels, eyebrow
+
+  // Type roles for `font: var(--ss-type-body-medium)`: weight size/line-height, then the family
+  --ss-type-headline-small: 700 1.75rem/2.25rem var(--ss-font);
+  --ss-type-title-large: 600 1.25rem/1.75rem var(--ss-font);
+  --ss-type-title-medium: 600 1rem/1.5rem var(--ss-font);
+  --ss-type-title-small: 600 0.875rem/1.25rem var(--ss-font);
+  --ss-type-body-large: 400 1rem/1.5rem var(--ss-font);
+  --ss-type-body-medium: 400 0.875rem/1.375rem var(--ss-font);
+  --ss-type-body-small: 400 0.75rem/1.125rem var(--ss-font);
+  --ss-type-label-large: 600 0.875rem/1.25rem var(--ss-font);
+  --ss-type-label-medium: 500 0.75rem/1rem var(--ss-font);
+
+  // Spacing, 4px base
+  --ss-space-1: 4px;
+  --ss-space-2: 8px;
+  --ss-space-3: 12px;
+  --ss-space-4: 16px;
+  --ss-space-6: 24px;
+  --ss-space-8: 32px;
+  --ss-space-10: 40px;
+  --ss-space-12: 48px;
+
+  // Layout
+  --ss-page-max: 1180px;
+  --ss-page-pad: 32px;
+  --ss-sidebar-width: 248px; // expanded sidebar
+  --ss-sidebar-rail-width: 72px; // sidebar folded to an icon rail
+  --ss-toolbar-height: 56px;
+
+  // Motion. Only Home uses --ss-dur-slow (card stagger and ring sweep). Everything else 120-200ms.
+  --ss-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ss-dur-fast: 120ms;
+  --ss-dur: 200ms;
+  --ss-dur-slow: 600ms;
+  --ss-stagger: 70ms; // delay step between revealed Home cards
+
+  // Focus: 2px teal outline, 2px offset, on every interactive element (keyboard only).
+  --ss-focus-width: 2px;
+  --ss-focus-offset: 2px;
+  --ss-focus-ring: var(--ss-focus-width) solid var(--ss-teal);
+}
+
+@media (max-width: 599px) {
+  :root {
+    --ss-page-pad: 16px;
+  }
+}

@@ -1,0 +1,30 @@
+.ss-paginator {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ss-space-2) var(--ss-space-6);
+  padding: var(--ss-space-2) var(--ss-space-4);
+  color: var(--ss-ink-muted);
+  font-size: var(--ss-text-xs);
+}
+
+// Only the numbers: tabular figures also widen the colon and dots of the surrounding words
+.ss-paginator__range {
+  font-variant-numeric: tabular-nums;
+}
+
+.ss-paginator__size {
+  display: flex;
+  align-items: center;
+  gap: var(--ss-space-2);
+}
+
+.ss-paginator__select {
+  width: 88px;
+  flex: none;
+}
+
+.ss-paginator__nav {
+  display: flex;
+}
