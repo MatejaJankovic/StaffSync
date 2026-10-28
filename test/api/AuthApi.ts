@@ -16,11 +16,16 @@ export class AuthApi {
     });
   }
 
-  /** Logs in and returns the JWT. Fails the test if the login fails. */
-  async tokenFor(email: string, password: string): Promise<string> {
+  /** Logs in and returns the JWT and the user. Fails the test if the login fails. */
+  async loginAs(email: string, password: string): Promise<{ token: string; user: { id: number } }> {
     const response = await this.login(email, password);
     expect(response.status(), `login as ${email}`).toBe(200);
-    return (await response.json()).token;
+    return response.json();
+  }
+
+  /** Logs in and returns the JWT. Fails the test if the login fails. */
+  async tokenFor(email: string, password: string): Promise<string> {
+    return (await this.loginAs(email, password)).token;
   }
 
   me(token?: string): Promise<APIResponse> {

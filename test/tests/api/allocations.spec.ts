@@ -29,7 +29,7 @@ let javaRequest: (title: string) => NewRequest;
 test.beforeAll(async ({ playwright }, testInfo) => {
   api = await playwright.request.newContext({ baseURL: testInfo.project.use.baseURL });
   const auth = new AuthApi(api);
-  const login = async (email: string) => (await (await auth.login(email, PASSWORD)).json()) as { token: string; user: { id: number } };
+  const login = (email: string) => auth.loginAs(email, PASSWORD);
 
   const anaLogin = await login(users.ana.email);
   ana = {
