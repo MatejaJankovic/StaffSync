@@ -18,12 +18,12 @@ export class PendingApprovalsPage {
     await this.page.goto('/approvals');
   }
 
-  /** The row of one item, by the employee and the request title. */
+  /** The row of one item, by the employee and the request title (one cell holds both, and the proposer). */
   row(fullName: string, requestTitle: string): Locator {
     return this.page
       .getByRole('row')
-      .filter({ has: this.page.getByRole('cell', { name: fullName, exact: true }) })
-      .filter({ has: this.page.getByRole('cell', { name: requestTitle, exact: true }) });
+      .filter({ has: this.page.getByText(fullName, { exact: true }) })
+      .filter({ hasText: ` · ${requestTitle}` });
   }
 
   /** New or Change, the first column of the row. */

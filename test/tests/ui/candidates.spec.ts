@@ -3,7 +3,7 @@ import { fullName, users } from '../../fixtures/users';
 import { CandidatesPage } from '../../pages/CandidatesPage';
 
 // Test cases TC_UI_CAND_001 – 002 in docs/TEST_CASES.md §4. Nothing is proposed, so no capacity is booked.
-const JELENA_CAPACITY = 'Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)';
+const JELENA_CAPACITY = 'Insufficient capacity 2 Nov 2026 – 13 Nov 2026 (40% free, 60% required)';
 
 let candidatesPage: CandidatesPage;
 
