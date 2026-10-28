@@ -384,9 +384,11 @@ public class AllocationService {
 	 * employee's load (BR-1), so the RM sees an overbooking before clicking Approve. Always the caller's team, so
 	 * another role is a 403 here too, not an empty page, and no RM can list another team's.
 	 * <p>
-	 * The list is ordered by how long each item has waited, oldest first: a change counts from when it was
-	 * requested, not from when the allocation was first proposed. A team has a few dozen items at most, so they
-	 * are sorted here and then cut into the page. {@code sort=createdAt,desc} reverses the order.
+	 * By default ({@code sort=createdAt}, or no sort) the list is ordered by how long each item has waited, oldest
+	 * first: a change counts from when it was requested, not from when the allocation was first proposed. A team
+	 * has a few dozen items at most, so they are sorted here and then cut into the page.
+	 * {@code sort=createdAt,desc} reverses the order. Any other sort is applied by the query, like on the other
+	 * lists.
 	 */
 	@Transactional(readOnly = true)
 	public Page<PendingApprovalDto> pending(Pageable pageable, AuthUser currentUser) {
@@ -394,7 +396,13 @@ public class AllocationService {
 			throw new BusinessException(HttpStatus.FORBIDDEN, "NOT_RESOURCE_MANAGER",
 					"Only a resource manager has pending approvals");
 		}
-		Sort.Order order = checkedSort(pageable).getSort().getOrderFor("createdAt");
+		Pageable checked = checkedSort(pageable);
+		if (!pageable.getSort().stream().allMatch(order -> order.getProperty().equals("createdAt"))) {
+			return allocationRepository
+				.findByEmployeeManagerIdAndStatusIn(currentUser.id(), AllocationStatus.AWAITING_DECISION, checked)
+				.map(this::toPending);
+		}
+		Sort.Order order = checked.getSort().getOrderFor("createdAt");
 		Comparator<Allocation> byWait = Comparator.comparing(Allocation::getAwaitingSince)
 			.thenComparing(Allocation::getId);
 		if (order != null && order.isDescending()) {

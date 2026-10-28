@@ -1208,6 +1208,31 @@ class AllocationControllerTests {
 	}
 
 	@Test
+	void pendingApprovalsCanStillBeSortedByAnotherProperty() {
+		LoggedIn pm = login(PM);
+		User rm = newUser("Team", Role.RM);
+		// Proposed first, so it has waited longest and leads the default order
+		int forty = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Ena", rm), 40, null, null));
+		int eighty = propose(pm.token(), proposal(createRequest(pm.token(), createProject(pm.token())),
+				newEmployee("Filip", rm), 80, null, null));
+		String token = login(rm.getEmail()).token();
+
+		given().auth().oauth2(token)
+			.when().get("/api/allocations/pending")
+			.then()
+			.statusCode(200)
+			.body("content.allocation.id", contains(forty, eighty));
+		given().auth().oauth2(token).queryParam("sort", "percent,desc")
+			.when().get("/api/allocations/pending")
+			.then()
+			.statusCode(200)
+			.body("page.totalElements", equalTo(2))
+			.body("content.allocation.id", contains(eighty, forty))
+			.body("content.allocation.percent", contains(80, 40));
+	}
+
+	@Test
 	void pendingApprovalsWithoutATokenAre401AndAnUnknownSortIs400() {
 		given().when().get("/api/allocations/pending").then().statusCode(401);
 		given().auth().oauth2(login(RM).token()).queryParam("sort", "employee")

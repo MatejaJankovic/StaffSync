@@ -1392,6 +1392,31 @@ class AllocationServiceTests {
 	}
 
 	@Test
+	void anotherSortPropertyIsAppliedByTheQueryNotReplacedByTheWaitingOrder() {
+		Allocation changed = pendingAllocation();
+		changed.setStatus(AllocationStatus.APPROVED);
+		changed.requestChange(80, nov(1), LocalDate.of(2027, 2, 28), REASON);
+		ReflectionTestUtils.setField(changed, "changeRequestedAt", Instant.parse("2026-10-27T08:00:00Z"));
+		Allocation proposal = pendingAllocation();
+		ReflectionTestUtils.setField(proposal, "id", ALLOCATION_ID + 1);
+		ReflectionTestUtils.setField(proposal, "createdAt", Instant.parse("2026-10-20T08:00:00Z"));
+		// The query's order: the change first, although the proposal has waited longer
+		when(allocationRepository.findByEmployeeManagerIdAndStatusIn(any(), any(), any()))
+			.thenReturn(new PageImpl<>(List.of(changed, proposal)));
+		when(capacityService.preview(any(), any(), any(), anyInt(), any()))
+			.thenReturn(new CapacityService.LoadPreview(100, 80, 0));
+
+		List<PendingApprovalDto> items = allocationService
+			.pending(PageRequest.of(1, 10, Sort.by(Sort.Direction.DESC, "percent")), RM)
+			.getContent();
+
+		verify(allocationRepository).findByEmployeeManagerIdAndStatusIn(eq(RM_ID),
+				eq(Set.of(AllocationStatus.PROPOSED, AllocationStatus.CHANGE_PENDING)),
+				eq(PageRequest.of(1, 10, Sort.by(Sort.Direction.DESC, "percent").and(Sort.by("id")))));
+		assertThat(items).extracting(item -> item.allocation().id()).containsExactly(ALLOCATION_ID, ALLOCATION_ID + 1);
+	}
+
+	@Test
 	void aChangeIsListedByWhenItWasRequestedNotByWhenTheAllocationWasProposed() {
 		Allocation changed = pendingAllocation();
 		changed.setStatus(AllocationStatus.APPROVED);

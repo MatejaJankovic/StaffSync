@@ -78,9 +78,10 @@ public class AllocationController {
 			description = "The PROPOSED and CHANGE_PENDING allocations of the employees who report to the caller "
 					+ "(manager_id, BR-5), i.e. everything the RM can still approve or reject (BR-7). type is NEW for a "
 					+ "proposal and CHANGE for a change to an approved allocation: the allocation's percent and "
-					+ "period are then the current values, and pending* and changeReason the requested ones. Paged, "
-					+ "oldest first (createdAt) by default. Sortable by id, percent, startDate, endDate, status and "
-					+ "createdAt")
+					+ "period are then the current values, and pending* and changeReason the requested ones. Paged. "
+					+ "By default (sort=createdAt) the items that have waited longest come first: a CHANGE counts "
+					+ "from when it was requested (awaitingSince); sort=createdAt,desc reverses that. Also sortable "
+					+ "by id, percent, startDate, endDate and status")
 	// Without useReturnTypeSchema, examples alone leave the page's schema out of the docs
 	@ApiResponse(responseCode = "200", description = "A page of pending approvals", useReturnTypeSchema = true,
 			content = @Content(examples = {
