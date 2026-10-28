@@ -1,8 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { SS_DIALOG_DATA, SsDialogRef } from '../../shared/ui';
 import { errorInterceptor } from '../../core/error/error.interceptor';
 import { Notifications } from '../../core/error/notifications';
 import { AllocationProposal } from '../allocations/allocation.models';
@@ -81,9 +80,8 @@ describe('ProposeDialog', () => {
       providers: [
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: MAT_DIALOG_DATA, useValue: { request: REQUEST, candidate: JELENA, ...data } },
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: SS_DIALOG_DATA, useValue: { request: REQUEST, candidate: JELENA, ...data } },
+        { provide: SsDialogRef, useValue: dialogRef },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
@@ -95,7 +93,7 @@ describe('ProposeDialog', () => {
 
   afterEach(() => httpMock.verify());
 
-  /** Material's inputs and the error message each take a round of change detection to settle. */
+  /** The inputs and the error message each take a round of change detection to settle. */
   async function settle(): Promise<void> {
     for (let round = 0; round < 3; round++) {
       fixture.detectChanges();
@@ -122,7 +120,7 @@ describe('ProposeDialog', () => {
   }
 
   function cancelButton(): HTMLButtonElement {
-    return el().querySelector<HTMLButtonElement>('button[mat-dialog-close]')!;
+    return el().querySelector<HTMLButtonElement>('button[ss-dialog-close]')!;
   }
 
   function dateInputs(): HTMLInputElement[] {
@@ -154,7 +152,7 @@ describe('ProposeDialog', () => {
       percent: 60,
       period: { start: new Date(2026, 10, 1), end: new Date(2027, 0, 31) },
     });
-    expect(el().querySelector('mat-select')?.textContent).toContain('60%');
+    expect(el().querySelector('ss-select')?.textContent).toContain('60%');
     // shown day first, like everywhere else
     expect(dateInputs().map((input) => input.value)).toEqual(['01/11/2026', '31/01/2027']);
     expect(el().textContent).toContain('1 Nov 2026 – 31 Jan 2027');
@@ -167,7 +165,7 @@ describe('ProposeDialog', () => {
       node.textContent?.trim(),
     );
     expect(warnings).toEqual(JELENA.warnings);
-    expect(el().querySelectorAll('.propose-dialog__warnings mat-icon')).toHaveLength(2);
+    expect(el().querySelectorAll('.propose-dialog__warnings ss-icon')).toHaveLength(2);
   });
 
   it('shows no warnings list for a candidate without warnings', async () => {
@@ -180,10 +178,10 @@ describe('ProposeDialog', () => {
   it('offers the allocations from 10% to 100% in steps of 10', async () => {
     await open();
 
-    el().querySelector<HTMLElement>('.mat-mdc-select-trigger')!.click();
+    el().querySelector<HTMLElement>('[role="combobox"]')!.click();
     await settle();
 
-    const options = [...document.querySelectorAll('mat-option')].map((option) =>
+    const options = [...document.querySelectorAll('[role="option"]')].map((option) =>
       option.textContent?.trim(),
     );
     expect(options).toEqual([
@@ -245,10 +243,10 @@ describe('ProposeDialog', () => {
 
     it('lets the PM pick another percent from the list', async () => {
       await open();
-      el().querySelector<HTMLElement>('.mat-mdc-select-trigger')!.click();
+      el().querySelector<HTMLElement>('[role="combobox"]')!.click();
       await settle();
 
-      [...document.querySelectorAll<HTMLElement>('mat-option')]
+      [...document.querySelectorAll<HTMLElement>('[role="option"]')]
         .find((option) => option.textContent?.trim() === '40%')!
         .click();
       await settle();
@@ -393,7 +391,7 @@ describe('ProposeDialog', () => {
     cancelButton().click();
     await settle();
 
-    // mat-dialog-close closes with an empty result, so the page sees no proposal
+    // ssDialogClose closes with an empty result, so the page sees no proposal
     expect(close).toHaveBeenCalledTimes(1);
     expect(close.mock.calls[0][0]).toBeFalsy();
     httpMock.expectNone(ALLOCATIONS_URL);

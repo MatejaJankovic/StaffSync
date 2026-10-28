@@ -1,5 +1,5 @@
 import { Component, computed, input } from '@angular/core';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { SsProgressBar } from '../ui';
 
 export type CapacityTone = 'free' | 'nearly-full' | 'full';
 
@@ -35,9 +35,9 @@ export function capacityTone(load: number, capacity: number): CapacityTone {
  */
 @Component({
   selector: 'app-capacity-bar',
-  imports: [MatProgressBarModule],
+  imports: [SsProgressBar],
   template: `
-    <mat-progress-bar mode="determinate" [value]="value()" aria-hidden="true" />
+    <ss-progress-bar [value]="value()" aria-hidden="true" />
     <span class="capacity-bar__text">
       {{ load() }}% / {{ capacity() }}%
       @if (label()) {
@@ -48,7 +48,7 @@ export function capacityTone(load: number, capacity: number): CapacityTone {
   styleUrl: './capacity-bar.scss',
   host: {
     class: 'capacity-bar',
-    '[class]': '"capacity-bar--" + tone()',
+    '[class]': '"capacity-bar--" + tone() + (overbooked() ? " capacity-bar--over" : "")',
   },
 })
 export class CapacityBar {
@@ -59,6 +59,9 @@ export class CapacityBar {
   readonly label = input<string | null>(null);
 
   readonly tone = computed(() => capacityTone(this.load(), this.capacity()));
+
+  /** Above the capacity, not just at it: only an overbooked employee gets the "!" mark. */
+  readonly overbooked = computed(() => this.load() > this.capacity());
 
   /** How full the bar is, capped at 100 so an overbooked employee's bar stays in its place. */
   protected readonly value = computed(() => {

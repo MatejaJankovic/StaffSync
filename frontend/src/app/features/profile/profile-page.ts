@@ -6,17 +6,22 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatTableModule } from '@angular/material/table';
+import { CdkTableModule } from '@angular/cdk/table';
 import { forkJoin } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { Notifications } from '../../core/error/notifications';
 import { SkillLevelPicker } from '../../shared/skill-level-picker/skill-level-picker';
+import {
+  SsError,
+  SsField,
+  SsInput,
+  SsLabel,
+  SsOptgroup,
+  SsOption,
+  SsSelect,
+  SsButton,
+  SsIcon,
+} from '../../shared/ui';
 import {
   Skill,
   SKILL_CATEGORIES,
@@ -46,15 +51,18 @@ interface SkillOptionGroup {
 @Component({
   selector: 'app-profile-page',
   imports: [
-    MatButtonModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatSelectModule,
-    MatTableModule,
+    SsButton,
+    SsIcon,
+    CdkTableModule,
     ReactiveFormsModule,
     SkillLevelPicker,
+    SsError,
+    SsField,
+    SsInput,
+    SsLabel,
+    SsOptgroup,
+    SsOption,
+    SsSelect,
   ],
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.scss',

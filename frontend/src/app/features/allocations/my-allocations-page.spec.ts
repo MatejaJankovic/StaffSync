@@ -101,7 +101,7 @@ describe('MyAllocationsPage', () => {
   }
 
   function column(name: string): (string | undefined)[] {
-    return [...el().querySelectorAll(`td.mat-column-${name}`)].map((cell) =>
+    return [...el().querySelectorAll(`td.cdk-column-${name}`)].map((cell) =>
       cell.textContent?.replace(/\s+/g, ' ').trim(),
     );
   }
@@ -233,7 +233,7 @@ describe('MyAllocationsPage', () => {
       answerList([allocation(1, 'Project Alpha')]);
       await settle();
 
-      expect(el().querySelector('td.mat-column-project a')?.getAttribute('href')).toBe(
+      expect(el().querySelector('td.cdk-column-project a')?.getAttribute('href')).toBe(
         '/projects/11',
       );
     });

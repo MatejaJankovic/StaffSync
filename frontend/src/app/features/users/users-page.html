@@ -1,63 +1,76 @@
-<section class="users">
-  <header class="users__header">
-    <h1>Users</h1>
-    <button mat-flat-button (click)="create()">
-      <mat-icon>person_add</mat-icon>
+<section class="users ss-page">
+  <header class="ss-page-header">
+    <div class="users__title">
+      <p class="ss-eyebrow">Admin</p>
+      <h1>Users</h1>
+      <p class="ss-page-context">
+        Everyone who can log in, with their role, department and capacity.
+      </p>
+    </div>
+    <button ss-button="filled" (click)="create()">
+      <ss-icon>person_add</ss-icon>
       Create user
     </button>
   </header>
 
-  <div class="users__filters">
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Department</mat-label>
-      <mat-select [value]="departmentId()" (selectionChange)="departmentId.set($event.value)">
-        <mat-option value="">All departments</mat-option>
+  <div class="users__filters" role="group" aria-label="Filter users">
+    <ss-field>
+      <ss-label>Department</ss-label>
+      <ss-select [value]="departmentId()" (selectionChange)="departmentId.set($event.value)">
+        <ss-option value="">All departments</ss-option>
         @for (department of departments(); track department.id) {
-          <mat-option [value]="department.id">{{ department.name }}</mat-option>
+          <ss-option [value]="department.id">{{ department.name }}</ss-option>
         }
-      </mat-select>
-    </mat-form-field>
+      </ss-select>
+    </ss-field>
 
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Role</mat-label>
-      <mat-select [value]="role()" (selectionChange)="role.set($event.value)">
-        <mat-option value="">All roles</mat-option>
+    <ss-field>
+      <ss-label>Role</ss-label>
+      <ss-select [value]="role()" (selectionChange)="role.set($event.value)">
+        <ss-option value="">All roles</ss-option>
         @for (option of roles; track option) {
-          <mat-option [value]="option">{{ roleLabels[option] }}</mat-option>
+          <ss-option [value]="option">{{ roleLabels[option] }}</ss-option>
         }
-      </mat-select>
-    </mat-form-field>
+      </ss-select>
+    </ss-field>
 
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Status</mat-label>
-      <mat-select [value]="active()" (selectionChange)="active.set($event.value)">
-        <mat-option value="active">Active</mat-option>
-        <mat-option value="inactive">Inactive</mat-option>
-        <mat-option value="">All</mat-option>
-      </mat-select>
-    </mat-form-field>
+    <ss-field>
+      <ss-label>Status</ss-label>
+      <ss-select [value]="active()" (selectionChange)="active.set($event.value)">
+        <ss-option value="active">Active</ss-option>
+        <ss-option value="inactive">Inactive</ss-option>
+        <ss-option value="">All</ss-option>
+      </ss-select>
+    </ss-field>
   </div>
 
   <app-paged-table [columns]="columns" [fetch]="fetch()" emptyText="No users match the filters.">
+    <ng-template appPagedTableCell="role" let-row>
+      <span class="users__role" [class.users__role--admin]="row.role === 'ADMIN'">{{
+        roleLabel(row.role)
+      }}</span>
+    </ng-template>
     <ng-template appPagedTableCell="active" let-row>
       <app-status-chip [status]="row.active ? 'ACTIVE' : 'INACTIVE'" />
     </ng-template>
     <ng-template appPagedTableCell="actions" let-row>
       <span class="users__actions">
         <button
-          mat-icon-button
+          ss-button="icon"
           [attr.aria-label]="'Edit ' + row.firstName + ' ' + row.lastName"
+          [attr.title]="'Edit ' + row.firstName + ' ' + row.lastName"
           (click)="edit(row)"
         >
-          <mat-icon>edit</mat-icon>
+          <ss-icon>edit</ss-icon>
         </button>
         @if (canDeactivate(row)) {
           <button
-            mat-icon-button
+            ss-button="icon"
             [attr.aria-label]="'Deactivate ' + row.firstName + ' ' + row.lastName"
+            [attr.title]="'Deactivate ' + row.firstName + ' ' + row.lastName"
             (click)="deactivate(row)"
           >
-            <mat-icon>person_off</mat-icon>
+            <ss-icon>person_off</ss-icon>
           </button>
         }
       </span>

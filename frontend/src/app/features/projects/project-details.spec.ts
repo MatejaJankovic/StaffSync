@@ -2,8 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatDialog } from '@angular/material/dialog';
+import { SsDialog } from '../../shared/ui';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
@@ -47,7 +46,6 @@ describe('ProjectDetails', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         {
           provide: AuthService,
           useValue: { currentUser: signal({ id: userId }), role: signal(role) },
@@ -59,7 +57,7 @@ describe('ProjectDetails', () => {
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
-    dialogOpen = vi.spyOn(TestBed.inject(MatDialog), 'open');
+    dialogOpen = vi.spyOn(TestBed.inject(SsDialog), 'open');
     success = vi.spyOn(TestBed.inject(Notifications), 'success').mockReturnValue(undefined);
     fixture = TestBed.createComponent(ProjectDetails);
     fixture.detectChanges();
@@ -241,7 +239,7 @@ describe('ProjectDetails', () => {
     async function menuItems(): Promise<HTMLButtonElement[]> {
       statusButton()!.click();
       await settle();
-      return [...document.querySelectorAll<HTMLButtonElement>('.mat-mdc-menu-item')];
+      return [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
     }
 
     async function choose(label: string): Promise<void> {

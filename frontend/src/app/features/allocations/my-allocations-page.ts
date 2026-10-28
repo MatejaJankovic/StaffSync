@@ -1,9 +1,9 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
 import { PageQuery } from '../../core/api/page';
 import { AuthService } from '../../core/auth/auth.service';
 import { CapacityBar } from '../../shared/capacity-bar/capacity-bar';
+import { CapacityRing } from '../../shared/capacity-ring/capacity-ring';
 import { toIsoDate } from '../../shared/dates';
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
@@ -13,6 +13,7 @@ import { Availability } from '../users/user.models';
 import { UserService } from '../users/user.service';
 import { Allocation, formatPendingChange } from './allocation.models';
 import { AllocationService } from './allocation.service';
+import { SsButton } from '../../shared/ui';
 
 /** From today to six days on, a week always holds a working day: today, or the next Monday. */
 const LOOKAHEAD_DAYS = 6;
@@ -26,7 +27,15 @@ const LOOKAHEAD_DAYS = 6;
  */
 @Component({
   selector: 'app-my-allocations-page',
-  imports: [CapacityBar, MatButtonModule, PagedTable, PagedTableCell, RouterLink, StatusChip],
+  imports: [
+    CapacityBar,
+    CapacityRing,
+    SsButton,
+    PagedTable,
+    PagedTableCell,
+    RouterLink,
+    StatusChip,
+  ],
   templateUrl: './my-allocations-page.html',
   styleUrl: './my-allocations-page.scss',
 })
@@ -40,11 +49,12 @@ export class MyAllocationsPage implements OnInit {
     { key: 'request', header: 'Request', value: (allocation) => allocation.requestTitle },
     {
       key: 'percent',
+      numeric: true,
       header: 'Allocation',
       sortable: true,
       value: (allocation) => `${allocation.percent}%`,
     },
-    { key: 'startDate', header: 'Period', sortable: true, value: formatPeriod },
+    { key: 'startDate', numeric: true, header: 'Period', sortable: true, value: formatPeriod },
     { key: 'status', header: 'Status', sortable: true },
     { key: 'pendingChange', header: 'Waiting for RM', value: formatPendingChange },
   ];

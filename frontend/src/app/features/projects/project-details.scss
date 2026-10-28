@@ -1,66 +1,98 @@
-.project {
-  padding: 24px;
-  max-width: 960px;
+:host {
+  display: block;
 }
 
 .project__back {
-  margin: 0 0 8px -12px;
+  margin: 0 0 var(--ss-space-2) calc(var(--ss-space-3) * -1);
 }
 
+// Title, status and the one line of context (client and period); the actions sit on the right and
+// drop below the title on narrow screens.
 .project__header {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--ss-space-4);
+  margin-bottom: var(--ss-space-6);
+}
+
+.project__title {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.project__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ss-space-2) var(--ss-space-3);
 
   h1 {
-    font: var(--mat-sys-headline-small);
     margin: 0;
+    // A long project name wraps instead of pushing the chip off screen.
+    overflow-wrap: anywhere;
   }
 }
 
-.project__spacer {
-  flex: 1;
+.project__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ss-space-2);
 }
 
+// Cancelling is the destructive choice, so it reads in the danger color and with its icon.
+.project__menu-item--danger,
+.project__menu-item--danger .ss-icon {
+  color: var(--ss-danger);
+}
+
+// Project manager and description as a quiet term list between two hairlines.
 .project__info {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px 24px;
-  margin: 0 0 24px;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: var(--ss-space-4) var(--ss-space-8);
+  margin: 0;
+  padding-block: var(--ss-space-4);
+  border-block: 1px solid var(--ss-line);
 
   dt {
-    color: var(--mat-sys-on-surface-variant);
-    font: var(--mat-sys-label-medium);
+    margin-bottom: var(--ss-space-1);
+    color: var(--ss-ink-muted);
+    font: var(--ss-type-label-medium);
+    letter-spacing: var(--ss-tracking-label);
   }
 
   dd {
-    margin: 2px 0 0;
-    font: var(--mat-sys-body-large);
+    margin: 0;
+    font: var(--ss-type-body-large);
   }
 }
 
-.project__description {
-  grid-column: 1 / -1;
-
-  dd {
-    white-space: pre-wrap;
-  }
+.project__description dd {
+  max-width: 72ch;
+  white-space: pre-wrap;
 }
 
 .project__section {
-  border-top: 1px solid var(--mat-sys-outline-variant);
-  padding-top: 16px;
-  margin-top: 16px;
+  margin-top: var(--ss-space-10);
 
   h2 {
-    font: var(--mat-sys-title-medium);
-    margin: 0 0 8px;
+    margin: 0 0 var(--ss-space-3);
   }
 }
 
 .project__message {
-  color: var(--mat-sys-on-surface-variant);
-  margin: 0;
+  margin: var(--ss-space-6) 0;
+  color: var(--ss-ink-muted);
+}
+
+@media (max-width: 599px) {
+  .project__info {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .project__section {
+    margin-top: var(--ss-space-8);
+  }
 }

@@ -1,8 +1,5 @@
 import { Component, inject, signal, viewChild } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
 import { filter, switchMap } from 'rxjs';
 import { PageQuery } from '../../core/api/page';
 import { apiErrorMessage, isApiError } from '../../core/api/api-error';
@@ -13,6 +10,7 @@ import { shortDate } from '../../shared/dates';
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
+import { SsDialog, SsButton, SsIcon } from '../../shared/ui';
 import { formatPeriod } from '../projects/project.models';
 import { isOverloadedDay } from '../users/user.models';
 import { Allocation, overloadedRuns, PendingApproval, requestedValues } from './allocation.models';
@@ -48,13 +46,13 @@ interface CapacityNotice {
  */
 @Component({
   selector: 'app-pending-approvals-page',
-  imports: [MatButtonModule, MatIconModule, ChangeDiff, PagedTable, PagedTableCell, StatusChip],
+  imports: [SsButton, SsIcon, ChangeDiff, PagedTable, PagedTableCell, StatusChip],
   templateUrl: './pending-approvals-page.html',
   styleUrl: './pending-approvals-page.scss',
 })
 export class PendingApprovalsPage {
   private readonly allocations = inject(AllocationService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(SsDialog);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly notifications = inject(Notifications);
 

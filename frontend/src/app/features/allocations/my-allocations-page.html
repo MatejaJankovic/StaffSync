@@ -1,24 +1,43 @@
-<section class="my-allocations">
-  <header class="my-allocations__header">
-    <h1>My allocations</h1>
+<section class="my-allocations ss-page">
+  <header class="ss-page-header">
+    <div>
+      <p class="ss-eyebrow">Employee</p>
+      <h1>My allocations</h1>
+      <p class="ss-page-context">Where you are staffed, and how full your capacity is.</p>
+    </div>
   </header>
 
   <section class="my-allocations__load" aria-labelledby="my-allocations-load">
-    <h2 id="my-allocations-load">Current load</h2>
-    @if (loading()) {
-      <p class="my-allocations__message">Loading your load…</p>
-    } @else if (loadFailed()) {
-      <p class="my-allocations__message" role="alert">
-        Unable to load your current load.
-        <button mat-button (click)="loadCurrent()">Retry</button>
-      </p>
-    } @else if (current(); as current) {
-      <app-capacity-bar
+    @if (current(); as current) {
+      <app-capacity-ring
+        class="my-allocations__ring"
+        size="lg"
         [load]="current.load"
         [capacity]="current.capacity"
         [label]="current.label"
       />
     }
+    <div class="my-allocations__load-body">
+      <h2 id="my-allocations-load">Current load</h2>
+      @if (loading()) {
+        <p class="my-allocations__message">Loading your load…</p>
+      } @else if (loadFailed()) {
+        <p class="my-allocations__message" role="alert">
+          Unable to load your current load.
+          <button ss-button="outlined" type="button" (click)="loadCurrent()">Retry</button>
+        </p>
+      } @else if (current(); as current) {
+        <p class="my-allocations__hint">
+          Your first working day from today, as a share of your own capacity.
+        </p>
+        <app-capacity-bar
+          class="my-allocations__bar"
+          [load]="current.load"
+          [capacity]="current.capacity"
+          [label]="current.label"
+        />
+      }
+    </div>
   </section>
 
   <app-paged-table [columns]="columns" [fetch]="fetch" emptyText="You have no allocations yet">

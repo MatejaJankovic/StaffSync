@@ -2,10 +2,10 @@
      region that appears together with its content -->
 <div role="status">
   @if (changeNotice(); as notice) {
-    <div class="team-panel__notice">
-      <mat-icon>warning</mat-icon>
-      <div class="team-panel__notice-text">
-        <p class="team-panel__notice-title">
+    <div class="team-panel__notice ss-notice ss-notice--warning">
+      <ss-icon class="ss-notice__icon" aria-hidden="true">warning</ss-icon>
+      <div class="ss-notice__text">
+        <p class="ss-notice__title">
           A change for {{ notice.employeeName }} was requested, with warnings
         </p>
         <ul>
@@ -19,12 +19,12 @@
         </p>
       </div>
       <button
-        mat-icon-button
+        ss-button="icon"
         type="button"
         [attr.aria-label]="'Dismiss the warnings for ' + notice.employeeName"
         (click)="dismissChangeNotice()"
       >
-        <mat-icon>close</mat-icon>
+        <ss-icon>close</ss-icon>
       </button>
     </div>
   }
@@ -39,7 +39,8 @@
     <div class="team-panel__actions">
       @if (canWithdraw(row)) {
         <button
-          mat-button
+          ss-button
+          class="ss-button-danger"
           type="button"
           [attr.aria-label]="'Withdraw ' + row.employeeName + ' from ' + row.requestTitle"
           (click)="withdraw(row)"
@@ -49,7 +50,7 @@
       }
       @if (canRequestChange(row)) {
         <button
-          mat-button
+          ss-button
           type="button"
           [attr.aria-label]="'Request a change for ' + row.employeeName + ' on ' + row.requestTitle"
           (click)="requestChange(row)"
@@ -59,7 +60,7 @@
       }
       @if (canWithdrawChange(row)) {
         <button
-          mat-button
+          ss-button
           type="button"
           [attr.aria-label]="
             'Withdraw the change for ' + row.employeeName + ' on ' + row.requestTitle
@@ -71,7 +72,8 @@
       }
       @if (canCancel(row)) {
         <button
-          mat-button
+          ss-button
+          class="ss-button-danger"
           type="button"
           [attr.aria-label]="'Cancel ' + row.employeeName + ' on ' + row.requestTitle"
           (click)="cancel(row)"

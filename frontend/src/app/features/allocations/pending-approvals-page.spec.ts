@@ -1,12 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { of } from 'rxjs';
 import { errorInterceptor } from '../../core/error/error.interceptor';
 import { Notifications } from '../../core/error/notifications';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
+import { SsDialog, SsDialogRef } from '../../shared/ui';
 import { Allocation, PendingApproval } from './allocation.models';
 import { PendingApprovalsPage } from './pending-approvals-page';
 import { RejectDialog } from './reject-dialog';
@@ -92,7 +91,6 @@ describe('PendingApprovalsPage', () => {
       providers: [
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
@@ -128,7 +126,7 @@ describe('PendingApprovalsPage', () => {
   }
 
   function rowOf(name: string): HTMLElement {
-    return [...el().querySelectorAll<HTMLElement>('tr.mat-mdc-row')].find((row) =>
+    return [...el().querySelectorAll<HTMLElement>('tr.cdk-row')].find((row) =>
       row.textContent?.includes(name),
     )!;
   }
@@ -404,9 +402,9 @@ describe('PendingApprovalsPage', () => {
 
   it('opens the reject dialog, then loads the list again once rejected', async () => {
     await open([MARKO_CHANGE]);
-    const dialogOpen = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({
+    const dialogOpen = vi.spyOn(TestBed.inject(SsDialog), 'open').mockReturnValue({
       afterClosed: () => of({ ...MARKO_CHANGE.allocation, status: 'APPROVED' }),
-    } as MatDialogRef<unknown>);
+    } as SsDialogRef<unknown>);
 
     button('Reject the change for Marko Markovic on Java Developer').click();
     await settle();
@@ -419,9 +417,9 @@ describe('PendingApprovalsPage', () => {
 
   it('leaves the list as it is when the reject dialog is cancelled', async () => {
     await open([JELENA]);
-    vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({
+    vi.spyOn(TestBed.inject(SsDialog), 'open').mockReturnValue({
       afterClosed: () => of(undefined),
-    } as MatDialogRef<unknown>);
+    } as SsDialogRef<unknown>);
 
     button('Reject Jelena Jovic on Java Developer').click();
     await settle();

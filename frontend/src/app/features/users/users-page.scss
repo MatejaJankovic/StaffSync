@@ -1,36 +1,62 @@
-.users {
-  padding: 24px;
+:host {
+  display: block;
 }
 
-.users__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+.users__title {
+  min-width: 0;
 
   h1 {
-    font: var(--mat-sys-headline-small);
     margin: 0;
   }
+}
 
-  button {
-    flex-shrink: 0;
-  }
+// "Create user" is long enough to wrap next to the title on a narrow content area
+.ss-page-header button {
+  flex-shrink: 0;
 }
 
 .users__filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--ss-space-3);
+  margin-bottom: var(--ss-space-4);
 
-  mat-form-field {
-    width: 200px;
+  ss-field {
+    flex: 1 1 180px;
+    max-width: 240px;
+    margin-bottom: 0;
   }
+}
+
+// The role is a quiet tag, the same 6px shape as the skill tags (a pill is for a status only); an
+// Admin is set apart in the info tone. The word is always there.
+.users__role {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 var(--ss-space-2);
+  border-radius: var(--ss-radius-sm);
+  font-size: var(--ss-text-xs);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  background: var(--ss-neutral-tint);
+  color: var(--ss-neutral);
+}
+
+.users__role--admin {
+  background: var(--ss-info-tint);
+  color: var(--ss-info);
 }
 
 .users__actions {
   display: inline-flex;
   white-space: nowrap;
+}
+
+@media (max-width: 599px) {
+  .users__filters ss-field {
+    flex-basis: 100%;
+    max-width: none;
+  }
 }

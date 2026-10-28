@@ -1,9 +1,6 @@
+import { ConnectedPosition } from '@angular/cdk/overlay';
 import { Component, computed, DestroyRef, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   catchError,
@@ -23,6 +20,7 @@ import { Notifications } from '../../core/error/notifications';
 import { ConfirmDialogData } from '../../shared/confirm-dialog/confirm-dialog';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import { StatusChip } from '../../shared/status-chip/status-chip';
+import { SsButton, SsDialog, SsIcon, SsMenu, SsMenuItem, SsMenuTrigger } from '../../shared/ui';
 import { TeamPanel } from '../allocations/team-panel';
 import { ProjectRequests } from '../requests/project-requests';
 import { ProjectDialog, ProjectDialogData } from './project-dialog';
@@ -82,9 +80,11 @@ const STATUS_ACTIONS: Partial<Record<ProjectStatus, StatusAction>> = {
 @Component({
   selector: 'app-project-details',
   imports: [
-    MatButtonModule,
-    MatIconModule,
-    MatMenuModule,
+    SsButton,
+    SsIcon,
+    SsMenu,
+    SsMenuItem,
+    SsMenuTrigger,
     ProjectRequests,
     RouterLink,
     StatusChip,
@@ -96,7 +96,7 @@ const STATUS_ACTIONS: Partial<Record<ProjectStatus, StatusAction>> = {
 export class ProjectDetails {
   private readonly projects = inject(ProjectService);
   private readonly auth = inject(AuthService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(SsDialog);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly notifications = inject(Notifications);
   private readonly route = inject(ActivatedRoute);
@@ -104,6 +104,12 @@ export class ProjectDetails {
 
   /** Emits to load the project again, e.g. from *Retry*. It goes through the same stream as a route change. */
   private readonly reload$ = new Subject<void>();
+
+  /** The status menu opens under its button, ending at the button's right edge. */
+  protected readonly statusMenuPosition: ConnectedPosition[] = [
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top' },
+    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom' },
+  ];
 
   protected readonly project = signal<Project | null>(null);
   protected readonly state = signal<LoadState>('loading');

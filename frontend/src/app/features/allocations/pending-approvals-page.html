@@ -1,17 +1,22 @@
-<section class="approvals">
-  <header class="approvals__header">
-    <h1>Pending approvals</h1>
-    <p>Proposals and changes for the people in your team, oldest first.</p>
+<section class="approvals ss-page">
+  <header class="ss-page-header approvals__header">
+    <div>
+      <p class="ss-eyebrow">Resource manager</p>
+      <h1>Pending approvals</h1>
+      <p class="ss-page-context">
+        Proposals and changes for the people in your team, oldest first.
+      </p>
+    </div>
   </header>
 
   <!-- One live region, always there: screen readers announce what is added to it, but not always a
        region that appears together with its content -->
   <div role="alert">
     @if (capacityNotice(); as notice) {
-      <div class="approvals__capacity">
-        <mat-icon>error</mat-icon>
-        <div class="approvals__capacity-text">
-          <p class="approvals__capacity-title">
+      <div class="approvals__capacity ss-notice ss-notice--danger">
+        <ss-icon class="ss-notice__icon" aria-hidden="true">error</ss-icon>
+        <div class="ss-notice__text">
+          <p class="ss-notice__title">
             Not approved: {{ notice.item.allocation.employeeName }} would be over capacity on
             {{ notice.dayCount }} working {{ notice.dayCount === 1 ? 'day' : 'days' }}
           </p>
@@ -34,12 +39,12 @@
           </p>
         </div>
         <button
-          mat-icon-button
+          ss-button="icon"
           type="button"
           aria-label="Dismiss the capacity error"
           (click)="dismissCapacityNotice()"
         >
-          <mat-icon>close</mat-icon>
+          <ss-icon>close</ss-icon>
         </button>
       </div>
     }
@@ -62,7 +67,8 @@
     <ng-template appPagedTableCell="actions" let-row>
       <div class="approvals__actions">
         <button
-          mat-flat-button
+          ss-button="filled"
+          class="approvals__approve"
           type="button"
           [attr.aria-label]="
             (row.type === 'CHANGE' ? 'Approve the change for ' : 'Approve ') +
@@ -75,7 +81,8 @@
           Approve
         </button>
         <button
-          mat-button
+          ss-button="outlined"
+          class="ss-button-danger"
           type="button"
           [attr.aria-label]="
             (row.type === 'CHANGE' ? 'Reject the change for ' : 'Reject ') +

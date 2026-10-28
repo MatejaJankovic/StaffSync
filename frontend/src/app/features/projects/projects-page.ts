@@ -1,9 +1,4 @@
 import { Component, computed, inject, signal, viewChild } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 import { Router, RouterLink } from '@angular/router';
 import { PageQuery } from '../../core/api/page';
 import { AuthService } from '../../core/auth/auth.service';
@@ -11,6 +6,7 @@ import { Notifications } from '../../core/error/notifications';
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
+import { SsDialog, SsField, SsLabel, SsOption, SsSelect, SsButton, SsIcon } from '../../shared/ui';
 import { ProjectDialog, ProjectDialogData } from './project-dialog';
 import {
   formatPeriod,
@@ -26,13 +22,15 @@ import { ProjectService } from './project.service';
 @Component({
   selector: 'app-projects-page',
   imports: [
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatSelectModule,
+    SsButton,
+    SsIcon,
     PagedTable,
     PagedTableCell,
     RouterLink,
+    SsField,
+    SsLabel,
+    SsOption,
+    SsSelect,
     StatusChip,
   ],
   templateUrl: './projects-page.html',
@@ -41,7 +39,7 @@ import { ProjectService } from './project.service';
 export class ProjectsPage {
   private readonly projects = inject(ProjectService);
   private readonly auth = inject(AuthService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(SsDialog);
   private readonly notifications = inject(Notifications);
   private readonly router = inject(Router);
 
@@ -57,6 +55,7 @@ export class ProjectsPage {
     { key: 'client', header: 'Client', sortable: true },
     {
       key: 'startDate',
+      numeric: true,
       header: 'Period',
       sortable: true,
       value: formatPeriod,
@@ -95,7 +94,10 @@ export class ProjectsPage {
 
   private openDialog(data: ProjectDialogData, message: string): void {
     this.dialog
-      .open<ProjectDialog, ProjectDialogData, Project>(ProjectDialog, { data, width: '560px' })
+      .open<ProjectDialog, ProjectDialogData, Project>(ProjectDialog, {
+        data,
+        width: '560px',
+      })
       .afterClosed()
       .subscribe((saved) => {
         if (saved) {

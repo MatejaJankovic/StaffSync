@@ -2,9 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSelect } from '@angular/material/select';
+import { SsDialog, SsSelect } from '../../shared/ui';
 import { By } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
@@ -50,12 +48,11 @@ describe('ProjectsPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         { provide: AuthService, useValue: { currentUser: signal({ id: 7 }) } },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
-    dialogOpen = vi.spyOn(TestBed.inject(MatDialog), 'open');
+    dialogOpen = vi.spyOn(TestBed.inject(SsDialog), 'open');
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     success = vi.spyOn(TestBed.inject(Notifications), 'success').mockReturnValue(undefined);
     fixture = TestBed.createComponent(ProjectsPage);
@@ -102,7 +99,7 @@ describe('ProjectsPage', () => {
   it('shows name, client, period and a status chip for each project', async () => {
     await load();
 
-    const rows = [...el().querySelectorAll('tr.mat-mdc-row')].map((row) =>
+    const rows = [...el().querySelectorAll('tr.cdk-row')].map((row) =>
       [...row.querySelectorAll('td')].map((cell) => cell.textContent?.trim()),
     );
     expect(rows[0].slice(0, 3)).toEqual(['Project Alpha', 'Acme Corp', '1 Nov 2026 – 31 Mar 2027']);
@@ -119,11 +116,10 @@ describe('ProjectsPage', () => {
   it('filters by status and goes back to the first page', async () => {
     await load();
 
-    const select = fixture.debugElement.query(By.directive(MatSelect))
-      .componentInstance as MatSelect;
+    const select = fixture.debugElement.query(By.directive(SsSelect)).componentInstance as SsSelect;
     select.open();
     await settle();
-    document.querySelectorAll<HTMLElement>('mat-option')[2].click(); // Active
+    document.querySelectorAll<HTMLElement>('[role="option"]')[2].click(); // Active
     await settle();
 
     const request = await load(pageOf());
@@ -136,7 +132,7 @@ describe('ProjectsPage', () => {
   it('opens Project details when a row is clicked', async () => {
     await load();
 
-    el().querySelector<HTMLElement>('tr.mat-mdc-row')!.click();
+    el().querySelector<HTMLElement>('tr.cdk-row')!.click();
 
     expect(navigate).toHaveBeenCalledWith(['/projects', 1]);
   });

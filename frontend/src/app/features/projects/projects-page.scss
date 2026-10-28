@@ -1,21 +1,46 @@
-.projects {
-  padding: 24px;
+:host {
+  display: block;
 }
 
 .projects__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  align-items: flex-end;
+}
 
-  h1 {
-    font: var(--mat-sys-headline-small);
-    margin: 0;
-  }
+.projects__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ss-space-3);
+  margin-bottom: var(--ss-space-4);
 }
 
 .projects__filter {
   width: 220px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
+}
+
+// The project name is the way in to the project, so it reads as a title first and a link second.
+.projects__name {
+  color: var(--ss-ink);
+  font-weight: 600;
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+  transition: color var(--ss-dur-fast) var(--ss-ease);
+
+  &:hover {
+    color: var(--ss-teal);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: var(--ss-focus-ring);
+    outline-offset: var(--ss-focus-offset);
+    border-radius: var(--ss-radius-sm);
+  }
+}
+
+@media (max-width: 599px) {
+  .projects__filter {
+    width: 100%;
+  }
 }

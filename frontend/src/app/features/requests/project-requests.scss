@@ -5,12 +5,15 @@
 .project-requests__toolbar {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 8px;
+  margin-bottom: var(--ss-space-3);
 }
 
+// The row opens the details; these are the quick actions that belong to it. They stay on one line
+// (the table scrolls sideways on narrow screens), with the way to the candidates first.
 .project-requests__actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
+  gap: var(--ss-space-1);
+  white-space: nowrap;
 }

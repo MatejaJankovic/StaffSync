@@ -2,8 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatDialog } from '@angular/material/dialog';
+import { SS_DIALOG_DATA, SsDialog, SsDialogRef } from '../../shared/ui';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
@@ -65,12 +64,11 @@ describe('ProjectRequests', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         { provide: AuthService, useValue: { currentUser: signal({ id: userId }) } },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
-    dialogOpen = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue(undefined as never);
+    dialogOpen = vi.spyOn(TestBed.inject(SsDialog), 'open').mockReturnValue(undefined as never);
     confirm = vi.spyOn(TestBed.inject(ConfirmDialogService), 'confirm').mockReturnValue(of(true));
     success = vi.spyOn(TestBed.inject(Notifications), 'success').mockReturnValue(undefined);
     fixture = TestBed.createComponent(ProjectRequests);
@@ -102,7 +100,7 @@ describe('ProjectRequests', () => {
   }
 
   function rowOf(title: string): HTMLElement {
-    return [...el().querySelectorAll<HTMLElement>('tr.mat-mdc-row')].find((row) =>
+    return [...el().querySelectorAll<HTMLElement>('tr.cdk-row')].find((row) =>
       row.textContent?.includes(title),
     )!;
   }
@@ -288,12 +286,12 @@ describe('ProjectRequests', () => {
 
 describe('RequestDetailsDialog', () => {
   async function render(data: StaffingRequest): Promise<HTMLElement> {
-    const { MAT_DIALOG_DATA } = await import('@angular/material/dialog');
     await TestBed.configureTestingModule({
       imports: [RequestDetailsDialog],
       providers: [
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: MAT_DIALOG_DATA, useValue: { request: data } },
+        { provide: SS_DIALOG_DATA, useValue: { request: data } },
+        // ssDialogClose needs the ref of the dialog it closes; this spec renders the component alone
+        { provide: SsDialogRef, useValue: { close: vi.fn() } },
       ],
     }).compileComponents();
     const fixture = TestBed.createComponent(RequestDetailsDialog);

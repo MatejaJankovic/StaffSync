@@ -1,7 +1,4 @@
 import { Component, computed, inject, input, viewChild } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { filter, switchMap } from 'rxjs';
 import { PageQuery } from '../../core/api/page';
@@ -11,6 +8,7 @@ import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
+import { SsDialog, SsButton, SsIcon } from '../../shared/ui';
 import { formatPeriod, isEditable, Project } from '../projects/project.models';
 import { RequestDetailsDialog, RequestDetailsDialogData } from './request-details-dialog';
 import {
@@ -33,7 +31,7 @@ import { RequestService } from './request.service';
  */
 @Component({
   selector: 'app-project-requests',
-  imports: [MatButtonModule, MatIconModule, PagedTable, PagedTableCell, RouterLink, StatusChip],
+  imports: [SsButton, SsIcon, PagedTable, PagedTableCell, RouterLink, StatusChip],
   templateUrl: './project-requests.html',
   styleUrl: './project-requests.scss',
 })
@@ -42,7 +40,7 @@ export class ProjectRequests {
 
   private readonly requests = inject(RequestService);
   private readonly auth = inject(AuthService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(SsDialog);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly notifications = inject(Notifications);
 
@@ -58,12 +56,13 @@ export class ProjectRequests {
     },
     {
       key: 'allocationPercent',
+      numeric: true,
       header: 'Allocation',
       sortable: true,
       value: (request) => `${request.allocationPercent}%`,
     },
-    { key: 'startDate', header: 'Period', sortable: true, value: formatPeriod },
-    { key: 'headcount', header: 'Headcount', sortable: true },
+    { key: 'startDate', numeric: true, header: 'Period', sortable: true, value: formatPeriod },
+    { key: 'headcount', numeric: true, header: 'Headcount', sortable: true },
     { key: 'status', header: 'Status', sortable: true },
     { key: 'actions', header: '' },
   ];

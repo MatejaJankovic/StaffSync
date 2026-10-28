@@ -1,35 +1,73 @@
 :host {
   display: block;
+  // A thin, rounded track. The unfilled part is the hairline color; the tone colors the fill.
+  --ss-progress-track: var(--ss-line);
+}
+
+ss-progress-bar {
+  height: 6px;
+  border-radius: var(--ss-radius-pill);
+  overflow: hidden;
 }
 
 .capacity-bar__text {
   display: flex;
-  gap: 8px;
+  gap: var(--ss-space-2);
   align-items: baseline;
-  margin-top: 4px;
-  font: var(--mat-sys-body-small);
+  margin-top: var(--ss-space-1);
+  font-size: var(--ss-text-xs);
+  font-weight: 500;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: var(--ss-ink-muted);
 }
 
 .capacity-bar__label {
-  font-weight: 500;
+  font-weight: 600;
 }
 
-// Material has no success or warning roles, so these two use the app's own tokens (styles.scss)
 :host(.capacity-bar--free) {
-  --mat-progress-bar-active-indicator-color: var(--app-on-success-container);
-  --mat-progress-bar-track-color: var(--app-success-container);
+  --ss-progress-color: var(--ss-cap-free);
 }
 
 :host(.capacity-bar--nearly-full) {
-  --mat-progress-bar-active-indicator-color: var(--app-on-warning-container);
-  --mat-progress-bar-track-color: var(--app-warning-container);
+  --ss-progress-color: var(--ss-cap-near);
+
+  .capacity-bar__text {
+    color: var(--ss-sand);
+  }
 }
 
+// Full (at 100%) or over: the fill is danger and the numbers are bold danger text. Only an
+// overbooked employee (above the capacity) also gets a "!" mark, like the capacity ring, so
+// "fully booked" and "overbooked" stay apart. (The mark is decorative; the label has the words.)
 :host(.capacity-bar--full) {
-  --mat-progress-bar-active-indicator-color: var(--mat-sys-error);
-  --mat-progress-bar-track-color: var(--mat-sys-error-container);
+  --ss-progress-color: var(--ss-cap-over);
 
-  .capacity-bar__label {
-    color: var(--mat-sys-error);
+  .capacity-bar__text {
+    font-weight: 700;
+    color: var(--ss-danger);
+  }
+}
+
+:host(.capacity-bar--over) {
+  --bar-flag-size: 14px;
+
+  .capacity-bar__text {
+    &::before {
+      content: '!' / '';
+      flex: none;
+      align-self: center;
+      display: inline-grid;
+      place-items: center;
+      width: var(--bar-flag-size);
+      height: var(--bar-flag-size);
+      border-radius: 50%;
+      background: var(--ss-danger);
+      color: var(--ss-surface-raised);
+      font-size: calc(var(--bar-flag-size) * 0.7);
+      font-weight: 700;
+      line-height: 1;
+    }
   }
 }

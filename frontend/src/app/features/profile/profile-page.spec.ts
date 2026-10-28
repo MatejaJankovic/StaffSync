@@ -74,7 +74,7 @@ describe('ProfilePage', () => {
   }
 
   function skillNames(): (string | undefined)[] {
-    return [...el().querySelectorAll('td.mat-column-skill')].map((c) => c.textContent?.trim());
+    return [...el().querySelectorAll('td.cdk-column-skill')].map((c) => c.textContent?.trim());
   }
 
   function button(label: string): HTMLButtonElement {
@@ -89,7 +89,7 @@ describe('ProfilePage', () => {
 
   function levelButton(skill: string, level: number): HTMLButtonElement {
     return el().querySelector<HTMLButtonElement>(
-      `mat-button-toggle-group[aria-label="Level of ${skill}"] button[aria-label="Level ${level}"]`,
+      `ss-toggle-group[aria-label="Level of ${skill}"] button[aria-label="Level ${level}"]`,
     )!;
   }
 

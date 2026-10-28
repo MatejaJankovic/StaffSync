@@ -1,11 +1,8 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTableModule } from '@angular/material/table';
+import { CdkTableModule } from '@angular/cdk/table';
 import { filter, switchMap } from 'rxjs';
+import { SsDialog, SsToast, SsButton, SsIcon } from '../../shared/ui';
 import { Skill, SKILL_CATEGORIES, SKILL_CATEGORY_LABELS, SkillCategory } from './skill.models';
 import { SkillService } from './skill.service';
 import { SkillDeleteDialog } from './skill-delete-dialog';
@@ -20,14 +17,14 @@ interface CategoryGroup {
 /** Admin page: the skills catalog grouped by category, with add, edit and delete. */
 @Component({
   selector: 'app-skills-page',
-  imports: [MatButtonModule, MatIconModule, MatTableModule],
+  imports: [SsButton, SsIcon, CdkTableModule],
   templateUrl: './skills-page.html',
   styleUrl: './skills-page.scss',
 })
 export class SkillsPage implements OnInit {
   private readonly skillService = inject(SkillService);
-  private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(SsDialog);
+  private readonly toast = inject(SsToast);
 
   protected readonly columns = ['name', 'actions'];
   protected readonly skills = signal<Skill[]>([]);
@@ -82,7 +79,7 @@ export class SkillsPage implements OnInit {
       .subscribe({
         next: () => {
           this.skills.update((skills) => skills.filter((s) => s.id !== skill.id));
-          this.snackBar.open(`Deleted ${skill.name}`, 'Dismiss', { duration: 4000 });
+          this.toast.open(`Deleted ${skill.name}`, 'Dismiss', { duration: 4000 });
         },
         error: (err: unknown) => this.showError(err, 'Unable to delete the skill.'),
       });
@@ -90,14 +87,17 @@ export class SkillsPage implements OnInit {
 
   private openDialog(data: SkillDialogData): void {
     this.dialog
-      .open<SkillDialog, SkillDialogData, Skill>(SkillDialog, { data, width: '400px' })
+      .open<SkillDialog, SkillDialogData, Skill>(SkillDialog, {
+        data,
+        width: '440px',
+      })
       .afterClosed()
       .subscribe((saved) => {
         if (!saved) {
           return;
         }
         this.skills.update((skills) => [...skills.filter((s) => s.id !== saved.id), saved]);
-        this.snackBar.open(`Saved ${saved.name}`, 'Dismiss', { duration: 4000 });
+        this.toast.open(`Saved ${saved.name}`, 'Dismiss', { duration: 4000 });
       });
   }
 
@@ -106,6 +106,10 @@ export class SkillsPage implements OnInit {
       err instanceof HttpErrorResponse && err.status === 409
         ? (err.error?.message ?? fallback)
         : fallback;
-    this.snackBar.open(message, 'Dismiss', { duration: 6000 });
+    this.toast.open(message, 'Dismiss', {
+      duration: 6000,
+      politeness: 'assertive',
+      panelClass: 'snackbar--error',
+    });
   }
 }

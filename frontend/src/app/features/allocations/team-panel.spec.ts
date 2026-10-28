@@ -2,14 +2,13 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { of } from 'rxjs';
 import { Role } from '../../core/auth/auth.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { Notifications } from '../../core/error/notifications';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import { toIsoDate } from '../../shared/dates';
+import { SsDialog, SsDialogRef } from '../../shared/ui';
 import { Project } from '../projects/project.models';
 import { StaffingRequest } from '../requests/request.models';
 import {
@@ -89,7 +88,6 @@ describe('TeamPanel', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         {
           provide: AuthService,
           useValue: { currentUser: signal({ id: userId }), role: signal(role) },
@@ -130,7 +128,7 @@ describe('TeamPanel', () => {
   }
 
   function rowOf(name: string): HTMLElement {
-    return [...el().querySelectorAll<HTMLElement>('tr.mat-mdc-row')].find((row) =>
+    return [...el().querySelectorAll<HTMLElement>('tr.cdk-row')].find((row) =>
       row.textContent?.includes(name),
     )!;
   }
@@ -239,7 +237,7 @@ describe('TeamPanel', () => {
         }),
       ]);
 
-      const labels = [...el().querySelectorAll('tr.mat-mdc-row button')].map((button) =>
+      const labels = [...el().querySelectorAll('tr.cdk-row button')].map((button) =>
         button.getAttribute('aria-label'),
       );
       expect(labels).toEqual([
@@ -374,8 +372,8 @@ describe('TeamPanel', () => {
     /** The dialog is tested on its own, so here it only closes with this result. */
     function dialogClosesWith(result: AllocationChange | undefined): void {
       openDialog = vi
-        .spyOn(TestBed.inject(MatDialog), 'open')
-        .mockReturnValue({ afterClosed: () => of(result) } as MatDialogRef<unknown>);
+        .spyOn(TestBed.inject(SsDialog), 'open')
+        .mockReturnValue({ afterClosed: () => of(result) } as SsDialogRef<unknown>);
     }
 
     function changeOf(warnings: string[] = []): AllocationChange {

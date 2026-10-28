@@ -1,9 +1,4 @@
 import { Component, computed, inject, OnInit, signal, viewChild } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 import { filter, switchMap } from 'rxjs';
 import { PageQuery } from '../../core/api/page';
 import { Role, ROLE_LABELS } from '../../core/auth/auth.models';
@@ -13,6 +8,7 @@ import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
+import { SsDialog, SsField, SsLabel, SsOption, SsSelect, SsButton, SsIcon } from '../../shared/ui';
 import { Department } from '../departments/department.models';
 import { DepartmentService } from '../departments/department.service';
 import { SENIORITY_LABELS } from '../profile/profile.models';
@@ -30,10 +26,12 @@ type ActiveFilter = 'active' | 'inactive' | '';
 @Component({
   selector: 'app-users-page',
   imports: [
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatSelectModule,
+    SsButton,
+    SsIcon,
+    SsField,
+    SsLabel,
+    SsOption,
+    SsSelect,
     PagedTable,
     PagedTableCell,
     StatusChip,
@@ -45,7 +43,7 @@ export class UsersPage implements OnInit {
   private readonly users = inject(UserService);
   private readonly departmentService = inject(DepartmentService);
   private readonly auth = inject(AuthService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(SsDialog);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly notifications = inject(Notifications);
 
@@ -78,6 +76,7 @@ export class UsersPage implements OnInit {
     },
     {
       key: 'capacityPercent',
+      numeric: true,
       header: 'Capacity',
       sortable: true,
       value: (u) => `${u.capacityPercent}%`,
@@ -101,6 +100,10 @@ export class UsersPage implements OnInit {
 
   ngOnInit(): void {
     this.departmentService.list().subscribe((departments) => this.departments.set(departments));
+  }
+
+  protected roleLabel(role: Role): string {
+    return ROLE_LABELS[role];
   }
 
   /** Your own account can't be deactivated (409), so the button isn't offered. */
@@ -142,7 +145,10 @@ export class UsersPage implements OnInit {
 
   private openDialog(data: UserDialogData, message: string): void {
     this.dialog
-      .open<UserDialog, UserDialogData, UserAccount>(UserDialog, { data, width: '560px' })
+      .open<UserDialog, UserDialogData, UserAccount>(UserDialog, {
+        data,
+        width: '640px',
+      })
       .afterClosed()
       .subscribe((saved) => {
         if (saved) {

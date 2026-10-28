@@ -10,12 +10,10 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSortModule, Sort } from '@angular/material/sort';
-import { MatTableModule } from '@angular/material/table';
+import { CdkTableModule } from '@angular/cdk/table';
 import { catchError, defer, Observable, of, switchMap, tap } from 'rxjs';
 import { Page, PageQuery } from '../../core/api/page';
+import { SsPageEvent, SsPaginator, SsProgressBar, SsSort, SsSortChange, SsSortHeader } from '../ui';
 import { PagedTableCell } from './paged-table-cell';
 
 export interface PagedTableColumn<T> {
@@ -23,12 +21,18 @@ export interface PagedTableColumn<T> {
   key: string;
   header: string;
   sortable?: boolean;
+  /**
+   * The column holds numbers, percentages or dates: its cells and header use tabular figures so
+   * the digits line up. Leave it off for text: the font's tabular figures also widen punctuation,
+   * which would put gaps around the dots of an email address.
+   */
+  numeric?: boolean;
   /** What the cell shows when there is no `appPagedTableCell` template. Default: `row[key]`. */
   value?: (row: T) => unknown;
 }
 
 /**
- * A Material table bound to a backend list: `{ content, page }` in, `page`/`size`/`sort` out.
+ * A table bound to a backend list: `{ content, page }` in, `page`/`size`/`sort` out.
  *
  * ```ts
  * protected readonly columns: PagedTableColumn<ProjectDto>[] = [
@@ -57,13 +61,7 @@ export interface PagedTableColumn<T> {
  */
 @Component({
   selector: 'app-paged-table',
-  imports: [
-    NgTemplateOutlet,
-    MatPaginatorModule,
-    MatProgressBarModule,
-    MatSortModule,
-    MatTableModule,
-  ],
+  imports: [NgTemplateOutlet, CdkTableModule, SsPaginator, SsProgressBar, SsSort, SsSortHeader],
   templateUrl: './paged-table.html',
   styleUrl: './paged-table.scss',
 })
@@ -87,7 +85,7 @@ export class PagedTable<T> {
   );
   protected readonly columnKeys = computed(() => this.columns().map((column) => column.key));
 
-  protected readonly sort = signal<Sort | null>(null);
+  protected readonly sort = signal<SsSortChange | null>(null);
   protected readonly size = linkedSignal(() => this.pageSize());
   /** Back to the first page whenever the data source, the sort or the page size changes. */
   protected readonly pageIndex = linkedSignal({
@@ -144,7 +142,7 @@ export class PagedTable<T> {
     this.reloads.update((count) => count + 1);
   }
 
-  protected onPage(event: PageEvent): void {
+  protected onPage(event: SsPageEvent): void {
     this.size.set(event.pageSize);
     this.pageIndex.set(event.pageIndex);
   }

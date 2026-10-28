@@ -1,35 +1,63 @@
-.skills {
-  padding: 24px;
-  max-width: 720px;
+:host {
+  display: block;
 }
 
-.skills__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 8px;
+.skills__title {
+  min-width: 0;
 
   h1 {
-    font: var(--mat-sys-headline-small);
     margin: 0;
   }
 }
 
+.ss-page-header button {
+  flex-shrink: 0;
+}
+
+// Categories sit side by side on wide screens, so a long catalog needs less scrolling
+.skills__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: var(--ss-space-6);
+  align-items: start;
+}
+
+.skills__group-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ss-space-2);
+  margin-bottom: var(--ss-space-2);
+}
+
 .skills__category {
-  font: var(--mat-sys-title-medium);
-  margin: 24px 0 4px;
+  margin: 0;
+  font: var(--ss-type-title-medium);
+  letter-spacing: var(--ss-tracking-snug);
 }
 
-.skills__table {
-  width: 100%;
+.skills__count {
+  font-size: var(--ss-text-xs);
+  font-weight: 500;
+  color: var(--ss-ink-muted);
 }
 
-.skills__actions {
+.skills__panel {
+  overflow: hidden;
+  border: 1px solid var(--ss-line);
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface);
+}
+
+// Two classes, to beat the kit's `.ss-table th, td` alignment
+.skills__table .skills__actions {
   width: 112px;
   text-align: end;
+  white-space: nowrap;
 }
 
 .skills__message {
-  color: var(--mat-sys-on-surface-variant);
+  max-width: 720px;
+  margin: var(--ss-space-8) 0;
+  font-size: var(--ss-text-sm);
+  color: var(--ss-ink-muted);
 }

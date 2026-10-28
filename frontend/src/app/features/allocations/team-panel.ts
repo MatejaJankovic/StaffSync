@@ -1,7 +1,4 @@
 import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
 import { filter, switchMap } from 'rxjs';
 import { PageQuery } from '../../core/api/page';
 import { AuthService } from '../../core/auth/auth.service';
@@ -11,6 +8,7 @@ import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
+import { SsDialog, SsButton, SsIcon } from '../../shared/ui';
 import { formatPeriod, isEditable, Project } from '../projects/project.models';
 import { RequestService } from '../requests/request.service';
 import {
@@ -53,7 +51,7 @@ interface ChangeNotice {
  */
 @Component({
   selector: 'app-team-panel',
-  imports: [MatButtonModule, MatIconModule, PagedTable, PagedTableCell, StatusChip],
+  imports: [SsButton, SsIcon, PagedTable, PagedTableCell, StatusChip],
   templateUrl: './team-panel.html',
   styleUrl: './team-panel.scss',
 })
@@ -66,7 +64,7 @@ export class TeamPanel {
   private readonly allocations = inject(AllocationService);
   private readonly requests = inject(RequestService);
   private readonly auth = inject(AuthService);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialog = inject(SsDialog);
   private readonly confirmDialog = inject(ConfirmDialogService);
   private readonly notifications = inject(Notifications);
 
@@ -77,11 +75,12 @@ export class TeamPanel {
     { key: 'request', header: 'Request', value: (allocation) => allocation.requestTitle },
     {
       key: 'percent',
+      numeric: true,
       header: 'Allocation',
       sortable: true,
       value: (allocation) => `${allocation.percent}%`,
     },
-    { key: 'startDate', header: 'Period', sortable: true, value: formatPeriod },
+    { key: 'startDate', numeric: true, header: 'Period', sortable: true, value: formatPeriod },
     { key: 'status', header: 'Status', sortable: true },
     { key: 'pendingChange', header: 'Pending change', value: formatPendingChange },
     { key: 'actions', header: '' },

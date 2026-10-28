@@ -63,13 +63,13 @@ describe('TeamPage', () => {
   }
 
   function column(name: string): (string | undefined)[] {
-    return [...el().querySelectorAll(`td.mat-column-${name}`)].map((c) =>
+    return [...el().querySelectorAll(`td.cdk-column-${name}`)].map((c) =>
       c.textContent?.replace(/\s+/g, ' ').trim(),
     );
   }
 
   async function clickHeader(name: string): Promise<void> {
-    el().querySelector<HTMLElement>(`th.mat-column-${name} .mat-sort-header-container`)!.click();
+    el().querySelector<HTMLElement>(`th.cdk-column-${name} .ss-sort__button`)!.click();
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -122,7 +122,7 @@ describe('TeamPage', () => {
       '40% / 50%',
       '120% / 100% Over capacity',
     ]);
-    const bars = [...el().querySelectorAll('app-capacity-bar mat-progress-bar')];
+    const bars = [...el().querySelectorAll('app-capacity-bar ss-progress-bar')];
     expect(bars.map((bar) => bar.getAttribute('aria-valuenow'))).toEqual([
       '0',
       '0',

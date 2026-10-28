@@ -1,124 +1,142 @@
-<section class="profile">
-  <h1>My profile</h1>
+<section class="profile ss-page">
+  <header class="ss-page-header">
+    <div>
+      <p class="ss-eyebrow">Employee</p>
+      <h1>My profile</h1>
+      <p class="ss-page-context">
+        Your details and your skills. Keep your skills up to date so project managers can find you.
+      </p>
+    </div>
+  </header>
 
   @if (loading()) {
-    <p class="profile__message">Loading your profile…</p>
+    <p class="profile__message" role="status">Loading your profile…</p>
   } @else if (loadFailed()) {
     <p class="profile__message" role="alert">
-      Unable to load your profile.
-      <button mat-button (click)="load()">Retry</button>
+      Unable to load your profile. Check your connection and try again.
+      <button ss-button="outlined" type="button" (click)="load()">Retry</button>
     </p>
   } @else {
     @let me = profile()!;
-    <mat-card appearance="outlined" class="profile__card">
-      <mat-card-header>
-        <mat-card-title>Personal data</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <dl class="profile__data">
+    <section class="profile__section" aria-labelledby="profile-data-title">
+      <h2 id="profile-data-title">Personal data</h2>
+      <dl class="profile__data">
+        <div class="profile__field">
           <dt>Name</dt>
           <dd>{{ me.firstName }} {{ me.lastName }}</dd>
+        </div>
+        <div class="profile__field">
           <dt>Email</dt>
           <dd>{{ me.email }}</dd>
+        </div>
+        <div class="profile__field">
           <dt>Department</dt>
           <dd>{{ me.department ?? '—' }}</dd>
+        </div>
+        <div class="profile__field">
           <dt>Seniority</dt>
           <dd>{{ me.seniority ? seniorityLabels[me.seniority] : '—' }}</dd>
+        </div>
+        <div class="profile__field">
           <dt>Capacity</dt>
-          <dd>{{ me.capacityPercent }}%</dd>
+          <dd class="ss-num">{{ me.capacityPercent }}%</dd>
+        </div>
+        <div class="profile__field">
           <dt>Resource manager</dt>
           <dd>{{ me.manager ? me.manager.firstName + ' ' + me.manager.lastName : '—' }}</dd>
-        </dl>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card appearance="outlined" class="profile__card">
-      <mat-card-header>
-        <mat-card-title>Skills</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        @if (rows().length === 0) {
-          <p class="profile__message">You haven't added any skills yet.</p>
-        } @else {
-          <div class="profile__table-scroll">
-            <table mat-table [dataSource]="rows()" class="profile__table">
-              <ng-container matColumnDef="skill">
-                <th mat-header-cell *matHeaderCellDef>Skill</th>
-                <td mat-cell *matCellDef="let row">{{ row.controls.skillName.value }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="level">
-                <th mat-header-cell *matHeaderCellDef>Level</th>
-                <td mat-cell *matCellDef="let row" [formGroup]="row">
-                  <app-skill-level-picker
-                    formControlName="level"
-                    [ariaLabel]="'Level of ' + row.controls.skillName.value"
-                  />
-                </td>
-              </ng-container>
-
-              <ng-container matColumnDef="years">
-                <th mat-header-cell *matHeaderCellDef>Years of experience</th>
-                <td mat-cell *matCellDef="let row" [formGroup]="row">
-                  <mat-form-field subscriptSizing="dynamic" class="profile__years">
-                    <input
-                      matInput
-                      type="number"
-                      min="0"
-                      [max]="maxYears"
-                      step="1"
-                      formControlName="yearsOfExperience"
-                      [attr.aria-label]="'Years of experience with ' + row.controls.skillName.value"
-                    />
-                    @if (row.controls.yearsOfExperience.invalid) {
-                      <mat-error>Whole number from 0 to {{ maxYears }}</mat-error>
-                    }
-                  </mat-form-field>
-                </td>
-              </ng-container>
-
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef class="profile__actions"></th>
-                <td mat-cell *matCellDef="let row; let i = index" class="profile__actions">
-                  <button
-                    mat-icon-button
-                    [attr.aria-label]="'Remove ' + row.controls.skillName.value"
-                    (click)="remove(i)"
-                  >
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="columns"></tr>
-              <tr mat-row *matRowDef="let row; columns: columns"></tr>
-            </table>
-          </div>
-        }
-
-        <div class="profile__footer">
-          <mat-form-field subscriptSizing="dynamic" class="profile__add">
-            <mat-label>Add skill</mat-label>
-            <mat-select [formControl]="addSkill" (selectionChange)="add($event.value)">
-              @for (group of addOptions(); track group.label) {
-                <mat-optgroup [label]="group.label">
-                  @for (skill of group.skills; track skill.id) {
-                    <mat-option [value]="skill.id">{{ skill.name }}</mat-option>
-                  }
-                </mat-optgroup>
-              }
-            </mat-select>
-          </mat-form-field>
-
-          <button
-            mat-flat-button
-            [disabled]="form.pristine || form.invalid || saving()"
-            (click)="save()"
-          >
-            {{ saving() ? 'Saving…' : 'Save' }}
-          </button>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </dl>
+    </section>
+
+    <section class="profile__section" aria-labelledby="profile-skills-title">
+      <h2 id="profile-skills-title">Skills</h2>
+      <p class="profile__hint">
+        Pick a level from 1 to 5 and the years of experience for each skill. Save when you are done.
+      </p>
+      @if (rows().length === 0) {
+        <p class="profile__message">
+          You haven't added any skills yet. Add one below to get started.
+        </p>
+      } @else {
+        <div class="profile__table-scroll">
+          <table cdk-table class="ss-table profile__table" [dataSource]="rows()">
+            <ng-container cdkColumnDef="skill">
+              <th cdk-header-cell *cdkHeaderCellDef>Skill</th>
+              <td cdk-cell *cdkCellDef="let row">{{ row.controls.skillName.value }}</td>
+            </ng-container>
+
+            <ng-container cdkColumnDef="level">
+              <th cdk-header-cell *cdkHeaderCellDef>Level</th>
+              <td cdk-cell *cdkCellDef="let row" [formGroup]="row">
+                <app-skill-level-picker
+                  formControlName="level"
+                  [ariaLabel]="'Level of ' + row.controls.skillName.value"
+                />
+              </td>
+            </ng-container>
+
+            <ng-container cdkColumnDef="years">
+              <th cdk-header-cell *cdkHeaderCellDef>Years of experience</th>
+              <td cdk-cell *cdkCellDef="let row" [formGroup]="row">
+                <ss-field class="profile__years">
+                  <input
+                    ssInput
+                    type="number"
+                    min="0"
+                    [max]="maxYears"
+                    step="1"
+                    formControlName="yearsOfExperience"
+                    [attr.aria-label]="'Years of experience with ' + row.controls.skillName.value"
+                  />
+                  @if (row.controls.yearsOfExperience.invalid) {
+                    <ss-error>Whole number from 0 to {{ maxYears }}</ss-error>
+                  }
+                </ss-field>
+              </td>
+            </ng-container>
+
+            <ng-container cdkColumnDef="actions">
+              <th cdk-header-cell *cdkHeaderCellDef class="profile__actions"></th>
+              <td cdk-cell *cdkCellDef="let row; let i = index" class="profile__actions">
+                <button
+                  ss-button="icon"
+                  [attr.aria-label]="'Remove ' + row.controls.skillName.value"
+                  (click)="remove(i)"
+                >
+                  <ss-icon>delete</ss-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr cdk-header-row *cdkHeaderRowDef="columns"></tr>
+            <tr cdk-row *cdkRowDef="let row; columns: columns"></tr>
+          </table>
+        </div>
+      }
+
+      <div class="profile__footer">
+        <ss-field class="profile__add">
+          <ss-label>Add skill</ss-label>
+          <ss-select [formControl]="addSkill" (selectionChange)="add($event.value)">
+            @for (group of addOptions(); track group.label) {
+              <ss-optgroup [label]="group.label">
+                @for (skill of group.skills; track skill.id) {
+                  <ss-option [value]="skill.id">{{ skill.name }}</ss-option>
+                }
+              </ss-optgroup>
+            }
+          </ss-select>
+        </ss-field>
+
+        <button
+          ss-button="filled"
+          type="button"
+          [disabled]="form.pristine || form.invalid || saving()"
+          (click)="save()"
+        >
+          {{ saving() ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    </section>
   }
 </section>
