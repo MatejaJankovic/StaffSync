@@ -7,12 +7,21 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { parseIsoDate, provideDayFirstDates, toIsoDate } from '../../shared/dates';
+import { parseIsoDate, toIsoDate } from '../../shared/dates';
+import {
+  SS_DIALOG_DATA,
+  SsDialogActions,
+  SsDialogClose,
+  SsDialogContent,
+  SsDialogRef,
+  SsDialogTitle,
+  SsError,
+  SsField,
+  SsInput,
+  SsLabel,
+  SsButton,
+} from '../../shared/ui';
+import { SsDatepicker } from '../../shared/ui/datepicker/datepicker';
 import { Project } from './project.models';
 import { ProjectService } from './project.service';
 
@@ -40,114 +49,119 @@ export interface ProjectDialogData {
   selector: 'app-project-dialog',
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatDatepickerModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
+    SsButton,
+    SsDatepicker,
+    SsDialogActions,
+    SsDialogClose,
+    SsDialogContent,
+    SsDialogTitle,
+    SsError,
+    SsField,
+    SsInput,
+    SsLabel,
   ],
-  providers: [provideDayFirstDates()],
   template: `
-    <h2 mat-dialog-title>{{ project ? 'Edit project' : 'New project' }}</h2>
+    <h2 ssDialogTitle>{{ project ? 'Edit project' : 'New project' }}</h2>
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-      <mat-dialog-content class="project-dialog__content">
-        <mat-form-field appearance="outline">
-          <mat-label>Name</mat-label>
-          <input matInput formControlName="name" />
+      <ss-dialog-content class="project-dialog__content">
+        <ss-field>
+          <ss-label>Name</ss-label>
+          <input ssInput formControlName="name" />
           @if (form.controls.name.hasError('required') || form.controls.name.hasError('pattern')) {
-            <mat-error>Name is required</mat-error>
+            <ss-error>Name is required</ss-error>
           } @else if (form.controls.name.hasError('maxlength')) {
-            <mat-error>Name must be at most {{ maxNameLength }} characters</mat-error>
+            <ss-error>Name must be at most {{ maxNameLength }} characters</ss-error>
           } @else if (form.controls.name.hasError('controlChars')) {
-            <mat-error>Name must not contain control characters</mat-error>
+            <ss-error>Name must not contain control characters</ss-error>
           }
-        </mat-form-field>
+        </ss-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Client</mat-label>
-          <input matInput formControlName="client" />
+        <ss-field>
+          <ss-label>Client</ss-label>
+          <input ssInput formControlName="client" />
           @if (
             form.controls.client.hasError('required') || form.controls.client.hasError('pattern')
           ) {
-            <mat-error>Client is required</mat-error>
+            <ss-error>Client is required</ss-error>
           } @else if (form.controls.client.hasError('maxlength')) {
-            <mat-error>Client must be at most {{ maxNameLength }} characters</mat-error>
+            <ss-error>Client must be at most {{ maxNameLength }} characters</ss-error>
           } @else if (form.controls.client.hasError('controlChars')) {
-            <mat-error>Client must not contain control characters</mat-error>
+            <ss-error>Client must not contain control characters</ss-error>
           }
-        </mat-form-field>
+        </ss-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Description</mat-label>
-          <textarea matInput formControlName="description" rows="3"></textarea>
+        <ss-field>
+          <ss-label>Description</ss-label>
+          <textarea ssInput formControlName="description" rows="3"></textarea>
           @if (form.controls.description.hasError('maxlength')) {
-            <mat-error>Description must be at most {{ maxDescriptionLength }} characters</mat-error>
+            <ss-error>Description must be at most {{ maxDescriptionLength }} characters</ss-error>
           }
-        </mat-form-field>
+        </ss-field>
 
         <div class="project-dialog__dates">
-          <mat-form-field appearance="outline">
-            <mat-label>Start date</mat-label>
-            <input matInput [matDatepicker]="startPicker" formControlName="startDate" />
-            <mat-datepicker-toggle matIconSuffix [for]="startPicker" />
-            <mat-datepicker #startPicker />
-            @if (form.controls.startDate.hasError('matDatepickerParse')) {
-              <mat-error>Enter a valid date, like 31/03/2027</mat-error>
+          <ss-field>
+            <ss-label>Start date</ss-label>
+            <ss-datepicker formControlName="startDate" />
+            @if (form.controls.startDate.hasError('dateParse')) {
+              <ss-error>Enter a valid date, like 31/03/2027</ss-error>
             } @else if (form.controls.startDate.hasError('required')) {
-              <mat-error>Start date is required</mat-error>
+              <ss-error>Start date is required</ss-error>
             }
-          </mat-form-field>
+          </ss-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>End date</mat-label>
-            <input matInput [matDatepicker]="endPicker" formControlName="endDate" />
-            <mat-datepicker-toggle matIconSuffix [for]="endPicker" />
-            <mat-datepicker #endPicker />
-            @if (form.controls.endDate.hasError('matDatepickerParse')) {
-              <mat-error>Enter a valid date, like 31/03/2027</mat-error>
+          <ss-field>
+            <ss-label>End date</ss-label>
+            <ss-datepicker formControlName="endDate" />
+            @if (form.controls.endDate.hasError('dateParse')) {
+              <ss-error>Enter a valid date, like 31/03/2027</ss-error>
             } @else if (form.controls.endDate.hasError('required')) {
-              <mat-error>End date is required</mat-error>
+              <ss-error>End date is required</ss-error>
             }
-          </mat-form-field>
+          </ss-field>
         </div>
         @if (form.hasError('dateRange') && form.controls.endDate.touched) {
           <p class="project-dialog__error" role="alert">Start date must not be after end date</p>
         }
-      </mat-dialog-content>
+      </ss-dialog-content>
 
-      <mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close>Cancel</button>
-        <button mat-flat-button type="submit" [disabled]="saving()">Save</button>
-      </mat-dialog-actions>
+      <ss-dialog-actions>
+        <button ss-button type="button" ssDialogClose>Cancel</button>
+        <button ss-button="filled" type="submit" [disabled]="saving()">Save</button>
+      </ss-dialog-actions>
     </form>
   `,
   styles: `
+    /* The form sits between the dialog container and its content and actions */
+    form {
+      display: contents;
+    }
     .project-dialog__content {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding-top: 8px;
+      gap: var(--ss-space-1);
+      padding-top: var(--ss-space-4);
     }
     .project-dialog__dates {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0 16px;
-
-      mat-form-field {
-        flex: 1 1 180px;
-      }
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0 var(--ss-space-4);
     }
     .project-dialog__error {
-      color: var(--mat-sys-error);
-      font: var(--mat-sys-body-small);
-      margin: 0 0 8px;
+      color: var(--ss-danger);
+      font-size: var(--ss-text-xs);
+      font-weight: 500;
+      line-height: 1.4;
+      margin: 0 0 var(--ss-space-2);
+    }
+    ss-dialog-actions {
+      border-top: 1px solid var(--ss-line);
     }
   `,
 })
 export class ProjectDialog {
   private readonly projects = inject(ProjectService);
-  private readonly dialogRef = inject<MatDialogRef<ProjectDialog, Project>>(MatDialogRef);
-  protected readonly project = inject<ProjectDialogData>(MAT_DIALOG_DATA).project;
+  private readonly dialogRef = inject<SsDialogRef<ProjectDialog, Project>>(SsDialogRef);
+  protected readonly project = inject<ProjectDialogData>(SS_DIALOG_DATA).project;
 
   protected readonly maxNameLength = MAX_NAME_LENGTH;
   protected readonly maxDescriptionLength = MAX_DESCRIPTION_LENGTH;

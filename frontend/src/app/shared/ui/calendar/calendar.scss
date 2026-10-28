@@ -1,0 +1,217 @@
+// The calendar and its popup. The popup lives in the CDK overlay container, outside any component,
+// so these styles are global (ViewEncapsulation.None) and namespaced with ss-calendar.
+
+// The panel of the popup: a calm raised surface. It scrolls on a screen too short for the month.
+.ss-calendar-popup {
+  display: block;
+  box-sizing: border-box;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  padding: var(--ss-space-3);
+  overflow: auto;
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface-raised);
+  color: var(--ss-ink);
+  box-shadow: var(--ss-shadow-overlay);
+}
+
+.ss-calendar {
+  --ss-calendar-day: 40px;
+
+  display: block;
+  box-sizing: border-box;
+  width: calc(var(--ss-calendar-day) * 7);
+  max-width: 100%;
+  color: var(--ss-ink);
+  font-size: var(--ss-text-sm);
+}
+
+.ss-calendar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ss-space-2);
+  margin-bottom: var(--ss-space-2);
+}
+
+.ss-calendar__heading {
+  flex: 1;
+  text-align: center;
+  font-size: var(--ss-text-md);
+  font-weight: 600;
+  letter-spacing: var(--ss-tracking-snug);
+}
+
+.ss-calendar__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--ss-calendar-day);
+  height: var(--ss-calendar-day);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ss-radius-md);
+  background: transparent;
+  color: var(--ss-ink);
+  cursor: pointer;
+  transition: background-color var(--ss-dur-fast) var(--ss-ease);
+
+  &:hover:not([aria-disabled='true']) {
+    background: var(--ss-wash-hover);
+  }
+
+  &:active:not([aria-disabled='true']) {
+    background: var(--ss-wash-pressed);
+  }
+
+  &:focus-visible {
+    outline: var(--ss-focus-ring);
+    outline-offset: var(--ss-focus-offset);
+  }
+
+  &[aria-disabled='true'] {
+    color: var(--ss-ink-muted);
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// The weeks. A month has four to six rows: the body keeps the height of six so the popup does not
+// jump when you move from one month to another.
+.ss-calendar__grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+
+  th {
+    height: var(--ss-calendar-day);
+    padding: 0;
+    color: var(--ss-ink-muted);
+    font-size: var(--ss-text-xs);
+    font-weight: 600;
+    letter-spacing: var(--ss-tracking-label);
+    text-align: center;
+  }
+
+  tbody {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.ss-calendar__body {
+  min-height: calc(var(--ss-calendar-day) * 7);
+}
+
+.ss-calendar__cell {
+  height: var(--ss-calendar-day);
+  padding: 0;
+  text-align: center;
+}
+
+// Days between the start and the end. The tint is on the cell, so the days join up in a band; the
+// start and the end are the filled days, so the period never relies on the tint alone.
+.ss-calendar__cell--range {
+  background: var(--ss-teal-tint);
+}
+
+.ss-calendar__cell--start:not(.ss-calendar__cell--end) {
+  background: linear-gradient(to right, transparent 50%, var(--ss-teal-tint) 50%);
+}
+
+.ss-calendar__cell--end:not(.ss-calendar__cell--start) {
+  background: linear-gradient(to left, transparent 50%, var(--ss-teal-tint) 50%);
+}
+
+.ss-calendar__day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--ss-calendar-day);
+  height: var(--ss-calendar-day);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ss-radius-md);
+  background: transparent;
+  color: var(--ss-ink);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--ss-dur-fast) var(--ss-ease);
+
+  &:hover:not(.ss-calendar__day--disabled):not(.ss-calendar__day--selected) {
+    background: var(--ss-wash-hover);
+  }
+
+  &:focus-visible {
+    outline: var(--ss-focus-ring);
+    outline-offset: var(--ss-focus-offset);
+  }
+}
+
+// Today: a ring, so it reads without colour. Inside the day, so it never meets the neighbours.
+.ss-calendar__day--today {
+  font-weight: 600;
+  box-shadow: inset 0 0 0 2px var(--ss-teal);
+}
+
+// The picked day, and the two ends of a period: filled, bold.
+.ss-calendar__day--selected {
+  background: var(--ss-teal);
+  color: var(--ss-on-teal);
+  font-weight: 600;
+
+  &:hover {
+    background: var(--ss-teal-strong);
+  }
+
+  // The ring of today, kept on a filled day as an inner line
+  &.ss-calendar__day--today {
+    box-shadow:
+      inset 0 0 0 2px var(--ss-teal),
+      inset 0 0 0 4px var(--ss-on-teal);
+  }
+}
+
+// Outside the allowed dates: muted and struck through, so it does not rely on the colour either.
+.ss-calendar__day--disabled {
+  color: var(--ss-ink-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  cursor: not-allowed;
+}
+
+// Windows high contrast replaces the colours and drops the shadows: the marks are drawn with
+// system colours, outlines and borders, so the day, the period and today still differ.
+@media (forced-colors: active) {
+  .ss-calendar-popup {
+    border: 1px solid CanvasText;
+  }
+
+  .ss-calendar__day--today {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+
+  .ss-calendar__day--selected {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    text-decoration: underline;
+
+    &.ss-calendar__day--today {
+      outline: 2px solid HighlightText;
+      outline-offset: -4px;
+    }
+  }
+
+  .ss-calendar__cell--range {
+    border-block: 1px dashed CanvasText;
+  }
+
+  .ss-calendar__day--disabled {
+    color: GrayText;
+  }
+}

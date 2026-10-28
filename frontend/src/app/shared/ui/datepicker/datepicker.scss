@@ -1,0 +1,18 @@
+// The datepicker sits in the box of an ss-field and fills it: the text input takes the width and the
+// calendar button sits at the end.
+.ss-datepicker {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+// Digits only: tabular figures keep dd/MM/yyyy from jumping while typing
+.ss-datepicker__input {
+  font-variant-numeric: tabular-nums;
+}
+
+// The button keeps a 40px target without making the box taller
+.ss-datepicker__toggle {
+  margin-inline-end: calc(var(--ss-space-2) * -1);
+}
