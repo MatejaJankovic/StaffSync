@@ -752,10 +752,30 @@ class StaffingRequestControllerTests {
 		Map<String, Object> body = demoRequest();
 		body.put("startDate", "2026-12-01");
 
+		// BR-3 is a 400, the same status as a proposal outside the request
 		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(body)
 			.when().put("/api/requests/" + request)
 			.then()
-			.statusCode(409)
+			.statusCode(400)
+			.body("code", equalTo("ALLOCATION_OUTSIDE_REQUEST"));
+	}
+
+	@Test
+	void anEditMustKeepAPendingChangeInsideTheRequest() {
+		LoggedIn pm = login(PM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		Allocation allocation = allocate(request, employees().get(0), "2026-11-02", "2026-12-31",
+				AllocationStatus.APPROVED);
+		allocation.requestChange(60, LocalDate.of(2026, 11, 2), LocalDate.of(2027, 1, 29), "The client extended the work");
+		allocationRepository.save(allocation);
+		// Covers the current values (Nov 2 – Dec 31), but not the pending end date (Jan 29)
+		Map<String, Object> body = demoRequest();
+		body.put("endDate", "2027-01-15");
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(body)
+			.when().put("/api/requests/" + request)
+			.then()
+			.statusCode(400)
 			.body("code", equalTo("ALLOCATION_OUTSIDE_REQUEST"));
 	}
 

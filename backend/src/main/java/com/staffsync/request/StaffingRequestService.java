@@ -109,8 +109,8 @@ public class StaffingRequestService {
 	/**
 	 * BR-3 and BR-4 again. The skills replace the current ones. While the request has allocations, the edit must
 	 * still fit them: the period covers every proposed and active allocation, a pending change included (BR-3,
-	 * 409 ALLOCATION_OUTSIDE_REQUEST), and the headcount is not below the number of people already allocated
-	 * (409 HEADCOUNT_BELOW_FILLED). The allocations keep their own percent and the RM's decisions, so a new
+	 * 400 ALLOCATION_OUTSIDE_REQUEST, as for a proposal outside the request), and the headcount is not below
+	 * the number of people already allocated (409 HEADCOUNT_BELOW_FILLED). The allocations keep their own percent and the RM's decisions, so a new
 	 * percent or new skills only apply to the next proposals. Then the status is recalculated (BR-10): a higher
 	 * headcount reopens a filled request, and one lowered to the people allocated fills it, which closes it.
 	 */
@@ -204,7 +204,7 @@ public class StaffingRequestService {
 				end = end.isAfter(allocation.getPendingEndDate()) ? end : allocation.getPendingEndDate();
 			}
 			if (start.isBefore(body.startDate()) || end.isAfter(body.endDate())) {
-				throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_OUTSIDE_REQUEST",
+				throw new BusinessException(HttpStatus.BAD_REQUEST, "ALLOCATION_OUTSIDE_REQUEST",
 						"The request period must still cover its allocations: " + allocation.getEmployee().getFirstName()
 								+ " " + allocation.getEmployee().getLastName() + " is allocated from " + start + " to "
 								+ end);
