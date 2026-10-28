@@ -79,12 +79,12 @@ describe('ProjectDetails', () => {
     httpMock.expectOne(`${PROJECTS_URL}/${id}`).flush(project);
     await settle();
     // the staffing requests section loads the project's requests
-    for (const call of httpMock.match(`${PROJECTS_URL}/${id}/requests?page=0&size=10`)) {
-      call.flush({ content: [], page: { size: 10, number: 0, totalElements: 0, totalPages: 0 } });
+    for (const call of httpMock.match(`${PROJECTS_URL}/${id}/requests?page=0&size=20`)) {
+      call.flush({ content: [], page: { size: 20, number: 0, totalElements: 0, totalPages: 0 } });
     }
     // and the team panel loads the project's allocations
-    for (const call of httpMock.match(`/api/allocations?projectId=${id}&page=0&size=10`)) {
-      call.flush({ content: [], page: { size: 10, number: 0, totalElements: 0, totalPages: 0 } });
+    for (const call of httpMock.match(`/api/allocations?projectId=${id}&page=0&size=20`)) {
+      call.flush({ content: [], page: { size: 20, number: 0, totalElements: 0, totalPages: 0 } });
     }
     await settle();
   }
@@ -138,8 +138,8 @@ describe('ProjectDetails', () => {
 
     // the request's status may have changed (BR-10)
     httpMock
-      .expectOne(`${PROJECTS_URL}/5/requests?page=0&size=10`)
-      .flush({ content: [], page: { size: 10, number: 0, totalElements: 0, totalPages: 0 } });
+      .expectOne(`${PROJECTS_URL}/5/requests?page=0&size=20`)
+      .flush({ content: [], page: { size: 20, number: 0, totalElements: 0, totalPages: 0 } });
   });
 
   it('links back to My projects for a PM', async () => {
@@ -217,7 +217,7 @@ describe('ProjectDetails', () => {
   describe('status action (US-24)', () => {
     const EMPTY_PAGE = {
       content: [],
-      page: { size: 10, number: 0, totalElements: 0, totalPages: 0 },
+      page: { size: 20, number: 0, totalElements: 0, totalPages: 0 },
     };
     let confirm: ReturnType<typeof vi.spyOn>;
 
@@ -254,8 +254,8 @@ describe('ProjectDetails', () => {
       expect(call.request.body).toEqual({ status });
       call.flush(project);
       await settle();
-      httpMock.expectOne(`${PROJECTS_URL}/5/requests?page=0&size=10`).flush(EMPTY_PAGE);
-      httpMock.expectOne(`/api/allocations?projectId=5&page=0&size=10`).flush(EMPTY_PAGE);
+      httpMock.expectOne(`${PROJECTS_URL}/5/requests?page=0&size=20`).flush(EMPTY_PAGE);
+      httpMock.expectOne(`/api/allocations?projectId=5&page=0&size=20`).flush(EMPTY_PAGE);
       await settle();
     }
 
@@ -322,8 +322,8 @@ describe('ProjectDetails', () => {
 
       call.flush({ ...ALPHA, status: 'ACTIVE' });
       await settle();
-      httpMock.expectOne(`${PROJECTS_URL}/5/requests?page=0&size=10`).flush(EMPTY_PAGE);
-      httpMock.expectOne(`/api/allocations?projectId=5&page=0&size=10`).flush(EMPTY_PAGE);
+      httpMock.expectOne(`${PROJECTS_URL}/5/requests?page=0&size=20`).flush(EMPTY_PAGE);
+      httpMock.expectOne(`/api/allocations?projectId=5&page=0&size=20`).flush(EMPTY_PAGE);
       await settle();
 
       expect(statusButton()!.disabled).toBe(false);

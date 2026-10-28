@@ -27,21 +27,6 @@
         (ssSortChange)="sortBy($event)"
         class="ss-table team__table"
       >
-        <!-- The ring is the glance; the bar in "Load today" keeps the numbers and words -->
-        <ng-container cdkColumnDef="ring">
-          <th cdk-header-cell *cdkHeaderCellDef class="team__ring-cell">
-            <span class="ss-sr-only">Load ring</span>
-          </th>
-          <td cdk-cell *cdkCellDef="let member" class="team__ring-cell">
-            <app-capacity-ring
-              size="sm"
-              [decorative]="true"
-              [load]="member.load"
-              [capacity]="member.capacityPercent"
-            />
-          </td>
-        </ng-container>
-
         <ng-container cdkColumnDef="name">
           <th cdk-header-cell *cdkHeaderCellDef ss-sort-header>Name</th>
           <td cdk-cell *cdkCellDef="let member" class="team__name">{{ fullName(member) }}</td>
