@@ -470,12 +470,66 @@ class ProjectControllerTests {
 			.body("code", equalTo("PROJECT_CLOSED"));
 	}
 
+	@Test
+	void projectNamesAreUniqueRegardlessOfCase() {
+		LoggedIn pm = login(PM);
+		String name = "Unique-" + UUID.randomUUID();
+		createProject(pm.token(), name);
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON)
+			.body(body(name.toUpperCase(), "Acme", "2026-11-01", "2027-03-31"))
+			.when().post("/api/projects")
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("PROJECT_NAME_TAKEN"));
+	}
+
+	@Test
+	void aProjectCannotEndInThePast() {
+		LoggedIn pm = login(PM);
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON)
+			.body(body("Past-" + UUID.randomUUID(), "Acme", "2020-01-01", "2020-02-01"))
+			.when().post("/api/projects")
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("PROJECT_IN_PAST"));
+	}
+
+	@Test
+	void theProjectPeriodMustStillCoverItsRequests() {
+		LoggedIn pm = login(PM);
+		String name = "Shrink-" + UUID.randomUUID();
+		int id = createProject(pm.token(), name);
+		Map<String, Object> request = new HashMap<>();
+		request.put("title", "Java Developer");
+		request.put("seniority", "MEDIOR");
+		request.put("allocationPercent", 60);
+		request.put("startDate", "2026-11-01");
+		request.put("endDate", "2027-01-31");
+		request.put("headcount", 1);
+		request.put("skills", List.of());
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(request)
+			.when().post("/api/projects/" + id + "/requests").then().statusCode(201);
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON)
+			.body(body(name, "Acme", "2026-11-01", "2026-11-20"))
+			.when().put("/api/projects/" + id)
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("REQUESTS_OUTSIDE_PROJECT"));
+	}
+
 	// ---- status (US-24, §9, BR-11)
 
 	@Test
 	void theOwnerMovesAProjectFromPlannedToActiveToCompleted() {
 		LoggedIn pm = login(PM);
 		int id = createProject(pm.token(), "Lifecycle-" + UUID.randomUUID());
+		// A project starts on its start date at the earliest
+		Project started = projectRepository.findById((long) id).orElseThrow();
+		started.setStartDate(LocalDate.now());
+		projectRepository.save(started);
 
 		changeStatus(pm.token(), id, "ACTIVE").statusCode(200).body("id", equalTo(id)).body("status", equalTo("ACTIVE"));
 		changeStatus(pm.token(), id, "COMPLETED").statusCode(200).body("status", equalTo("COMPLETED"));

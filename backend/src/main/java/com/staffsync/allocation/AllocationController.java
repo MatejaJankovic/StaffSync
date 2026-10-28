@@ -1,6 +1,7 @@
 package com.staffsync.allocation;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 import com.staffsync.allocation.dto.AllocationChangeDto;
 import com.staffsync.allocation.dto.AllocationDto;
@@ -57,18 +58,18 @@ public class AllocationController {
 					+ "sorted by startDate by default. Sortable by id, percent, startDate, endDate, status and "
 					+ "createdAt")
 	@ApiResponse(responseCode = "200", description = "A page of allocations")
-	@ApiResponse(responseCode = "400", description = "Unknown status, a malformed date, from after to, or an unknown "
+	@ApiResponse(responseCode = "400", description = "An unknown status (status can repeat to keep several), a malformed date, from after to, or an unknown "
 			+ "sort property", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@GetMapping
-	public Page<AllocationDto> search(@RequestParam(required = false) AllocationStatus status,
+	public Page<AllocationDto> search(@RequestParam(required = false) Set<AllocationStatus> status,
 			@RequestParam(required = false) Long employeeId, @RequestParam(required = false) Long projectId,
 			@Parameter(example = "2026-11-01") @RequestParam(required = false) @DateTimeFormat(
 					iso = DateTimeFormat.ISO.DATE) LocalDate from,
 			@Parameter(example = "2027-01-31") @RequestParam(required = false) @DateTimeFormat(
 					iso = DateTimeFormat.ISO.DATE) LocalDate to,
-			@ParameterObject @PageableDefault(sort = "startDate") Pageable pageable,
+			@ParameterObject @PageableDefault(size = 20, sort = "startDate") Pageable pageable,
 			@AuthenticationPrincipal AuthUser user) {
 		return allocationService.search(status, employeeId, projectId, from, to, pageable, user);
 	}
@@ -125,7 +126,7 @@ public class AllocationController {
 	@PreAuthorize("hasRole('RM')")
 	@GetMapping("/pending")
 	public Page<PendingApprovalDto> pending(
-			@ParameterObject @PageableDefault(sort = "createdAt") Pageable pageable,
+			@ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable,
 			@AuthenticationPrincipal AuthUser user) {
 		return allocationService.pending(pageable, user);
 	}

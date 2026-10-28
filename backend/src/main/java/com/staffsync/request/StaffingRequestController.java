@@ -51,7 +51,7 @@ public class StaffingRequestController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@GetMapping("/api/projects/{projectId}/requests")
 	public Page<StaffingRequestDto> list(@PathVariable Long projectId,
-			@ParameterObject @PageableDefault(sort = "createdAt") Pageable pageable) {
+			@ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
 		return requestService.listForProject(projectId, pageable);
 	}
 

@@ -424,7 +424,8 @@ class UserControllerTests {
 			.then()
 			.statusCode(409)
 			.body("code", equalTo("CAPACITY_EXCEEDED"))
-			.body("message", equalTo("Lowering capacity to 50% would leave existing allocations over it on 10 days"))
+			.body("message", equalTo("Lowering capacity to 50% would overbook " + monday + " – " + monday.plusDays(11)
+					+ " (80% allocated)"))
 			.body("details.size()", equalTo(10))
 			.body("details[0].date", equalTo(monday.toString()))
 			.body("details[0].load", equalTo(80));

@@ -53,7 +53,7 @@ public class ProjectController {
 	@GetMapping
 	public Page<ProjectDto> list(@RequestParam(required = false) ProjectStatus status,
 			@RequestParam(required = false) Long pmId,
-			@ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
+			@ParameterObject @PageableDefault(size = 20, sort = "name") Pageable pageable) {
 		return projectService.list(status, pmId, pageable);
 	}
 

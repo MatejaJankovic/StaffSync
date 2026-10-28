@@ -99,14 +99,34 @@ public class CapacityService {
 		}
 	}
 
-	/** BR-13: throws 409 CAPACITY_EXCEEDED with the days from today on that the lower capacity would overbook. */
+	/**
+	 * BR-13: throws 409 CAPACITY_EXCEEDED with the days from today on that the lower capacity would overbook, and
+	 * a message with one part per run of days, like {@link #checkCapacity}: e.g. {@code "Lowering capacity to 50%
+	 * would overbook 2026-11-02 – 2026-12-31 (80% allocated)"}.
+	 */
 	public void checkCapacityReduction(Long employeeId, int capacityPercent) {
 		List<Map<String, Object>> overloaded = findDaysOverCapacity(employeeId, capacityPercent, LocalDate.now());
 		if (!overloaded.isEmpty()) {
-			throw capacityExceeded(
-					"Lowering capacity to " + capacityPercent + "% would leave existing allocations over it on",
-					overloaded);
+			String runs = toRuns(overloaded).stream()
+				.map(run -> run.days() + " (" + run.load() + "% allocated)")
+				.collect(Collectors.joining("; "));
+			throw new BusinessException(HttpStatus.CONFLICT, CAPACITY_EXCEEDED,
+					"Lowering capacity to " + capacityPercent + "% would overbook " + runs, overloaded);
 		}
+	}
+
+	/**
+	 * What approving {@code percent} over {@code [from, to]} would do to the employee (BR-1), for the RM's pending
+	 * approvals: their capacity, the highest daily load with the new allocation on a working day, and on how many
+	 * working days it would go over capacity, i.e. be refused. Active allocations only, as in
+	 * {@link #checkCapacity}, and without {@code excludeAllocationId} (the allocation a change replaces).
+	 */
+	public LoadPreview preview(Long employeeId, LocalDate from, LocalDate to, int percent, Long excludeAllocationId) {
+		int capacity = findEmployee(employeeId).getCapacityPercent();
+		Map<LocalDate, Integer> load = getDailyLoad(employeeId, from, to, excludeAllocationId);
+		int peak = load.values().stream().mapToInt(day -> day + percent).max().orElse(0);
+		int over = (int) load.values().stream().filter(day -> day + percent > capacity).count();
+		return new LoadPreview(capacity, peak, over);
 	}
 
 	/**
@@ -181,12 +201,6 @@ public class CapacityService {
 		return load;
 	}
 
-	/** "{message} 3 days", with the days as details. */
-	private static BusinessException capacityExceeded(String message, List<Map<String, Object>> overloaded) {
-		String days = overloaded.size() == 1 ? "1 day" : overloaded.size() + " days";
-		return new BusinessException(HttpStatus.CONFLICT, CAPACITY_EXCEEDED, message + " " + days, overloaded);
-	}
-
 	/** Mon–Fri. Absence days (BR-14, stretch) will be skipped here later. */
 	private static boolean isWorkingDay(LocalDate day) {
 		DayOfWeek dow = day.getDayOfWeek();
@@ -211,6 +225,14 @@ public class CapacityService {
 
 	private User findEmployee(Long employeeId) {
 		return userRepository.findById(employeeId).orElseThrow(() -> new NotFoundException("Employee", employeeId));
+	}
+
+	/**
+	 * See {@link #preview}: the capacity %, the highest daily load % with the new allocation (0 for a period
+	 * without a working day), and the number of working days that would go over capacity.
+	 */
+	public record LoadPreview(int capacityPercent, int peakLoad, int overCapacityDays) {
+
 	}
 
 	/** Consecutive working days from {@code start} to {@code end}, each with this total {@code load} %. */

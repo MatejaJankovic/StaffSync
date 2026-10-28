@@ -80,6 +80,9 @@ public class Allocation {
 	@Column(name = "change_reason", length = 1000)
 	private String changeReason;
 
+	@Column(name = "change_requested_at")
+	private Instant changeRequestedAt;
+
 	protected Allocation() {
 	}
 
@@ -111,6 +114,7 @@ public class Allocation {
 		this.pendingStartDate = newStartDate;
 		this.pendingEndDate = newEndDate;
 		this.changeReason = reason;
+		this.changeRequestedAt = Instant.now();
 		this.status = AllocationStatus.CHANGE_PENDING;
 	}
 
@@ -131,6 +135,7 @@ public class Allocation {
 		this.pendingStartDate = null;
 		this.pendingEndDate = null;
 		this.changeReason = null;
+		this.changeRequestedAt = null;
 		this.status = AllocationStatus.APPROVED;
 	}
 
@@ -219,6 +224,27 @@ public class Allocation {
 
 	public String getChangeReason() {
 		return changeReason;
+	}
+
+	public Instant getChangeRequestedAt() {
+		return changeRequestedAt;
+	}
+
+	/**
+	 * Since when the RM's decision is awaited: when the change was requested for a pending change, otherwise when
+	 * the allocation was proposed. A change from before {@code change_requested_at} existed falls back to the
+	 * last decision, i.e. the approval it changes.
+	 */
+	public Instant getAwaitingSince() {
+		if (hasPendingChange()) {
+			if (changeRequestedAt != null) {
+				return changeRequestedAt;
+			}
+			if (decidedAt != null) {
+				return decidedAt;
+			}
+		}
+		return createdAt;
 	}
 
 }

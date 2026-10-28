@@ -26,7 +26,7 @@ public class RequestStatusService {
 	}
 
 	/**
-	 * Sets the request's status from its number of active allocations, {@code APPROVED} and
+	 * Sets the request's status from the number of people with an active allocation on it, {@code APPROVED} or
 	 * {@code CHANGE_PENDING} (BR-16): 0 is {@code OPEN}, 1 to headcount − 1 is {@code PARTIALLY_FILLED},
 	 * headcount or more is {@code FILLED}. A {@code CANCELLED} request is left alone. Once the request is
 	 * {@code FILLED}, its remaining {@code PROPOSED} allocations are cancelled (T-19). Returns the status.
@@ -40,7 +40,7 @@ public class RequestStatusService {
 		}
 
 		// The query flushes first, so an allocation changed in this transaction is counted with its new status
-		long active = allocationRepository.countByRequestIdAndStatusIn(requestId, AllocationStatus.ACTIVE);
+		long active = activePeople(requestId);
 		RequestStatus status;
 		if (active == 0) {
 			status = RequestStatus.OPEN;
@@ -58,6 +58,14 @@ public class RequestStatusService {
 				.forEach(proposal -> proposal.setStatus(AllocationStatus.CANCELLED));
 		}
 		return status;
+	}
+
+	/**
+	 * How many different employees have an active allocation on the request. Headcount counts people, so an
+	 * employee with two allocations one after the other fills one place, not two.
+	 */
+	public long activePeople(Long requestId) {
+		return allocationRepository.countEmployeesByRequest(requestId, AllocationStatus.ACTIVE);
 	}
 
 }

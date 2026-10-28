@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -1383,12 +1384,50 @@ class AllocationServiceTests {
 			.isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.getCode()).isEqualTo("INVALID_SORT"));
 
 		when(allocationRepository.findByEmployeeManagerIdAndStatusIn(any(), any(), any())).thenReturn(Page.empty());
-		allocationService.pending(PageRequest.of(1, 10, Sort.by("createdAt")), RM);
+		Page<PendingApprovalDto> page = allocationService.pending(PageRequest.of(1, 10, Sort.by("createdAt")), RM);
 
-		ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-		verify(allocationRepository).findByEmployeeManagerIdAndStatusIn(any(), any(), captor.capture());
-		assertThat(captor.getValue().getPageNumber()).isEqualTo(1);
-		assertThat(captor.getValue().getSort()).isEqualTo(Sort.by("createdAt").and(Sort.by("id")));
+		// The whole team's list is read, then sorted by how long each item has waited and cut into the page
+		verify(allocationRepository).findByEmployeeManagerIdAndStatusIn(any(), any(), eq(Pageable.unpaged()));
+		assertThat(page.getNumber()).isEqualTo(1);
+	}
+
+	@Test
+	void aChangeIsListedByWhenItWasRequestedNotByWhenTheAllocationWasProposed() {
+		Allocation changed = pendingAllocation();
+		changed.setStatus(AllocationStatus.APPROVED);
+		ReflectionTestUtils.setField(changed, "createdAt", Instant.parse("2026-09-01T08:00:00Z"));
+		changed.requestChange(80, nov(1), LocalDate.of(2027, 2, 28), REASON);
+		ReflectionTestUtils.setField(changed, "changeRequestedAt", Instant.parse("2026-10-27T08:00:00Z"));
+		Allocation proposal = pendingAllocation();
+		ReflectionTestUtils.setField(proposal, "id", ALLOCATION_ID + 1);
+		ReflectionTestUtils.setField(proposal, "createdAt", Instant.parse("2026-10-20T08:00:00Z"));
+		when(allocationRepository.findByEmployeeManagerIdAndStatusIn(any(), any(), any()))
+			.thenReturn(new PageImpl<>(List.of(changed, proposal)));
+		when(capacityService.preview(any(), any(), any(), anyInt(), any()))
+			.thenReturn(new CapacityService.LoadPreview(100, 80, 0));
+
+		List<PendingApprovalDto> items = allocationService.pending(PageRequest.of(0, 20), RM).getContent();
+
+		assertThat(items).extracting(item -> item.allocation().id()).containsExactly(ALLOCATION_ID + 1, ALLOCATION_ID);
+		assertThat(items.get(1).awaitingSince()).isEqualTo(Instant.parse("2026-10-27T08:00:00Z"));
+	}
+
+	@Test
+	void eachItemSaysWhatApprovingWouldDoToCapacity() {
+		Allocation changed = pendingAllocation();
+		changed.setStatus(AllocationStatus.APPROVED);
+		changed.requestChange(80, nov(1), LocalDate.of(2027, 2, 28), REASON);
+		when(allocationRepository.findByEmployeeManagerIdAndStatusIn(any(), any(), any()))
+			.thenReturn(new PageImpl<>(List.of(changed)));
+		// A change is checked with its new values, without the allocation's current ones (BR-15)
+		when(capacityService.preview(EMPLOYEE_ID, nov(1), LocalDate.of(2027, 2, 28), 80, ALLOCATION_ID))
+			.thenReturn(new CapacityService.LoadPreview(100, 120, 10));
+
+		PendingApprovalDto item = allocationService.pending(PageRequest.of(0, 20), RM).getContent().get(0);
+
+		assertThat(item.capacityPercent()).isEqualTo(100);
+		assertThat(item.peakLoad()).isEqualTo(120);
+		assertThat(item.overCapacityDays()).isEqualTo(10);
 	}
 
 	// ---- helpers
@@ -1419,6 +1458,8 @@ class AllocationServiceTests {
 	private void givenPending(Allocation allocation) {
 		when(allocationRepository.findByEmployeeManagerIdAndStatusIn(any(), any(), any()))
 			.thenReturn(new PageImpl<>(List.of(allocation)));
+		when(capacityService.preview(any(), any(), any(), anyInt(), any()))
+			.thenReturn(new CapacityService.LoadPreview(100, 60, 0));
 	}
 
 	private void givenRequest() {

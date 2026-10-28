@@ -351,7 +351,8 @@ class AllocationControllerTests {
 
 		// 60% proposed + 60% new = 120% on every working day: 2 Nov 2026 is a Monday, 29 Jan 2027 a Friday
 		given().auth().oauth2(pm.token()).contentType(ContentType.JSON)
-			.body(Map.of("requestId", createRequest(pm.token(), project), "employeeId", marko.getId()))
+			.body(Map.of("requestId", createRequest(pm.token(), project, "Second developer"), "employeeId",
+					marko.getId()))
 			.when().post("/api/allocations")
 			.then()
 			.statusCode(201)
@@ -598,7 +599,8 @@ class AllocationControllerTests {
 		int project = createProject(pm.token());
 		String rmToken = login(rm.getEmail()).token();
 		int first = propose(pm.token(), proposal(createRequest(pm.token(), project), marko, null, null, null));
-		int second = propose(pm.token(), proposal(createRequest(pm.token(), project), marko, null, null, null));
+		int second = propose(pm.token(),
+				proposal(createRequest(pm.token(), project, "Second developer"), marko, null, null, null));
 		given().auth().oauth2(rmToken).when().post("/api/allocations/" + first + "/approve").then().statusCode(200);
 
 		// 2 Nov 2026 is a Monday and 29 Jan 2027 a Friday, the first and last working days of the period
@@ -1345,7 +1347,14 @@ class AllocationControllerTests {
 	}
 
 	private int createRequest(String token, int project) {
-		return given().auth().oauth2(token).contentType(ContentType.JSON).body(demoRequest())
+		return createRequest(token, project, "Java Developer");
+	}
+
+	/** Titles are unique within a project, so a second request on it needs another one. */
+	private int createRequest(String token, int project, String title) {
+		Map<String, Object> body = demoRequest();
+		body.put("title", title);
+		return given().auth().oauth2(token).contentType(ContentType.JSON).body(body)
 			.when().post("/api/projects/" + project + "/requests")
 			.then().statusCode(201).extract().path("id");
 	}
