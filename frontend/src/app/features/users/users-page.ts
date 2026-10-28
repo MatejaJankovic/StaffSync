@@ -12,8 +12,10 @@ import { SsDialog, SsField, SsLabel, SsOption, SsSelect, SsButton, SsIcon } from
 import { Department } from '../departments/department.models';
 import { DepartmentService } from '../departments/department.service';
 import { SENIORITY_LABELS } from '../profile/profile.models';
+import { HandOverDialog, HandOverDialogData } from './hand-over-dialog';
+import { ResetPasswordDialog, ResetPasswordDialogData } from './reset-password-dialog';
 import { UserDialog, UserDialogData } from './user-dialog';
-import { fullName, ROLES, UserAccount } from './user.models';
+import { fullName, HandOverResult, ROLES, UserAccount } from './user.models';
 import { UserService } from './user.service';
 
 type ActiveFilter = 'active' | 'inactive' | '';
@@ -106,6 +108,16 @@ export class UsersPage implements OnInit {
     return ROLE_LABELS[role];
   }
 
+  /** An Admin uses Change password for their own account. */
+  protected canResetPassword(user: UserAccount): boolean {
+    return user.active && user.id !== this.auth.currentUser()?.id;
+  }
+
+  /** A PM's open projects go to another PM before the PM leaves or gets another role (BR-4). */
+  protected canHandOver(user: UserAccount): boolean {
+    return user.active && user.role === 'PM';
+  }
+
   /** Your own account can't be deactivated (409), so the button isn't offered. */
   protected canDeactivate(user: UserAccount): boolean {
     return user.active && user.id !== this.auth.currentUser()?.id;
@@ -125,7 +137,8 @@ export class UsersPage implements OnInit {
         title: 'Deactivate user?',
         message:
           `${fullName(user)} will no longer be able to log in. ` +
-          'A user with current or future allocations can’t be deactivated.',
+          'A user with current or future allocations can’t be deactivated, nor can a project ' +
+          'manager with open projects: hand them over first.',
         confirmText: 'Deactivate',
         destructive: true,
       })
@@ -140,6 +153,59 @@ export class UsersPage implements OnInit {
         },
         // The global error snackbar has shown why, e.g. the user still has allocations (BR-12)
         error: () => undefined,
+      });
+  }
+
+  protected activate(user: UserAccount): void {
+    this.confirmDialog
+      .confirm({
+        title: 'Activate user?',
+        message: `${fullName(user)} will be able to log in again.`,
+        confirmText: 'Activate',
+      })
+      .pipe(
+        filter(Boolean),
+        switchMap(() => this.users.activate(user.id)),
+      )
+      .subscribe({
+        next: () => {
+          this.table().reload();
+          this.notifications.success(`Activated ${fullName(user)}`);
+        },
+        // The global error snackbar has shown why, e.g. their resource manager has left
+        error: () => undefined,
+      });
+  }
+
+  protected resetPassword(user: UserAccount): void {
+    this.dialog
+      .open<ResetPasswordDialog, ResetPasswordDialogData, UserAccount>(ResetPasswordDialog, {
+        data: { user },
+        width: '480px',
+      })
+      .afterClosed()
+      .subscribe((saved) => {
+        if (saved) {
+          this.notifications.success(`New temporary password set for ${fullName(user)}`);
+        }
+      });
+  }
+
+  protected handOver(pm: UserAccount): void {
+    this.dialog
+      .open<HandOverDialog, HandOverDialogData, HandOverResult>(HandOverDialog, {
+        data: { pm },
+        width: '520px',
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (result) {
+          this.notifications.success(
+            result.projects === 1
+              ? `1 project handed over`
+              : `${result.projects} projects handed over`,
+          );
+        }
       });
   }
 

@@ -32,6 +32,14 @@ table {
   min-width: 40rem;
 }
 
+// On a laptop-width window the cells are a little tighter, so every column fits beside the rail
+@media (max-width: 1279.98px) {
+  th,
+  td {
+    padding-inline: var(--ss-space-3);
+  }
+}
+
 .paged-table__row--clickable {
   cursor: pointer;
 }

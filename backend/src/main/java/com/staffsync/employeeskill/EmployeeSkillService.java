@@ -1,5 +1,6 @@
 package com.staffsync.employeeskill;
 
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -8,10 +9,14 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.staffsync.allocation.Allocation;
+import com.staffsync.allocation.AllocationRepository;
+import com.staffsync.allocation.AllocationStatus;
 import com.staffsync.common.BusinessException;
 import com.staffsync.common.NotFoundException;
 import com.staffsync.employeeskill.dto.EmployeeSkillDto;
 import com.staffsync.employeeskill.dto.EmployeeSkillRequest;
+import com.staffsync.request.RequestSkill;
 import com.staffsync.skill.Skill;
 import com.staffsync.skill.SkillRepository;
 import com.staffsync.user.User;
@@ -30,11 +35,14 @@ public class EmployeeSkillService {
 
 	private final SkillRepository skillRepository;
 
+	private final AllocationRepository allocationRepository;
+
 	public EmployeeSkillService(EmployeeSkillRepository employeeSkillRepository, UserRepository userRepository,
-			SkillRepository skillRepository) {
+			SkillRepository skillRepository, AllocationRepository allocationRepository) {
 		this.employeeSkillRepository = employeeSkillRepository;
 		this.userRepository = userRepository;
 		this.skillRepository = skillRepository;
+		this.allocationRepository = allocationRepository;
 	}
 
 	@Transactional(readOnly = true)
@@ -54,16 +62,22 @@ public class EmployeeSkillService {
 	 * Replaces the user's whole skill list. Rows for skills that stay are updated in place
 	 * rather than deleted and inserted again: Hibernate flushes inserts before deletes, so
 	 * re-inserting the same (user, skill) pair would break the unique constraint.
+	 * <p>
+	 * A skill that a current or future allocation or proposal of the employee requires can't be removed or
+	 * lowered below its minimum level (409 SKILL_REQUIRED_BY_ALLOCATION): the RM approved them, or will decide,
+	 * on the strength of it (BR-18, the BR-9 requirement kept after the proposal).
 	 */
 	@Transactional
 	public List<EmployeeSkillDto> replace(Long userId, List<EmployeeSkillRequest> requests) {
 		User user = findUser(userId);
 		Map<Long, EmployeeSkillRequest> wanted = bySkillId(requests);
 		Map<Long, Skill> skills = findSkills(wanted.keySet());
+		List<EmployeeSkill> currentSkills = employeeSkillRepository
+			.findByUserIdOrderBySkillCategoryAscSkillNameAsc(userId);
+		checkStillQualified(userId, currentSkills, wanted);
 
 		try {
-			for (EmployeeSkill current : employeeSkillRepository
-				.findByUserIdOrderBySkillCategoryAscSkillNameAsc(userId)) {
+			for (EmployeeSkill current : currentSkills) {
 				EmployeeSkillRequest request = wanted.remove(current.getSkill().getId());
 				if (request == null) {
 					employeeSkillRepository.delete(current);
@@ -85,6 +99,33 @@ public class EmployeeSkillService {
 					"The skills were changed at the same time. Reload and try again");
 		}
 		return skillsOf(userId);
+	}
+
+	/**
+	 * BR-18: the edit doesn't remove or lower a skill below the minimum that a mandatory skill of one of the
+	 * employee's allocations or proposals that haven't ended asks for. Only what the edit takes away counts: a
+	 * requirement the employee already falls short of, e.g. one the PM added to the request after the proposal,
+	 * doesn't block their other changes.
+	 */
+	private void checkStillQualified(Long userId, List<EmployeeSkill> currentSkills,
+			Map<Long, EmployeeSkillRequest> wanted) {
+		Map<Long, Integer> levels = currentSkills.stream()
+			.collect(Collectors.toMap(current -> current.getSkill().getId(), EmployeeSkill::getLevel));
+		for (Allocation allocation : allocationRepository.findByEmployeeIdAndStatusInAndEndDateGreaterThanEqual(userId,
+				AllocationStatus.ACTIVE_OR_PROPOSED, LocalDate.now())) {
+			for (RequestSkill required : allocation.getRequest().getSkills()) {
+				Integer had = levels.get(required.getSkill().getId());
+				EmployeeSkillRequest kept = wanted.get(required.getSkill().getId());
+				int keeps = kept != null ? kept.level() : 0;
+				if (required.isMandatory() && keeps < required.getMinLevel() && had != null && keeps < had) {
+					throw new BusinessException(HttpStatus.CONFLICT, "SKILL_REQUIRED_BY_ALLOCATION",
+							required.getSkill().getName() + " is required at level " + required.getMinLevel()
+									+ " or more on " + allocation.getRequest().getTitle() + " ("
+									+ allocation.getRequest().getProject().getName() + "), allocated until "
+									+ allocation.getEndDate() + ", so it can't be removed or lowered below that");
+				}
+			}
+		}
 	}
 
 	private User findUser(Long id) {

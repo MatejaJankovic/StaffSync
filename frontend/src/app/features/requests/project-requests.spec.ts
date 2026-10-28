@@ -45,7 +45,7 @@ function request(id: number, title: string, status: RequestStatus = 'OPEN'): Sta
   };
 }
 
-const LIST_URL = '/api/projects/5/requests?page=0&size=10';
+const LIST_URL = '/api/projects/5/requests?page=0&size=20';
 
 describe('ProjectRequests', () => {
   let fixture: ComponentFixture<ProjectRequests>;
@@ -82,7 +82,7 @@ describe('ProjectRequests', () => {
   function answer(rows: StaffingRequest[]): void {
     httpMock.expectOne(LIST_URL).flush({
       content: rows,
-      page: { size: 10, number: 0, totalElements: rows.length, totalPages: 1 },
+      page: { size: 20, number: 0, totalElements: rows.length, totalPages: 1 },
     });
   }
 

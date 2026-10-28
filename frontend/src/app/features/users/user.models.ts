@@ -22,6 +22,11 @@ export interface UserAccount {
   active: boolean;
 }
 
+/** `POST /api/users/{id}/hand-over-projects`: how many open projects changed hands. */
+export interface HandOverResult {
+  projects: number;
+}
+
 /** Another user as an account refers to them, e.g. its resource manager. */
 export interface UserRef {
   id: number;

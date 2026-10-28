@@ -10,7 +10,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { PageQuery } from '../../core/api/page';
 import { CapacityBar } from '../../shared/capacity-bar/capacity-bar';
-import { CapacityRing } from '../../shared/capacity-ring/capacity-ring';
 import { DateRangePicker, DateRangeValue } from '../../shared/date-range-picker/date-range-picker';
 import { parseIsoDate, toIsoDate } from '../../shared/dates';
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
@@ -56,7 +55,6 @@ const wholeNumberValidator: ValidatorFn = (control) =>
     ReactiveFormsModule,
     SsButton,
     CapacityBar,
-    CapacityRing,
     DateRangePicker,
     PagedTable,
     PagedTableCell,

@@ -67,6 +67,8 @@ public class AuthService {
 			throw new WrongPasswordException();
 		}
 		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+		// The user's own password now, so the temporary one from an Admin no longer has to be replaced
+		user.setMustChangePassword(false);
 	}
 
 }

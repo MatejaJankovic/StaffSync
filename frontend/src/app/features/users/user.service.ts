@@ -4,7 +4,13 @@ import { EMPTY, expand, Observable, reduce } from 'rxjs';
 import { Page, PageQuery, toPageParams } from '../../core/api/page';
 import { Role } from '../../core/auth/auth.models';
 import { skipErrorSnackbar } from '../../core/error/error.interceptor';
-import { Availability, CreateUserRequest, UpdateUserRequest, UserAccount } from './user.models';
+import {
+  Availability,
+  CreateUserRequest,
+  HandOverResult,
+  UpdateUserRequest,
+  UserAccount,
+} from './user.models';
 
 export const USERS_URL = '/api/users';
 
@@ -62,6 +68,21 @@ export class UserService {
 
   deactivate(id: number): Observable<UserAccount> {
     return this.http.patch<UserAccount>(`${USERS_URL}/${id}/deactivate`, null);
+  }
+
+  /** Lets a deactivated user log in again. */
+  activate(id: number): Observable<UserAccount> {
+    return this.http.patch<UserAccount>(`${USERS_URL}/${id}/activate`, null);
+  }
+
+  /** A new temporary password, which the user replaces with their own at the next login. */
+  resetPassword(id: number, temporaryPassword: string): Observable<UserAccount> {
+    return this.http.put<UserAccount>(`${USERS_URL}/${id}/password`, { temporaryPassword });
+  }
+
+  /** Hands every planned or active project of a PM over to another active PM (BR-4). */
+  handOverProjects(id: number, toPmId: number): Observable<HandOverResult> {
+    return this.http.post<HandOverResult>(`${USERS_URL}/${id}/hand-over-projects`, { toPmId });
   }
 
   /** `from` and `to` are ISO dates (`toIsoDate`), both included, at most a year apart. */

@@ -12,12 +12,15 @@ public record ProfileDto(@Schema(example = "4") Long id,
 		@Schema(example = "Vujic") String lastName, @Schema(example = "EMPLOYEE") Role role,
 		@Schema(example = "Engineering", nullable = true) String department,
 		@Schema(example = "MEDIOR", nullable = true) Seniority seniority, @Schema(example = "100") int capacityPercent,
-		@Schema(nullable = true) ManagerDto manager) {
+		@Schema(nullable = true) ManagerDto manager,
+		@Schema(example = "false", description = "True while the password is a temporary one from an Admin")
+		boolean mustChangePassword) {
 
 	public static ProfileDto from(User user) {
 		return new ProfileDto(user.getId(), user.getEmail(), user.getFirstName(), user.getLastName(), user.getRole(),
 				user.getDepartment() != null ? user.getDepartment().getName() : null, user.getSeniority(),
-				user.getCapacityPercent(), user.getManager() != null ? ManagerDto.from(user.getManager()) : null);
+				user.getCapacityPercent(), user.getManager() != null ? ManagerDto.from(user.getManager()) : null,
+				user.isMustChangePassword());
 	}
 
 	@Schema(description = "The employee's resource manager")

@@ -6,6 +6,8 @@ export interface User {
   firstName: string;
   lastName: string;
   role: Role;
+  /** True while the password is a temporary one from an Admin: the user picks their own first */
+  mustChangePassword?: boolean;
 }
 
 export interface LoginResponse {
