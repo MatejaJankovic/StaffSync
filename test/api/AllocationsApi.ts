@@ -9,6 +9,24 @@ export interface Proposal {
   endDate?: string;
 }
 
+/** An allocation as the API returns it (AllocationDto), with the fields the tests check. */
+export interface Allocation {
+  id: number;
+  employeeId: number;
+  requestId: number;
+  percent: number;
+  startDate: string;
+  endDate: string;
+  status: 'PROPOSED' | 'APPROVED' | 'CHANGE_PENDING' | 'REJECTED' | 'CANCELLED';
+  pendingPercent: number | null;
+}
+
+/** One item of the RM's pending approvals (PendingApprovalDto). */
+export interface PendingApproval {
+  type: 'NEW' | 'CHANGE';
+  allocation: Allocation;
+}
+
 /** Client for /api/allocations: propose, decide, cancel and the pending approvals. */
 export class AllocationsApi {
   constructor(

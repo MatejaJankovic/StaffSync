@@ -1,9 +1,9 @@
 import { APIRequestContext, expect, test } from '@playwright/test';
-import { AllocationsApi, Proposal } from '../../api/AllocationsApi';
+import { AllocationsApi, PendingApproval, Proposal } from '../../api/AllocationsApi';
 import { AuthApi } from '../../api/AuthApi';
 import { expectError } from '../../api/errors';
 import { ProjectsApi } from '../../api/ProjectsApi';
-import { NewRequest, RequestsApi } from '../../api/RequestsApi';
+import { Candidate, NewRequest, RequestsApi } from '../../api/RequestsApi';
 import { SkillsApi } from '../../api/SkillsApi';
 import { PASSWORD, users } from '../../fixtures/users';
 
@@ -98,7 +98,7 @@ test.describe('main flow', () => {
     const response = await ana.requests.candidates(requestId);
 
     expect(response.status()).toBe(200);
-    const candidates: { employeeId: number; score: number; warnings: string[] }[] = (await response.json()).content;
+    const candidates: Candidate[] = (await response.json()).content;
     expect(candidates[0]).toMatchObject({ employeeId: employeeId.marko, score: 85 });
     const jelena = candidates.find((candidate) => candidate.score === 67);
     expect(jelena).toMatchObject({ employeeId: employeeId.jelena });
@@ -108,7 +108,7 @@ test.describe('main flow', () => {
   });
 
   test('TC_API_FLOW_002 nobody without a mandatory skill is a candidate', async () => {
-    const candidates: { reasons: string[] }[] = (await (await ana.requests.candidates(requestId)).json()).content;
+    const candidates: Candidate[] = (await (await ana.requests.candidates(requestId)).json()).content;
 
     expect(candidates.length).toBeGreaterThan(0);
     for (const candidate of candidates) {
@@ -167,7 +167,7 @@ test.describe('main flow', () => {
     expect(error.message).toBe(
       'Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity)',
     );
-    const pending: { allocation: { id: number; status: string } }[] = (await (await igor.pending()).json()).content;
+    const pending: PendingApproval[] = (await (await igor.pending()).json()).content;
     expect(pending.find((item) => item.allocation.id === id)?.allocation.status).toBe('PROPOSED');
     expect((await ana.allocations.cancel(id)).status()).toBe(200);
   });
@@ -291,7 +291,7 @@ test.describe('change workflow', () => {
 
     expect(response.status()).toBe(200);
     expect((await response.json()).allocation).toMatchObject({ status: 'CHANGE_PENDING', percent: 60, pendingPercent: 80 });
-    const pending: { type: string; allocation: { id: number } }[] = (await (await igor.pending()).json()).content;
+    const pending: PendingApproval[] = (await (await igor.pending()).json()).content;
     expect(pending.find((item) => item.allocation.id === markoAllocationId)?.type).toBe('CHANGE');
   });
 
@@ -334,9 +334,7 @@ test.describe('change workflow', () => {
     expect(error.message).toBe(
       'Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity)',
     );
-    const pending: { type: string; allocation: { id: number; status: string; percent: number } }[] = (
-      await (await igor.pending()).json()
-    ).content;
+    const pending: PendingApproval[] = (await (await igor.pending()).json()).content;
     expect(pending.find((item) => item.allocation.id === id)).toMatchObject({
       type: 'CHANGE',
       allocation: { status: 'CHANGE_PENDING', percent: 40 },

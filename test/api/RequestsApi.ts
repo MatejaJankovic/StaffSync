@@ -11,6 +11,14 @@ export interface NewRequest {
   skills: { skillId: number; minLevel: number; mandatory: boolean }[];
 }
 
+/** A ranked candidate for a staffing request (CandidateDto), with the fields the tests check. */
+export interface Candidate {
+  employeeId: number;
+  score: number;
+  reasons: string[];
+  warnings: string[];
+}
+
 /** Client for staffing requests and their candidates (matching). */
 export class RequestsApi {
   constructor(
