@@ -70,7 +70,7 @@ test('TC_E2E_001 the §4 demo flow across roles', async ({ page, loginAs }) => {
     await expect(candidates.rows.nth(1)).toContainText(JELENA);
     await expect(candidates.rows.nth(1)).toContainText(/67\s*\/100/);
     await expect(candidates.warnings(JELENA)).toContainText([
-      'Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)',
+      'Insufficient capacity 2 Nov 2026 – 13 Nov 2026 (40% free, 60% required)',
     ]);
   });
 
