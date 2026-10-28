@@ -5,17 +5,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import com.staffsync.allocation.Allocation;
 import com.staffsync.allocation.AllocationRepository;
+import com.staffsync.allocation.AllocationStatus;
 import com.staffsync.common.BusinessException;
 import com.staffsync.common.NotFoundException;
 import com.staffsync.employeeskill.dto.EmployeeSkillRequest;
@@ -112,22 +115,17 @@ class EmployeeSkillServiceTests {
 
 	@Test
 	void aSkillThatACurrentAllocationRequiresCannotBeLoweredBelowItsMinimum() {
+		User user = mock(User.class);
 		Skill java = skill(1L);
 		when(java.getName()).thenReturn("Java");
-		when(userRepository.findById(USER_ID)).thenReturn(Optional.of(mock(User.class)));
+		when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
 		when(skillRepository.findAllById(Set.of(1L))).thenReturn(List.of(java));
-		StaffingRequest request = mock(StaffingRequest.class);
-		RequestSkill required = mock(RequestSkill.class);
-		when(required.getSkill()).thenReturn(java);
-		when(required.isMandatory()).thenReturn(true);
-		when(required.getMinLevel()).thenReturn(4);
-		when(request.getSkills()).thenReturn(List.of(required));
-		when(request.getTitle()).thenReturn("Java Developer");
-		when(request.getProject()).thenReturn(mock(Project.class));
-		Allocation allocation = mock(Allocation.class);
-		when(allocation.getRequest()).thenReturn(request);
-		when(allocationRepository.findByEmployeeIdAndStatusInAndEndDateGreaterThanEqual(eq(USER_ID), any(), any()))
-			.thenReturn(List.of(allocation));
+		// Java 4 meets the request's Java ≥ 4; the edit lowers it to 3
+		when(employeeSkillRepository.findByUserIdOrderBySkillCategoryAscSkillNameAsc(USER_ID))
+			.thenReturn(List.of(new EmployeeSkill(user, java, 4, 2)));
+		Allocation allocation = allocationRequiring(java, 4, true);
+		when(allocation.getRequest().getTitle()).thenReturn("Java Developer");
+		when(allocation.getRequest().getProject()).thenReturn(mock(Project.class));
 
 		assertThatThrownBy(() -> employeeSkillService.replace(USER_ID, List.of(new EmployeeSkillRequest(1L, 3, 1))))
 			.isInstanceOfSatisfying(BusinessException.class, ex -> {
@@ -135,6 +133,41 @@ class EmployeeSkillServiceTests {
 				assertThat(ex.getCode()).isEqualTo("SKILL_REQUIRED_BY_ALLOCATION");
 			});
 		verify(employeeSkillRepository, never()).save(any());
+		// BR-18 covers the active allocations (BR-16: CHANGE_PENDING too) and the proposals that haven't ended
+		verify(allocationRepository).findByEmployeeIdAndStatusInAndEndDateGreaterThanEqual(USER_ID,
+				AllocationStatus.ACTIVE_OR_PROPOSED, LocalDate.now());
+	}
+
+	@Test
+	void aRequirementTheEmployeeAlreadyFallsShortOfDoesNotBlockTheirOtherChanges() {
+		User user = mock(User.class);
+		Skill java = skill(1L);
+		Skill csharp = skill(2L);
+		when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+		when(skillRepository.findAllById(Set.of(1L))).thenReturn(List.of(java));
+		when(employeeSkillRepository.findByUserIdOrderBySkillCategoryAscSkillNameAsc(USER_ID))
+			.thenReturn(List.of(new EmployeeSkill(user, java, 4, 2)));
+		// The PM added C# ≥ 3 to the request after the employee, who has no C#, was allocated
+		allocationRequiring(csharp, 3, true);
+
+		employeeSkillService.replace(USER_ID, List.of(new EmployeeSkillRequest(1L, 5, 3)));
+
+		verify(employeeSkillRepository).flush();
+	}
+
+	@Test
+	void aNiceToHaveSkillCanBeRemoved() {
+		User user = mock(User.class);
+		Skill postgres = skill(3L);
+		when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+		EmployeeSkill current = new EmployeeSkill(user, postgres, 3, 2);
+		when(employeeSkillRepository.findByUserIdOrderBySkillCategoryAscSkillNameAsc(USER_ID))
+			.thenReturn(List.of(current));
+		allocationRequiring(postgres, 2, false);
+
+		employeeSkillService.replace(USER_ID, List.of());
+
+		verify(employeeSkillRepository).delete(current);
 	}
 
 	@Test
@@ -172,6 +205,21 @@ class EmployeeSkillServiceTests {
 		assertThatThrownBy(() -> employeeSkillService.replace(USER_ID, List.of(new EmployeeSkillRequest(1L, 3, 1))))
 			.isInstanceOfSatisfying(BusinessException.class,
 					ex -> assertThat(ex.getStatus()).isEqualTo(HttpStatus.CONFLICT));
+	}
+
+	/** An allocation of the employee, returned for BR-18, on a request that asks for this skill at this level. */
+	private Allocation allocationRequiring(Skill skill, int minLevel, boolean mandatory) {
+		RequestSkill required = mock(RequestSkill.class);
+		lenient().when(required.getSkill()).thenReturn(skill);
+		lenient().when(required.isMandatory()).thenReturn(mandatory);
+		lenient().when(required.getMinLevel()).thenReturn(minLevel);
+		StaffingRequest request = mock(StaffingRequest.class);
+		when(request.getSkills()).thenReturn(List.of(required));
+		Allocation allocation = mock(Allocation.class);
+		when(allocation.getRequest()).thenReturn(request);
+		when(allocationRepository.findByEmployeeIdAndStatusInAndEndDateGreaterThanEqual(eq(USER_ID), any(), any()))
+			.thenReturn(List.of(allocation));
+		return allocation;
 	}
 
 	private static Skill skill(Long id) {

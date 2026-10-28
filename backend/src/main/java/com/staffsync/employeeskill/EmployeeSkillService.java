@@ -65,18 +65,19 @@ public class EmployeeSkillService {
 	 * <p>
 	 * A skill that a current or future allocation or proposal of the employee requires can't be removed or
 	 * lowered below its minimum level (409 SKILL_REQUIRED_BY_ALLOCATION): the RM approved them, or will decide,
-	 * on the strength of it (BR-9).
+	 * on the strength of it (BR-18, the BR-9 requirement kept after the proposal).
 	 */
 	@Transactional
 	public List<EmployeeSkillDto> replace(Long userId, List<EmployeeSkillRequest> requests) {
 		User user = findUser(userId);
 		Map<Long, EmployeeSkillRequest> wanted = bySkillId(requests);
 		Map<Long, Skill> skills = findSkills(wanted.keySet());
-		checkStillQualified(userId, wanted);
+		List<EmployeeSkill> currentSkills = employeeSkillRepository
+			.findByUserIdOrderBySkillCategoryAscSkillNameAsc(userId);
+		checkStillQualified(userId, currentSkills, wanted);
 
 		try {
-			for (EmployeeSkill current : employeeSkillRepository
-				.findByUserIdOrderBySkillCategoryAscSkillNameAsc(userId)) {
+			for (EmployeeSkill current : currentSkills) {
 				EmployeeSkillRequest request = wanted.remove(current.getSkill().getId());
 				if (request == null) {
 					employeeSkillRepository.delete(current);
@@ -100,13 +101,23 @@ public class EmployeeSkillService {
 		return skillsOf(userId);
 	}
 
-	/** BR-9: the new levels still meet every required skill of the employee's allocations that haven't ended. */
-	private void checkStillQualified(Long userId, Map<Long, EmployeeSkillRequest> wanted) {
+	/**
+	 * BR-18: the edit doesn't remove or lower a skill below the minimum that a mandatory skill of one of the
+	 * employee's allocations or proposals that haven't ended asks for. Only what the edit takes away counts: a
+	 * requirement the employee already falls short of, e.g. one the PM added to the request after the proposal,
+	 * doesn't block their other changes.
+	 */
+	private void checkStillQualified(Long userId, List<EmployeeSkill> currentSkills,
+			Map<Long, EmployeeSkillRequest> wanted) {
+		Map<Long, Integer> levels = currentSkills.stream()
+			.collect(Collectors.toMap(current -> current.getSkill().getId(), EmployeeSkill::getLevel));
 		for (Allocation allocation : allocationRepository.findByEmployeeIdAndStatusInAndEndDateGreaterThanEqual(userId,
 				AllocationStatus.ACTIVE_OR_PROPOSED, LocalDate.now())) {
 			for (RequestSkill required : allocation.getRequest().getSkills()) {
+				Integer had = levels.get(required.getSkill().getId());
 				EmployeeSkillRequest kept = wanted.get(required.getSkill().getId());
-				if (required.isMandatory() && (kept == null || kept.level() < required.getMinLevel())) {
+				int keeps = kept != null ? kept.level() : 0;
+				if (required.isMandatory() && keeps < required.getMinLevel() && had != null && keeps < had) {
 					throw new BusinessException(HttpStatus.CONFLICT, "SKILL_REQUIRED_BY_ALLOCATION",
 							required.getSkill().getName() + " is required at level " + required.getMinLevel()
 									+ " or more on " + allocation.getRequest().getTitle() + " ("

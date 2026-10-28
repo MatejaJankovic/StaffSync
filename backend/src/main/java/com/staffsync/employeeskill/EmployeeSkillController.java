@@ -67,7 +67,9 @@ public class EmployeeSkillController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "404", description = "No user with this id (NOT_FOUND)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-	@ApiResponse(responseCode = "409", description = "The list was saved at the same time by someone else (SKILLS_CHANGED)",
+	@ApiResponse(responseCode = "409", description = "The list was saved at the same time by someone else (SKILLS_CHANGED), "
+			+ "or it removes or lowers a skill below the level that a mandatory skill of one of the employee's current "
+			+ "or future allocations or proposals requires (SKILL_REQUIRED_BY_ALLOCATION, BR-18)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('ADMIN') or #id == principal.id()")
 	@PutMapping
