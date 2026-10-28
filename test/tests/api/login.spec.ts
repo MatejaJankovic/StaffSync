@@ -19,7 +19,8 @@ test.describe('valid login', () => {
     expect(body.user).toMatchObject({ email: users.ana.email, firstName: users.ana.firstName, role: users.ana.role });
     const text = JSON.stringify(body);
     expect(text).not.toContain(PASSWORD);
-    expect(text).not.toMatch(/password|\$2[aby]\$/i);
+    // No password field and no BCrypt hash (mustChangePassword is only a flag)
+    expect(text).not.toMatch(/"password(Hash)?"|\$2[aby]\$/i);
   });
 
   test('TC_API_AUTH_008 matches the email ignoring case', async ({ authApi }) => {
@@ -58,6 +59,7 @@ test.describe('wrong credentials get the same 401, so the email is not revealed'
       firstName: 'Inactive',
       lastName: 'User',
       role: 'PM',
+      departmentId: 1, // Engineering, from the seed: a PM needs a department
       capacityPercent: 100,
       temporaryPassword: PASSWORD,
     });
