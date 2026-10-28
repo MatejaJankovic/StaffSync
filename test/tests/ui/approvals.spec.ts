@@ -5,7 +5,8 @@ import { fullName, PASSWORD, users } from '../../fixtures/users';
 import { PendingApprovalsPage } from '../../pages/PendingApprovalsPage';
 
 // Test cases TC_UI_APPR_001 – 003 in docs/TEST_CASES.md §4.
-// Nothing gets approved here, and each proposal made is withdrawn, so no capacity is booked.
+// Nothing gets approved here, and createJavaRequest cancels its project after each test, which withdraws the
+// proposal, so no capacity is booked.
 let approvalsPage: PendingApprovalsPage;
 
 test.beforeEach(({ page }) => {
@@ -25,25 +26,18 @@ test('TC_UI_APPR_001 pending approvals mark New and Change items', async ({ logi
 });
 
 test.describe('with Jelena proposed for the whole period', () => {
-  let allocations: AllocationsApi;
-  let allocationId: number;
   let requestTitle: string;
 
   test.beforeEach(async ({ api, anaToken, createJavaRequest, loginAs }) => {
     const request = await createJavaRequest();
     requestTitle = request.requestTitle;
-    allocations = new AllocationsApi(api, anaToken);
-    const jelenaId = (await (await new AuthApi(api).login(users.jelena.email, PASSWORD)).json()).user.id;
+    const jelenaId = (await new AuthApi(api).loginAs(users.jelena.email, PASSWORD)).user.id;
+    const allocations = new AllocationsApi(api, anaToken);
     const response = await allocations.propose({ requestId: request.requestId, employeeId: jelenaId });
     expect(response.status()).toBe(201);
-    allocationId = (await response.json()).allocation.id;
 
     await loginAs(users.igor);
     await approvalsPage.goto();
-  });
-
-  test.afterEach(async () => {
-    expect((await allocations.cancel(allocationId)).status()).toBe(200);
   });
 
   test('TC_UI_APPR_002 the capacity error is shown on approve', async () => {

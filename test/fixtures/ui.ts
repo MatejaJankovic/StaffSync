@@ -22,7 +22,7 @@ interface UiFixtures {
   api: APIRequestContext;
   /** Ana's token, for setting up data as her. */
   anaToken: string;
-  /** Creates a project and the §4 Java Developer request as Ana. */
+  /** Creates a project and the §4 Java Developer request as Ana. The project is cancelled after the test. */
   createJavaRequest: () => Promise<JavaRequest>;
 }
 
@@ -47,10 +47,12 @@ export const test = base.extend<UiFixtures>({
   },
 
   createJavaRequest: async ({ api, anaToken }, use) => {
+    const projects = new ProjectsApi(api, anaToken);
+    const projectIds: number[] = [];
     await use(async () => {
       const unique = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       const projectName = `QA UI ${unique}`;
-      const project = await new ProjectsApi(api, anaToken).create({
+      const project = await projects.create({
         name: projectName,
         client: 'QA',
         startDate: '2026-11-01',
@@ -58,6 +60,7 @@ export const test = base.extend<UiFixtures>({
       });
       expect(project.status()).toBe(201);
       const projectId = (await project.json()).id;
+      projectIds.push(projectId);
 
       const skill = await new SkillsApi(api, anaToken).idsByName();
       const requestTitle = `Java Developer ${unique}`;
@@ -77,6 +80,10 @@ export const test = base.extend<UiFixtures>({
       expect(request.status()).toBe(201);
       return { projectId, projectName, requestId: (await request.json()).id, requestTitle };
     });
+    // The BR-11 clean-up withdraws what the test proposed on the project, also when the test failed
+    for (const id of projectIds) {
+      expect((await projects.changeStatus(id, 'CANCELLED')).status()).toBe(200);
+    }
   },
 });
 
