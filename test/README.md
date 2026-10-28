@@ -34,10 +34,10 @@ tests/e2e/  The §4 demo flow across roles
    |---|---|---|
    | `npm test` | API and UI tests | Reset before the first run. They clean up after themselves, so they can run again |
    | `npm run test:api` | API tests | The same |
-   | `npm run test:ui` | UI tests | Any state: they book no capacity |
+   | `npm run test:ui` | UI tests | The same. They book no capacity, but they expect Jelena's seeded load, which an E2E run changes |
    | `npm run test:e2e` | The §4 demo flow | Reset before every run. It leaves Marko and Jelena booked, as the demo does |
 
-   So one reset is enough for `npm test` followed by `npm run test:e2e`. Reset again before the next E2E run, or before `npm test` after an E2E run.
+   So one reset is enough for `npm test` followed by `npm run test:e2e`. Reset again before the next E2E run, or before `npm test` or `npm run test:ui` after an E2E run.
 
 4. Open the HTML report of the last run with `npm run report`.
 
