@@ -58,6 +58,10 @@ public class User {
 	@Column(nullable = false)
 	private boolean active = true;
 
+	/** Set while the password is a temporary one from an Admin, until the user picks their own. */
+	@Column(name = "must_change_password", nullable = false)
+	private boolean mustChangePassword;
+
 	protected User() {
 	}
 
@@ -151,6 +155,14 @@ public class User {
 
 	public void setActive(boolean active) {
 		this.active = active;
+	}
+
+	public boolean isMustChangePassword() {
+		return mustChangePassword;
+	}
+
+	public void setMustChangePassword(boolean mustChangePassword) {
+		this.mustChangePassword = mustChangePassword;
 	}
 
 }
