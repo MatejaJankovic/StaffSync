@@ -48,7 +48,7 @@ describe('ProjectDetails', () => {
         provideRouter([]),
         {
           provide: AuthService,
-          useValue: { currentUser: signal({ id: userId }), role: signal(role) },
+          useValue: { currentUser: signal({ id: userId, role }), role: signal(role) },
         },
         {
           provide: ActivatedRoute,

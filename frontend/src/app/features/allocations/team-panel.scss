@@ -14,3 +14,12 @@
 .team-panel__notice {
   margin-bottom: var(--ss-space-4);
 }
+
+// The RM's reason for a rejection (BR-6), under the status chip
+.team-panel__decision {
+  margin: var(--ss-space-1) 0 0;
+  max-width: 28ch;
+  font-size: var(--ss-text-sm);
+  line-height: 1.4;
+  color: var(--ss-ink-muted);
+}

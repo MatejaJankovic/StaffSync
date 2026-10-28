@@ -65,6 +65,8 @@ function allocation(
     pendingStartDate: null,
     pendingEndDate: null,
     changeReason: null,
+    decidedByName: null,
+    decisionComment: null,
     ...pending,
   };
 }
@@ -90,7 +92,7 @@ describe('TeamPanel', () => {
         provideHttpClientTesting(),
         {
           provide: AuthService,
-          useValue: { currentUser: signal({ id: userId }), role: signal(role) },
+          useValue: { currentUser: signal({ id: userId, role }), role: signal(role) },
         },
       ],
     }).compileComponents();
@@ -362,6 +364,7 @@ describe('TeamPanel', () => {
       startDate: '2026-11-01',
       endDate: '2027-01-31',
       headcount: 2,
+      filled: 0,
       status: 'FILLED',
       createdAt: '2026-10-21T09:15:30Z',
       skills: [],
@@ -384,6 +387,8 @@ describe('TeamPanel', () => {
           pendingStartDate: '2026-11-01',
           pendingEndDate: LATER,
           changeReason: 'The client asked for more work',
+          decidedByName: null,
+          decisionComment: null,
         }),
         warnings,
       };
@@ -469,7 +474,7 @@ describe('TeamPanel', () => {
         'A change for Marko Markovic was requested, with warnings',
       );
       expect(notice.textContent).toContain(
-        'Capacity would be exceeded on 2026-11-02 – 2026-11-13 (110%)',
+        'Capacity would be exceeded on 2 Nov 2026 – 13 Nov 2026 (110%)',
       );
       expect(success).not.toHaveBeenCalled();
 

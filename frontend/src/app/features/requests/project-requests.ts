@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, viewChild } from '@angular/core';
+import { Component, computed, inject, input, output, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { filter, switchMap } from 'rxjs';
 import { PageQuery } from '../../core/api/page';
@@ -9,7 +9,7 @@ import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-tab
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
 import { SsDialog, SsButton, SsIcon } from '../../shared/ui';
-import { formatPeriod, isEditable, Project } from '../projects/project.models';
+import { formatPeriod, isEditable, isProjectOwner, Project } from '../projects/project.models';
 import { RequestDetailsDialog, RequestDetailsDialogData } from './request-details-dialog';
 import {
   canFindCandidates,
@@ -38,6 +38,9 @@ import { RequestService } from './request.service';
 export class ProjectRequests {
   readonly project = input.required<Project>();
 
+  /** Emits a request the PM has just cancelled: its proposals were withdrawn with it. */
+  readonly cancelled = output<StaffingRequest>();
+
   private readonly requests = inject(RequestService);
   private readonly auth = inject(AuthService);
   private readonly dialog = inject(SsDialog);
@@ -62,7 +65,13 @@ export class ProjectRequests {
       value: (request) => `${request.allocationPercent}%`,
     },
     { key: 'startDate', numeric: true, header: 'Period', sortable: true, value: formatPeriod },
-    { key: 'headcount', numeric: true, header: 'Headcount', sortable: true },
+    {
+      key: 'headcount',
+      numeric: true,
+      header: 'Filled',
+      sortable: true,
+      value: (request) => `${request.filled} of ${request.headcount}`,
+    },
     { key: 'status', header: 'Status', sortable: true },
     { key: 'actions', header: '' },
   ];
@@ -77,7 +86,9 @@ export class ProjectRequests {
   });
 
   /** Only the PM who owns the project manages its requests (BR-4). */
-  protected readonly isOwner = computed(() => this.project().pmId === this.auth.currentUser()?.id);
+  protected readonly isOwner = computed(() =>
+    isProjectOwner(this.project(), this.auth.currentUser()),
+  );
 
   /** Requests can't be added to, or edited on, a completed or cancelled project. */
   protected readonly canChange = computed(() => this.isOwner() && isEditable(this.project()));
@@ -131,7 +142,7 @@ export class ProjectRequests {
     this.confirmDialog
       .confirm({
         title: 'Cancel request?',
-        message: `“${request.title}” will be cancelled and can’t be edited any more.`,
+        message: `“${request.title}” will be cancelled, its proposals withdrawn, and it can’t be edited any more.`,
         confirmText: 'Cancel request',
         cancelText: 'Keep',
         destructive: true,
@@ -143,6 +154,7 @@ export class ProjectRequests {
       .subscribe({
         next: () => {
           this.table().reload();
+          this.cancelled.emit(request);
           this.notifications.success('Request cancelled');
         },
         // The error snackbar already shows the API's message. The list is loaded again, because the

@@ -11,16 +11,23 @@ import { StatusChip } from '../../shared/status-chip/status-chip';
 import { formatPeriod } from '../projects/project.models';
 import { Availability } from '../users/user.models';
 import { UserService } from '../users/user.service';
-import { Allocation, formatPendingChange } from './allocation.models';
+import { Allocation, AllocationStatus, formatPendingChange } from './allocation.models';
 import { AllocationService } from './allocation.service';
 import { SsButton } from '../../shared/ui';
+
+/**
+ * What the employee is (or may soon be) staffed on. A withdrawn, cancelled or rejected proposal never
+ * involved them, so it isn't listed.
+ */
+const SHOWN_STATUSES: readonly AllocationStatus[] = ['PROPOSED', 'APPROVED', 'CHANGE_PENDING'];
 
 /** From today to six days on, a week always holds a working day: today, or the next Monday. */
 const LOOKAHEAD_DAYS = 6;
 
 /**
  * Employee page: my allocations and my current total load (US-22). The API returns only the
- * employee's own allocations, so the list sends no filters.
+ * employee's own allocations, so the list only leaves out the ones that never happened: withdrawn,
+ * cancelled and rejected proposals.
  *
  * The load is that of the first working day from today, the same day the Home *Current load* card
  * and *My team* read: today, or the next Monday on a weekend.
@@ -59,7 +66,8 @@ export class MyAllocationsPage implements OnInit {
     { key: 'pendingChange', header: 'Waiting for RM', value: formatPendingChange },
   ];
 
-  protected readonly fetch = (query: PageQuery) => this.allocations.list(query);
+  protected readonly fetch = (query: PageQuery) =>
+    this.allocations.list(query, { status: SHOWN_STATUSES });
 
   protected readonly availability = signal<Availability | null>(null);
   protected readonly loading = signal(true);

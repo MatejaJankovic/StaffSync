@@ -26,6 +26,8 @@ const JELENA: Allocation = {
   pendingStartDate: null,
   pendingEndDate: null,
   changeReason: null,
+  decidedByName: null,
+  decisionComment: null,
 };
 
 const NEW: PendingApproval = {
@@ -33,6 +35,10 @@ const NEW: PendingApproval = {
   allocation: JELENA,
   proposedById: 7,
   proposedByName: 'Ana PM',
+  awaitingSince: '2026-10-22T09:00:00Z',
+  capacityPercent: 100,
+  peakLoad: 60,
+  overCapacityDays: 0,
 };
 
 const CHANGE: PendingApproval = {
@@ -45,9 +51,15 @@ const CHANGE: PendingApproval = {
     pendingStartDate: JELENA.startDate,
     pendingEndDate: JELENA.endDate,
     changeReason: 'The client asked for more work',
+    decidedByName: null,
+    decisionComment: null,
   },
   proposedById: 7,
   proposedByName: 'Ana PM',
+  awaitingSince: '2026-10-22T09:00:00Z',
+  capacityPercent: 100,
+  peakLoad: 60,
+  overCapacityDays: 0,
 };
 
 const REJECT_URL = '/api/allocations/2/reject';

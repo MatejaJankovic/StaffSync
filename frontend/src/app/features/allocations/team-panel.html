@@ -10,7 +10,7 @@
         </p>
         <ul>
           @for (warning of notice.warnings; track $index) {
-            <li>{{ warning }}</li>
+            <li>{{ readable(warning) }}</li>
           }
         </ul>
         <p>
@@ -33,6 +33,9 @@
 <app-paged-table [columns]="columns" [fetch]="fetch()" [emptyText]="emptyText()" [pageSize]="10">
   <ng-template appPagedTableCell="status" let-row>
     <app-status-chip [status]="row.status" />
+    @if (rejectionNote(row); as note) {
+      <p class="team-panel__decision">{{ note }}</p>
+    }
   </ng-template>
 
   <ng-template appPagedTableCell="actions" let-row>

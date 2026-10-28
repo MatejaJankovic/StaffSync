@@ -199,19 +199,22 @@ export class ChangeRequestDialog {
   /** T-32: once the allocation has started, its start date can't change. */
   protected readonly started = hasStarted(this.allocation);
   protected readonly startedOn = shortDate(this.allocation.startDate);
-  /** BR-3, and nothing before the current start once the allocation has started. */
-  protected readonly earliestStart = parseIsoDate(
-    this.started ? this.allocation.startDate : this.data.request.startDate,
-  );
+  /**
+   * BR-3, and nothing before the current start once the allocation has started. Before that, a new
+   * start can't be in the past either: nobody is staffed backwards.
+   */
+  protected readonly earliestStart = this.started
+    ? parseIsoDate(this.allocation.startDate)
+    : laterOf(parseIsoDate(this.data.request.startDate), startOfToday());
 
   /** Starts with the current values, so the PM only touches what changes. */
   protected readonly form = inject(NonNullableFormBuilder).group({
-    percent: this.allocation.percent,
+    percent: [this.allocation.percent, Validators.required],
     period: {
       start: parseIsoDate(this.allocation.startDate),
       end: parseIsoDate(this.allocation.endDate),
     } as DateRangeValue,
-    reason: ['', [textLength, Validators.maxLength(MAX_TEXT_LENGTH)]],
+    reason: ['', [Validators.required, textLength, Validators.maxLength(MAX_TEXT_LENGTH)]],
   });
 
   private readonly value = toSignal(
@@ -277,4 +280,14 @@ export class ChangeRequestDialog {
         },
       });
   }
+}
+
+/** Today at midnight, so it compares with the dates of the picker. */
+function startOfToday(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function laterOf(a: Date, b: Date): Date {
+  return a > b ? a : b;
 }

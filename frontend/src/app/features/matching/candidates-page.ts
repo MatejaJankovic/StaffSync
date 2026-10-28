@@ -15,6 +15,7 @@ import {
 } from 'rxjs';
 import { PageQuery } from '../../core/api/page';
 import { Notifications } from '../../core/error/notifications';
+import { readableMessage } from '../../shared/dates';
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
@@ -72,6 +73,9 @@ export class CandidatesPage {
   protected readonly request = signal<StaffingRequest | null>(null);
   protected readonly state = signal<LoadState>('loading');
   protected readonly notices = signal<ProposalNotice[]>([]);
+
+  /** The API's dates and seniority levels, written the way the rest of the UI writes them. */
+  protected readonly readable = readableMessage;
 
   protected readonly seniorityLabels = SENIORITY_LABELS;
   protected readonly scoreParts = scoreParts;

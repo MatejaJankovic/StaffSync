@@ -22,6 +22,18 @@ export function shortDate(iso: string): string {
 }
 
 /**
+ * A message from the API as the UI writes things: its ISO dates as `2 Nov 2026` and the seniority
+ * levels as `Senior`, e.g. `Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)`
+ * → `Insufficient capacity 2 Nov 2026 – 13 Nov 2026 (40% free, 60% required)`. The API keeps ISO
+ * dates and enum names, so its messages stay exact for Swagger and the API tests.
+ */
+export function readableMessage(text: string): string {
+  return text
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, (iso) => shortDate(iso))
+    .replace(/\b(JUNIOR|MEDIOR|SENIOR)\b/g, (level) => level[0] + level.slice(1).toLowerCase());
+}
+
+/**
  * Typed text → a Date, read day first: `05/02/2027` is 5 February (`Date.parse` would read it as
  * 2 May). Separators `/`, `.` and `-` are accepted and the year has four digits.
  *

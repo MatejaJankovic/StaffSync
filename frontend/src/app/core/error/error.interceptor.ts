@@ -6,6 +6,7 @@ import {
 } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
+import { readableMessage } from '../../shared/dates';
 import { apiErrorMessage } from '../api/api-error';
 import { Notifications } from './notifications';
 
@@ -33,7 +34,8 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         error instanceof HttpErrorResponse &&
         error.status !== 401
       ) {
-        notifications.error(apiErrorMessage(error));
+        // The API's dates and seniority levels, written the way the rest of the UI writes them
+        notifications.error(readableMessage(apiErrorMessage(error)));
       }
       return throwError(() => error);
     }),

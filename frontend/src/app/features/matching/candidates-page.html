@@ -84,7 +84,7 @@
                 </p>
                 <ul>
                   @for (warning of notice.warnings; track $index) {
-                    <li>{{ warning }}</li>
+                    <li>{{ readable(warning) }}</li>
                   }
                 </ul>
                 <p>
@@ -150,7 +150,7 @@
                     @for (reason of row.reasons; track $index) {
                       <li>
                         <ss-icon>check_circle</ss-icon>
-                        <span>{{ reason }}</span>
+                        <span>{{ readable(reason) }}</span>
                       </li>
                     }
                   </ul>

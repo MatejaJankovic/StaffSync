@@ -24,7 +24,14 @@ import { SsButton, SsDialog, SsIcon, SsMenu, SsMenuItem, SsMenuTrigger } from '.
 import { TeamPanel } from '../allocations/team-panel';
 import { ProjectRequests } from '../requests/project-requests';
 import { ProjectDialog, ProjectDialogData } from './project-dialog';
-import { formatPeriod, isEditable, nextStatuses, Project, ProjectStatus } from './project.models';
+import {
+  formatPeriod,
+  isEditable,
+  isProjectOwner,
+  nextStatuses,
+  Project,
+  ProjectStatus,
+} from './project.models';
 import { ProjectService } from './project.service';
 
 type LoadState = 'loading' | 'ready' | 'notFound' | 'failed';
@@ -125,7 +132,25 @@ export class ProjectDetails {
 
   private readonly isOwner = computed(() => {
     const project = this.project();
-    return !!project && project.pmId === this.auth.currentUser()?.id;
+    return !!project && isProjectOwner(project, this.auth.currentUser());
+  });
+
+  /**
+   * The API only returns the allocations the caller may see, so the heading says whose they are: the
+   * whole team for the project's PM (and an Admin), the RM's own people, or the employee's own rows.
+   */
+  protected readonly teamTitle = computed(() => {
+    if (this.isOwner()) {
+      return 'Team';
+    }
+    switch (this.auth.role()) {
+      case 'RM':
+        return 'Your people on this project';
+      case 'EMPLOYEE':
+        return 'Your allocations on this project';
+      default:
+        return 'Team';
+    }
   });
 
   /** Only the PM who owns the project can edit it, and not once it is completed or cancelled. */

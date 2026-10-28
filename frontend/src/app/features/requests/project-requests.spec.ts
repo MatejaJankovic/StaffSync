@@ -35,6 +35,7 @@ function request(id: number, title: string, status: RequestStatus = 'OPEN'): Sta
     startDate: '2026-11-01',
     endDate: '2027-01-31',
     headcount: 2,
+    filled: 0,
     status,
     createdAt: '2026-10-21T09:15:30Z',
     skills: [
@@ -64,7 +65,7 @@ describe('ProjectRequests', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: AuthService, useValue: { currentUser: signal({ id: userId }) } },
+        { provide: AuthService, useValue: { currentUser: signal({ id: userId, role: 'PM' }) } },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
@@ -156,13 +157,14 @@ describe('ProjectRequests', () => {
       expect(findCandidates(row)?.getAttribute('href')).toBe('/requests/1/candidates');
     });
 
-    it('offers Edit, Cancel and Find candidates on a PARTIALLY_FILLED request', async () => {
+    it('offers Edit and Find candidates, but not Cancel, on a PARTIALLY_FILLED request', async () => {
       await open([request(1, 'Java Developer', 'PARTIALLY_FILLED')]);
       const row = rowOf('Java Developer');
 
+      // Somebody is allocated, so the request can't be cancelled: the PM lowers the headcount instead
       expect(findCandidates(row)).toBeTruthy();
       expect(action(row, 'Edit Java Developer')).toBeTruthy();
-      expect(action(row, 'Cancel Java Developer')).toBeTruthy();
+      expect(action(row, 'Cancel Java Developer')).toBeNull();
     });
 
     it('offers neither Find candidates nor Cancel on a FILLED request', async () => {

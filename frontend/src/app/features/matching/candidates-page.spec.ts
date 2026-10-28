@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { readableMessage } from '../../shared/dates';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { SsDialog } from '../../shared/ui';
@@ -21,6 +22,7 @@ const REQUEST: StaffingRequest = {
   startDate: '2026-11-01',
   endDate: '2027-01-31',
   headcount: 2,
+  filled: 0,
   status: 'OPEN',
   createdAt: '2026-10-21T09:15:30Z',
   skills: [
@@ -84,6 +86,8 @@ function proposalFor(candidate: Candidate, warnings: string[] = []): AllocationP
       pendingStartDate: null,
       pendingEndDate: null,
       changeReason: null,
+      decidedByName: null,
+      decisionComment: null,
     },
     warnings,
   };
@@ -296,11 +300,13 @@ describe('CandidatesPage', () => {
       await respond();
 
       const jelena = rowOf('Jelena');
-      expect(texts(jelena, '.candidate__warnings li > span')).toEqual(JELENA.warnings);
+      expect(texts(jelena, '.candidate__warnings li > span')).toEqual(
+        JELENA.warnings.map(readableMessage),
+      );
       expect(texts(jelena, '.candidate__warnings li > ss-icon')).toEqual(['warning', 'warning']);
       expect(jelena.querySelector('ul[aria-label="Warnings"]')).toBeTruthy();
       expect(texts(rowOf('Marko'), '.candidate__warnings li > span')).toEqual([
-        'Seniority SENIOR (MEDIOR requested)',
+        'Seniority Senior (Medior requested)',
       ]);
     });
 
@@ -519,7 +525,9 @@ describe('CandidatesPage', () => {
       expect(success).not.toHaveBeenCalled();
       expect(notices()).toHaveLength(1);
       expect(notices()[0].textContent).toContain('Jelena Petrović was proposed, with warnings');
-      expect(texts(notices()[0], 'li')).toEqual([warning]);
+      expect(texts(notices()[0], 'li')).toEqual([
+        'Capacity would be exceeded on 2 Nov 2026 – 13 Nov 2026 (120%)',
+      ]);
       expect(notices()[0].textContent).toContain('can’t approve it while');
       expect(names()).toEqual(['Marko Marković']);
     });

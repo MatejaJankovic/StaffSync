@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { readableMessage } from '../../shared/dates';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { errorInterceptor } from '../../core/error/error.interceptor';
@@ -31,6 +32,7 @@ const REQUEST: StaffingRequest = {
   startDate: day(-30),
   endDate: day(120),
   headcount: 2,
+  filled: 0,
   status: 'FILLED',
   createdAt: '2026-10-21T09:15:30Z',
   skills: [],
@@ -54,6 +56,8 @@ const MARKO: Allocation = {
   pendingStartDate: null,
   pendingEndDate: null,
   changeReason: null,
+  decidedByName: null,
+  decisionComment: null,
 };
 
 const STARTED: Allocation = { ...MARKO, startDate: day(-10) };
@@ -70,6 +74,8 @@ const CHANGE: AllocationChange = {
     pendingStartDate: MARKO.startDate,
     pendingEndDate: MARKO.endDate,
     changeReason: REASON,
+    decidedByName: null,
+    decisionComment: null,
   },
   warnings: [],
 };
@@ -302,8 +308,9 @@ describe('ChangeRequestDialog', () => {
       await submit();
 
       httpMock.expectNone(CHANGE_URL);
+      // The request started a month ago, but a new start can't be in the past
       expect(el().textContent).toContain(
-        `Dates must be between ${typed(REQUEST.startDate)} and ${typed(REQUEST.endDate)}`,
+        `Dates must be between ${typed(day(0))} and ${typed(REQUEST.endDate)}`,
       );
     });
 
@@ -347,7 +354,7 @@ describe('ChangeRequestDialog', () => {
       httpMock.expectOne(CHANGE_URL).flush({ code, message }, { status, statusText: 'Error' });
       await settle();
 
-      expect(notifications.error).toHaveBeenCalledWith(message);
+      expect(notifications.error).toHaveBeenCalledWith(readableMessage(message));
       expect(close).not.toHaveBeenCalled();
       expect(submitButton().disabled).toBe(false);
     });
