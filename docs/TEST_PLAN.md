@@ -24,7 +24,7 @@ The sprint is short, so the plan is **risk-based**. The main goal is to cover th
 1. **At least 10 API tests** (Playwright), starting with login, then the main flow and its business rules
 2. **1 E2E test** of the §4 demo flow
 3. **UI tests** (Playwright) for what happens on screen: login, navigation, and the main-flow screens
-4. **1 JMeter performance test** with about 10,000 users
+4. **1 JMeter performance test** with up to about 10,000 users, ramped up in steps (see TC_PERF_001)
 
 ## 2. Scope
 
@@ -105,7 +105,7 @@ The API, UI and E2E suites all change the data of the same seeded employees, and
 
 ### How the test cases are written
 
-- Each test case has an ID, priority, type (positive, negative, boundary or security), level and a link to its story or business rule (BR-x). See [TEST_CASES.md](TEST_CASES.md).
+- Each test case has an ID, priority, type (positive, negative, boundary, security or performance), level and a link to its story or business rule (BR-x). See [TEST_CASES.md](TEST_CASES.md).
 - The *Automated* column shows the spec file that automates the case. Cases marked *Manual* are run by hand during exploratory testing.
 - Results are not kept in the test case file. They go into the test report at the end (`docs/TEST_REPORT.md`).
 

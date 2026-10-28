@@ -5,7 +5,7 @@
 
 **Columns**
 
-- **Type:** Positive, Negative, Boundary or Security
+- **Type:** Positive, Negative, Boundary, Security or Performance
 - **Priority:** High cases run before the demo. Medium if time allows. Low only in exploratory testing
 - **Ref:** the story (US-xx), business rule (BR-x) or original matrix case (T-xx)
 - **Automated:** the spec file in `test/` that automates the case, or *Manual*
@@ -123,7 +123,7 @@ These cases use the §4 demo data on a freshly reset database (see [test plan §
 
 | ID | Scenario | Preconditions | Test data | Expected result | Type | Priority | Ref | Automated |
 |---|---|---|---|---|---|---|---|---|
-| TC_PERF_001 | Load on login and the main read endpoints | Full stack running, nothing else under load | JMeter: up to 10,000 virtual users ramped up gradually. Each logs in once, then calls `GET /api/projects` and `GET /api/requests/{id}/candidates` | The report shows the average and 95th percentile response times, throughput and error rate. The goal is to see the behavior, so there is no hard pass/fail threshold. Login is expected to be the slowest call, because password hashing is deliberately slow | Performance | Medium | – | `performance/staffsync.jmx` |
+| TC_PERF_001 | Load on login and the main read endpoints | Full stack running, nothing else under load | JMeter in non-GUI mode (`jmeter -n -t staffsync.jmx -l results.jtl -e -o report/`), in steps of 100, 1,000 and 10,000 virtual users. Each logs in once, then calls `GET /api/projects` and `GET /api/requests/{id}/candidates`. Stop at the step where the error rate climbs | The report shows the average and 95th percentile response times, throughput and error rate per step, and the machine it ran on (CPU, RAM). JMeter and the stack share one machine, so the highest steps can show the machine's limit rather than the app's. The goal is to see the behavior, so there is no hard pass/fail threshold. Login is expected to be the slowest call, because password hashing is deliberately slow | Performance | Low | – | `performance/staffsync.jmx` |
 
 ## 7. Coverage of the original test matrix
 
