@@ -27,6 +27,8 @@ tests/api/  API tests
 
 3. Open the HTML report of the last run with `npm run report`.
 
+Playwright runs the TypeScript without checking its types, so run `npm run typecheck` before you push.
+
 The API URL defaults to `http://localhost:8080`. Set `API_URL` to test another backend.
 
 The allocation tests use the fixed demo dates of the seed (November 2026 – January 2027), so they only work until 2026-10-31. From 2026-11-01 their approved allocations have started and can't be cancelled any more.
