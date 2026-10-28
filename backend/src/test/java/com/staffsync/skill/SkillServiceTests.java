@@ -12,6 +12,7 @@ import java.util.Optional;
 
 import com.staffsync.skill.dto.SkillDto;
 import com.staffsync.skill.dto.SkillRequest;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -51,10 +52,21 @@ class SkillServiceTests {
 	@Test
 	void createMapsAUniqueIndexViolationFromARaceTo409() {
 		when(skillRepository.existsByNameIgnoreCase("Go")).thenReturn(false);
-		when(skillRepository.saveAndFlush(any(Skill.class))).thenThrow(new DataIntegrityViolationException("uq"));
+		when(skillRepository.saveAndFlush(any(Skill.class))).thenThrow(new DataIntegrityViolationException("uq",
+				new ConstraintViolationException("duplicate", null, "uq_skill_name_lower")));
 
 		assertThatThrownBy(() -> skillService.create(new SkillRequest("Go", SkillCategory.BACKEND)))
 			.isInstanceOf(DuplicateSkillException.class);
+	}
+
+	@Test
+	void anotherConstraintViolationIsNotReportedAsADuplicateName() {
+		when(skillRepository.existsByNameIgnoreCase("Go")).thenReturn(false);
+		when(skillRepository.saveAndFlush(any(Skill.class))).thenThrow(new DataIntegrityViolationException("check",
+				new ConstraintViolationException("check", null, "chk_skill_category")));
+
+		assertThatThrownBy(() -> skillService.create(new SkillRequest("Go", SkillCategory.BACKEND)))
+			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 	@Test
