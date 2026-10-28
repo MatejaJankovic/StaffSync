@@ -2,44 +2,78 @@
   display: block;
 }
 
+// Editorial, not a boxed KPI tile: a big figure and a quiet label on the surface, hairline edge.
+.stat-card__card {
+  height: 100%;
+  box-sizing: border-box;
+  padding: var(--ss-space-4) var(--ss-space-6);
+  border: 1px solid var(--ss-line);
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface);
+  transition:
+    background-color var(--ss-dur-fast) var(--ss-ease),
+    border-color var(--ss-dur-fast) var(--ss-ease);
+}
+
 .stat-card__link {
   display: block;
   height: 100%;
-  border-radius: var(--mat-card-outlined-container-shape, 12px);
+  border-radius: var(--ss-radius-md);
   color: inherit;
   text-decoration: none;
 
   &:hover .stat-card__card,
   &:focus-visible .stat-card__card {
-    background: var(--mat-sys-surface-container-low);
-    border-color: var(--mat-sys-primary);
+    border-color: var(--ss-teal);
+    background: var(--ss-surface-raised);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--mat-sys-primary);
-    outline-offset: 2px;
+    outline: var(--ss-focus-ring);
+    outline-offset: var(--ss-focus-offset);
   }
 }
 
-.stat-card__card {
-  height: 100%;
-  box-sizing: border-box;
-}
-
 .stat-card__value {
-  font: var(--mat-sys-display-small);
-  color: var(--mat-sys-primary);
+  font-size: var(--ss-text-xl);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: var(--ss-tracking-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--ss-ink);
   // A project name can be long, so it wraps instead of running out of the card
   overflow-wrap: anywhere;
 }
 
 .stat-card__label {
-  font: var(--mat-sys-title-medium);
-  margin-top: 4px;
+  margin-top: var(--ss-space-2);
+  font-size: var(--ss-text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ss-ink-muted);
 }
 
 .stat-card__caption {
-  font: var(--mat-sys-body-medium);
-  color: var(--mat-sys-on-surface-variant);
-  margin-top: 4px;
+  margin-top: var(--ss-space-1);
+  font-size: var(--ss-text-xs);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: var(--ss-ink-muted);
+}
+
+// The Home page's one orchestrated moment: put `stat-card--reveal` on <app-stat-card> and set
+// `style="--ss-i: N"` for the order (the step is --ss-stagger). Keyframes are local because
+// Angular scopes keyframe names.
+@keyframes stat-card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :host(.stat-card--reveal) {
+    animation: stat-card-rise var(--ss-dur-slow) var(--ss-ease) both;
+    animation-delay: calc(var(--ss-i, 0) * var(--ss-stagger));
+  }
 }

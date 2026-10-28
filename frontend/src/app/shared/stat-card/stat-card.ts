@@ -1,6 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, input } from '@angular/core';
-import { MatCardModule } from '@angular/material/card';
 import { RouterLink } from '@angular/router';
 
 /**
@@ -14,18 +13,16 @@ import { RouterLink } from '@angular/router';
  */
 @Component({
   selector: 'app-stat-card',
-  imports: [MatCardModule, NgTemplateOutlet, RouterLink],
+  imports: [NgTemplateOutlet, RouterLink],
   template: `
     <ng-template #content>
-      <mat-card appearance="outlined" class="stat-card__card">
-        <mat-card-content>
-          <div class="stat-card__value">{{ value() }}</div>
-          <div class="stat-card__label">{{ label() }}</div>
-          @if (caption()) {
-            <div class="stat-card__caption">{{ caption() }}</div>
-          }
-        </mat-card-content>
-      </mat-card>
+      <div class="stat-card__card">
+        <div class="stat-card__value">{{ value() }}</div>
+        <div class="stat-card__label">{{ label() }}</div>
+        @if (caption()) {
+          <div class="stat-card__caption">{{ caption() }}</div>
+        }
+      </div>
     </ng-template>
 
     @if (link(); as path) {

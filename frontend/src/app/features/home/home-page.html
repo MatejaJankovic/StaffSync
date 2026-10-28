@@ -1,20 +1,33 @@
-<section class="home">
-  <h1>Home</h1>
+<section class="home ss-page">
+  <header class="home__header">
+    <p class="ss-eyebrow ss-num">{{ today }}</p>
+    <h1>Home</h1>
+    <p class="home__context">
+      @if (firstName(); as name) {
+        Welcome back, {{ name }}. Here is where things stand.
+      } @else {
+        Here is where things stand.
+      }
+    </p>
+  </header>
 
   @switch (state()) {
     @case ('loading') {
-      <p class="home__message">Loading your overview…</p>
+      <p class="home__message" role="status">Loading your overview…</p>
     }
     @case ('failed') {
       <p class="home__message" role="alert">
-        Unable to load your overview.
-        <button mat-button (click)="load()">Retry</button>
+        Unable to load your overview. Check your connection and try again.
+        <button ss-button="outlined" type="button" (click)="load()">Retry</button>
       </p>
     }
     @default {
       <div class="home__cards">
-        @for (card of cards(); track card.key) {
+        <!-- The page's one orchestrated moment: the cards rise in one after the other -->
+        @for (card of cards(); track card.key; let i = $index) {
           <app-stat-card
+            class="stat-card--reveal"
+            [style.--ss-i]="i"
             [value]="card.value"
             [label]="card.label"
             [caption]="caption(card)"
