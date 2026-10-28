@@ -11,7 +11,7 @@
   font-size: var(--ss-text-xs);
   font-weight: 500;
   line-height: 1.4;
-  font-variant-numeric: tabular-nums;
+  // No tabular figures: chips hold text such as "Node.js", whose period they would widen
 }
 
 .ss-chip__remove {

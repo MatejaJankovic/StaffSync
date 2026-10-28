@@ -135,14 +135,6 @@
     </ng-template>
     <ng-template appPagedTableCell="free" let-row>
       <div class="employee-search__load">
-        <!-- The shared ring beside the bar: the same load as the bar, which carries the text -->
-        <app-capacity-ring
-          size="sm"
-          [decorative]="true"
-          [showValue]="false"
-          [load]="row.load"
-          [capacity]="row.capacityPercent"
-        />
         <app-capacity-bar
           class="employee-search__capacity"
           [load]="row.load"

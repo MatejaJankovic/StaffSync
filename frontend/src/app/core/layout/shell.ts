@@ -15,12 +15,20 @@ import { menuFor } from './menu';
 /** Where the collapsed state of the sidebar is remembered. */
 export const SIDEBAR_STORAGE_KEY = 'staffsync.sidebar';
 
+/**
+ * Below this width the sidebar starts as the icon rail, so the tables keep their columns in view
+ * (a 1024–1279px laptop window), unless the user has opened it themselves.
+ */
+export const NARROW_DESKTOP = '(max-width: 1279.98px)';
+
 // localStorage can throw (private mode, blocked storage), so every access is guarded.
-function readCollapsed(): boolean {
+/** The user's own choice, or `null` when they haven't made one. */
+function readCollapsed(): boolean | null {
   try {
-    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'collapsed';
+    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    return stored === null ? null : stored === 'collapsed';
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -77,8 +85,17 @@ export class Shell {
     { initialValue: false },
   );
 
-  /** The user's choice on a desktop. */
-  protected readonly collapsed = signal(readCollapsed());
+  protected readonly isNarrow = toSignal(
+    inject(BreakpointObserver)
+      .observe(NARROW_DESKTOP)
+      .pipe(map((state) => state.matches)),
+    { initialValue: false },
+  );
+
+  /** The user's choice on a desktop, `null` until they make one. */
+  private readonly choice = signal(readCollapsed());
+  /** The user's choice, or the rail on a narrow desktop and the full sidebar on a wide one. */
+  protected readonly collapsed = computed(() => this.choice() ?? this.isNarrow());
   /** Folded to the icon rail: only on a desktop, the handset drawer is always in full. */
   protected readonly rail = computed(() => this.collapsed() && !this.isHandset());
 
@@ -120,7 +137,7 @@ export class Shell {
 
   protected toggleCollapsed(): void {
     const next = !this.collapsed();
-    this.collapsed.set(next);
+    this.choice.set(next);
     writeCollapsed(next);
   }
 

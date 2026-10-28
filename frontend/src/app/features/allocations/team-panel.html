@@ -30,7 +30,7 @@
   }
 </div>
 
-<app-paged-table [columns]="columns" [fetch]="fetch()" [emptyText]="emptyText()" [pageSize]="10">
+<app-paged-table [columns]="columns" [fetch]="fetch()" [emptyText]="emptyText()">
   <ng-template appPagedTableCell="status" let-row>
     <app-status-chip [status]="row.status" />
     @if (rejectionNote(row); as note) {

@@ -191,7 +191,7 @@ export class SsOption implements Highlightable {
       cdkConnectedOverlay
       cdkConnectedOverlayHasBackdrop
       cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
-      [cdkConnectedOverlayOrigin]="origin"
+      [cdkConnectedOverlayOrigin]="anchor() ?? origin"
       [cdkConnectedOverlayOpen]="isOpen()"
       [cdkConnectedOverlayMinWidth]="triggerWidth()"
       [cdkConnectedOverlayPositions]="positions"
@@ -227,6 +227,7 @@ export class SsSelect
 
   @ContentChildren(SsOption, { descendants: true }) options!: QueryList<SsOption>;
   private readonly trigger = viewChild.required<ElementRef<HTMLElement>>('trigger');
+  private readonly overlay = viewChild(CdkConnectedOverlay);
 
   readonly idInput = input<string | null>(null, { alias: 'id' });
   readonly placeholder = input('');
@@ -247,6 +248,8 @@ export class SsSelect
   readonly errorState = signal(false);
   readonly disabled = signal(false);
   readonly triggerWidth = signal(0);
+  /** What the open panel lines up with: the field's bordered box, or the trigger outside a field. */
+  readonly anchor = signal<ElementRef<HTMLElement> | null>(null);
   readonly activeId = signal<string | null>(null);
 
   readonly positions: ConnectedPosition[] = [
@@ -329,7 +332,10 @@ export class SsSelect
     if (this.disabled() || this.isOpen()) {
       return;
     }
-    this.triggerWidth.set(this.trigger().nativeElement.getBoundingClientRect().width);
+    const trigger = this.trigger().nativeElement;
+    const box = trigger.closest<HTMLElement>('.ss-field__box') ?? trigger;
+    this.anchor.set(new ElementRef(box));
+    this.triggerWidth.set(box.getBoundingClientRect().width);
     this.isOpen.set(true);
   }
 
@@ -338,6 +344,9 @@ export class SsSelect
       return;
     }
     this.isOpen.set(false);
+    // Detached now rather than at the next change detection: until then the transparent backdrop
+    // would stay over the page and swallow a click made right after picking an option
+    this.overlay()?.overlayRef?.detach();
     this.activeId.set(null);
     this.onTouched();
   }
