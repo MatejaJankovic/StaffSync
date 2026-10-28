@@ -1,7 +1,7 @@
 import { APIRequestContext, expect, test } from '@playwright/test';
 import { AllocationsApi, PendingApproval, Proposal } from '../../api/AllocationsApi';
 import { AuthApi } from '../../api/AuthApi';
-import { expectError } from '../../api/errors';
+import { expectError, fieldsOf } from '../../api/errors';
 import { ProjectsApi } from '../../api/ProjectsApi';
 import { Candidate, NewRequest, RequestsApi } from '../../api/RequestsApi';
 import { SkillsApi } from '../../api/SkillsApi';
@@ -108,7 +108,10 @@ test.describe('main flow', () => {
   });
 
   test('TC_API_FLOW_002 nobody without a mandatory skill is a candidate', async () => {
-    const candidates: Candidate[] = (await (await ana.requests.candidates(requestId)).json()).content;
+    const response = await ana.requests.candidates(requestId);
+
+    expect(response.status()).toBe(200);
+    const candidates: Candidate[] = (await response.json()).content;
 
     expect(candidates.length).toBeGreaterThan(0);
     for (const candidate of candidates) {
@@ -139,7 +142,7 @@ test.describe('main flow', () => {
   test('TC_API_FLOW_010 reject with a comment shorter than 10 characters', async () => {
     const error = await expectError(await igor.reject(markoAllocationId, 'Too busy'), 400, 'VALIDATION_ERROR');
 
-    expect(error.details.map((detail) => detail.field)).toEqual(['comment']);
+    expect(fieldsOf(error)).toEqual(['comment']);
   });
 
   test('TC_API_FLOW_012 same employee proposed twice on the same request', async () => {

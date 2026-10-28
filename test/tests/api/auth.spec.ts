@@ -12,7 +12,7 @@ test.describe('token', () => {
     const response = await authApi.me(token);
 
     expect(response.status()).toBe(200);
-    expect(await response.json()).toMatchObject({ email: users.ana.email, firstName: users.ana.firstName, role: 'PM' });
+    expect(await response.json()).toMatchObject({ email: users.ana.email, firstName: users.ana.firstName, role: users.ana.role });
   });
 
   test('TC_API_AUTH_014 protected endpoint without a token', async ({ authApi }) => {

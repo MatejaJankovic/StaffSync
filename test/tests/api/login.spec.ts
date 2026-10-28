@@ -16,7 +16,7 @@ test.describe('valid login', () => {
     expect(response.status()).toBe(200);
     const body = await response.json();
     expect(body.token).toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);
-    expect(body.user).toMatchObject({ email: users.ana.email, firstName: users.ana.firstName, role: 'PM' });
+    expect(body.user).toMatchObject({ email: users.ana.email, firstName: users.ana.firstName, role: users.ana.role });
     const text = JSON.stringify(body);
     expect(text).not.toContain(PASSWORD);
     expect(text).not.toMatch(/password|\$2[aby]\$/i);
