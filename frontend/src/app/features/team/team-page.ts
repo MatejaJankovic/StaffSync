@@ -2,7 +2,6 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CdkTableModule } from '@angular/cdk/table';
 import { SsSort, SsSortChange, SsSortDirection, SsSortHeader, SsButton } from '../../shared/ui';
 import { CapacityBar } from '../../shared/capacity-bar/capacity-bar';
-import { CapacityRing } from '../../shared/capacity-ring/capacity-ring';
 import { SENIORITY_LABELS } from '../profile/profile.models';
 import { fullName } from '../users/user.models';
 import { TeamMember } from './team.models';
@@ -24,14 +23,14 @@ const usage = (member: TeamMember) =>
  */
 @Component({
   selector: 'app-team-page',
-  imports: [CapacityBar, CapacityRing, SsButton, CdkTableModule, SsSort, SsSortHeader],
+  imports: [CapacityBar, SsButton, CdkTableModule, SsSort, SsSortHeader],
   templateUrl: './team-page.html',
   styleUrl: './team-page.scss',
 })
 export class TeamPage implements OnInit {
   private readonly teamService = inject(TeamService);
 
-  protected readonly columns = ['ring', 'name', 'seniority', 'department', 'capacity', 'load'];
+  protected readonly columns = ['name', 'seniority', 'department', 'capacity', 'load'];
   protected readonly fullName = fullName;
   protected readonly members = signal<TeamMember[]>([]);
   protected readonly loading = signal(true);

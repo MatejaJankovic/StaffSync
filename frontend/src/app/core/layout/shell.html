@@ -57,6 +57,7 @@
         <button
           type="button"
           class="shell__user"
+          [attr.aria-label]="current.firstName + ' ' + current.lastName + ', account menu'"
           [ssMenuTriggerFor]="userMenu"
           [ssMenuPosition]="userMenuPosition"
           [attr.title]="rail() ? current.firstName + ' ' + current.lastName : null"

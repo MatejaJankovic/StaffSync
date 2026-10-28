@@ -64,7 +64,7 @@ const JELENA: Candidate = {
 };
 
 const REQUEST_URL = '/api/requests/9';
-const CANDIDATES_URL = '/api/requests/9/candidates?page=0&size=10';
+const CANDIDATES_URL = '/api/requests/9/candidates?page=0&size=20';
 
 /** What `POST /api/allocations` answers when `candidate` is proposed for the demo request. */
 function proposalFor(candidate: Candidate, warnings: string[] = []): AllocationProposal {
@@ -142,7 +142,7 @@ describe('CandidatesPage', () => {
   function answer(rows: Candidate[], url = CANDIDATES_URL): void {
     httpMock.expectOne(url).flush({
       content: rows,
-      page: { size: 10, number: 0, totalElements: rows.length, totalPages: 1 },
+      page: { size: 20, number: 0, totalElements: rows.length, totalPages: 1 },
     });
   }
 
@@ -612,7 +612,7 @@ describe('CandidatesPage', () => {
       await settle();
       httpMock.expectOne('/api/requests/10').flush({ ...REQUEST, id: 10, title: 'QA Engineer' });
       await settle();
-      answer([MARKO], '/api/requests/10/candidates?page=0&size=10');
+      answer([MARKO], '/api/requests/10/candidates?page=0&size=20');
       await settle();
 
       expect(notices()).toHaveLength(0);
@@ -627,7 +627,7 @@ describe('CandidatesPage', () => {
     await settle();
     httpMock.expectOne('/api/requests/10').flush({ ...REQUEST, id: 10, title: 'QA Engineer' });
     await settle();
-    answer([JELENA], '/api/requests/10/candidates?page=0&size=10');
+    answer([JELENA], '/api/requests/10/candidates?page=0&size=20');
     await settle();
 
     expect(el().querySelector('h1')?.textContent).toContain('Candidates for QA Engineer');

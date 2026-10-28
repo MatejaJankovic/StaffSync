@@ -26,7 +26,7 @@ const ROW: EmployeeSearchResult = {
   free: 40,
 };
 
-describe('EmployeeSearchPage tags and load ring', () => {
+describe('EmployeeSearchPage tags and load bar', () => {
   let fixture: ComponentFixture<EmployeeSearchPage>;
   let httpMock: HttpTestingController;
 
@@ -85,24 +85,16 @@ describe('EmployeeSearchPage tags and load ring', () => {
     expect(el().querySelector('.employee-search__check')).toBeNull();
   });
 
-  it('shows the shared ring with the same tone as the bar, hidden from screen readers', async () => {
+  it('shows the load once, as the bar with its numbers, without a ring beside it', async () => {
     await open({}, { ...ROW, load: 80, free: 20 });
 
-    const ring = el().querySelector<HTMLElement>('app-capacity-ring')!;
-    expect(ring.classList.contains('capacity-ring--sm')).toBe(true);
-    expect(ring.classList.contains('capacity-ring--nearly-full')).toBe(true);
-    // The bar beside it has the numbers, the ring does not write them twice
-    expect(ring.textContent).not.toContain('80%');
-    expect(ring.getAttribute('aria-hidden')).toBe('true');
-    expect(ring.querySelector('.capacity-ring__flag')).toBeNull();
+    expect(el().querySelector('app-capacity-ring')).toBeNull();
+    expect(el().querySelector('app-capacity-bar')?.textContent).toContain('80%');
   });
 
-  it('gives an overbooked employee a ring with a mark, next to the words Over capacity', async () => {
+  it('says Over capacity for an overbooked employee', async () => {
     await open({}, { ...ROW, load: 120, free: -20 });
 
-    const ring = el().querySelector<HTMLElement>('app-capacity-ring')!;
-    expect(ring.classList.contains('capacity-ring--full')).toBe(true);
-    expect(ring.querySelector('.capacity-ring__flag')).not.toBeNull();
     expect(el().querySelector('app-capacity-bar')?.textContent).toContain('Over capacity');
   });
 });

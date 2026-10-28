@@ -71,7 +71,7 @@ function allocation(
   };
 }
 
-const LIST_URL = '/api/allocations?projectId=5&page=0&size=10';
+const LIST_URL = '/api/allocations?projectId=5&page=0&size=20';
 
 describe('TeamPanel', () => {
   let fixture: ComponentFixture<TeamPanel>;
@@ -111,7 +111,7 @@ describe('TeamPanel', () => {
   function answer(rows: Allocation[], url = LIST_URL): void {
     httpMock.expectOne(url).flush({
       content: rows,
-      page: { size: 10, number: 0, totalElements: rows.length, totalPages: 1 },
+      page: { size: 20, number: 0, totalElements: rows.length, totalPages: 1 },
     });
   }
 
@@ -176,7 +176,7 @@ describe('TeamPanel', () => {
     fixture.componentRef.setInput('project', { ...PROJECT, id: 6 });
     await settle();
 
-    answer([], '/api/allocations?projectId=6&page=0&size=10');
+    answer([], '/api/allocations?projectId=6&page=0&size=20');
   });
 
   it('does not reload when only the details of the same project change', async () => {
