@@ -39,13 +39,13 @@ describe('StatCard', () => {
 
     const link = el.querySelector('a.stat-card__link');
     expect(link?.getAttribute('href')).toBe('/approvals');
-    expect(link?.querySelector('mat-card')).not.toBeNull();
+    expect(link?.querySelector('.stat-card__card')).not.toBeNull();
   });
 
   it('is not a link without one', () => {
     const el = render({ value: '5', label: 'Active projects', link: null });
 
     expect(el.querySelector('a')).toBeNull();
-    expect(el.querySelector('mat-card')).not.toBeNull();
+    expect(el.querySelector('.stat-card__card')).not.toBeNull();
   });
 });

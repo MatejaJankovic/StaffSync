@@ -1,54 +1,355 @@
+// The sidebar is the whole navigation. Desktop: sticky column, full (--ss-sidebar-width) or folded
+// to an icon rail (--ss-sidebar-rail-width). Handset: the same panel inside an overlay drawer.
+
 :host {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
+  display: block;
+  min-height: 100dvh;
 }
 
-.shell__toolbar {
-  position: relative;
-  z-index: 2;
-  gap: 8px;
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
+// ---------------------------------------------------------------------------------------------
+// Desktop frame
+// ---------------------------------------------------------------------------------------------
+
+.shell {
+  display: flex;
+  align-items: flex-start;
+  min-height: inherit;
+}
+
+.shell__sidebar {
+  position: sticky;
+  top: 0;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--ss-sidebar-width);
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--ss-surface);
+  border-right: 1px solid var(--ss-line);
+  transition: width var(--ss-dur) var(--ss-ease);
+}
+
+.shell--rail .shell__sidebar {
+  width: var(--ss-sidebar-rail-width);
+}
+
+.shell__main {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The panel: brand, menu, user. Shared by the desktop sidebar and the handset drawer.
+// ---------------------------------------------------------------------------------------------
+
+.shell__panel {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--ss-space-4) var(--ss-space-3) var(--ss-space-3);
+  background: var(--ss-surface);
+}
+
+.shell__head {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  // The 28px mark is centered on the 24px nav icons (12px list start space, minus 2px).
+  padding-inline-start: 10px;
 }
 
 .shell__brand {
-  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding-block: var(--ss-space-1);
+  border-radius: var(--ss-radius-sm);
+  color: var(--ss-ink);
   text-decoration: none;
-  font: var(--mat-sys-title-large);
 }
 
-.shell__spacer {
+.shell__mark {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke-linecap: round;
+}
+
+// The signature ring, drawn full: 100% of a day, with the tick that marks 100%.
+.shell__mark-arc {
+  stroke: var(--ss-teal);
+  stroke-width: 3.5;
+}
+
+.shell__mark-tick {
+  stroke: var(--ss-ink);
+  stroke-width: 2.5;
+}
+
+.shell__wordmark,
+.shell__topbar-title {
+  font-size: var(--ss-text-lg);
+  font-weight: 700;
+  letter-spacing: var(--ss-tracking-tight);
+  line-height: 1;
+}
+
+// Below the menu, above the user, in the same place whether the sidebar is full or folded. Its
+// center lines up with the nav icons (4px in from the panel padding, like they sit in their rows).
+.shell__tools {
+  margin-top: var(--ss-space-3);
+  padding-inline-start: var(--ss-space-1);
+}
+
+.shell__collapse {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ss-radius-md);
+  background: transparent;
+  color: var(--ss-ink-muted);
+  cursor: pointer;
+}
+
+// The menu: a navigation landmark with one link per page.
+.shell__nav {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  margin-top: var(--ss-space-4);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.shell__link {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ss-space-3);
+  box-sizing: border-box;
+  min-height: 44px;
+  padding-inline: var(--ss-space-3);
+  border-radius: var(--ss-radius-md);
+  color: var(--ss-ink-muted);
+  font-size: var(--ss-text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color var(--ss-dur-fast) var(--ss-ease);
+
+  &:hover {
+    background: var(--ss-wash-hover);
+  }
+
+  &:active {
+    background: var(--ss-wash-pressed);
+  }
+}
+
+// The page you are on: teal tint, ink text, a teal icon and a 3px teal leading edge inset from the
+// rounded corners.
+.shell__link--active {
+  background: var(--ss-teal-tint);
+  color: var(--ss-ink);
+  font-weight: 600;
+
+  &:hover,
+  &:active {
+    background: var(--ss-teal-tint);
+  }
+
+  ss-icon {
+    color: var(--ss-teal);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 10px auto 10px 0;
+    width: 3px;
+    border-radius: 0 var(--ss-radius-sm) var(--ss-radius-sm) 0;
+    background: var(--ss-teal);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The user, at the bottom of the panel. Opens the menu with Change password and Logout.
+// ---------------------------------------------------------------------------------------------
+
+.shell__foot {
+  margin-top: var(--ss-space-3);
+  padding-top: var(--ss-space-3);
+  border-top: 1px solid var(--ss-line);
+}
+
+.shell__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--ss-space-2);
+  border: 0;
+  border-radius: var(--ss-radius-md);
+  background: transparent;
+  color: var(--ss-ink);
+  text-align: start;
+  cursor: pointer;
+}
+
+.shell__collapse,
+.shell__user {
+  transition: background-color var(--ss-dur-fast) var(--ss-ease);
+
+  &:hover {
+    background: var(--ss-wash-hover);
+  }
+
+  &:active {
+    background: var(--ss-wash-pressed);
+  }
+}
+
+.shell__collapse:hover {
+  color: var(--ss-ink);
+}
+
+.shell__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-teal-tint);
+  color: var(--ss-teal-strong);
+  font-size: var(--ss-text-xs);
+  font-weight: 600;
 }
 
 .shell__user-text {
-  display: inline-flex;
+  display: flex;
+  flex: 1;
   flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.2;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.shell__user-name,
+.shell__user-role {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shell__user-name {
-  font: var(--mat-sys-label-large);
+  font-size: var(--ss-text-sm);
+  font-weight: 600;
 }
 
 .shell__user-role {
-  font: var(--mat-sys-label-small);
-  color: var(--mat-sys-on-surface-variant);
+  color: var(--ss-ink-muted);
+  font-size: var(--ss-text-xs);
 }
 
-.shell__container {
-  flex: 1;
+.shell__user-caret {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  color: var(--ss-ink-muted);
 }
 
-.shell__sidenav {
-  width: 240px;
-  display: flex;
-  flex-direction: column;
-}
+// ---------------------------------------------------------------------------------------------
+// Folded to the icon rail: icons only; every label stays in the DOM, and the title attribute
+// shows it as a tooltip.
+// ---------------------------------------------------------------------------------------------
 
-@media (max-width: 599px) {
-  .shell__user-text {
+.shell__panel--rail {
+  .shell__head {
+    justify-content: center;
+    padding-inline-start: 0;
+  }
+
+  // Hidden for the eye, still read by assistive tech (the labels of a folded sidebar).
+  .shell__wordmark,
+  .shell__user-text,
+  .shell__link-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .shell__user-caret {
     display: none;
   }
+
+  .shell__user {
+    justify-content: center;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Handset: overlay drawer plus a slim top bar.
+// ---------------------------------------------------------------------------------------------
+
+.shell--handset {
+  display: block;
+}
+
+// Dims the page behind the open drawer; a click on it closes the drawer.
+.shell__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  padding: 0;
+  border: 0;
+  background: var(--ss-scrim);
+  cursor: default;
+}
+
+@keyframes shell-drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+.shell__drawer {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 11;
+  box-sizing: border-box;
+  width: min(var(--ss-sidebar-width), 86vw);
+  overflow: hidden;
+  background: var(--ss-surface);
+  box-shadow: var(--ss-shadow-overlay);
+  animation: shell-drawer-in var(--ss-dur) var(--ss-ease);
+}
+
+.shell__topbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--ss-space-2);
+  box-sizing: border-box;
+  height: var(--ss-toolbar-height);
+  padding-inline: var(--ss-space-2) var(--ss-space-4);
+  background: var(--ss-surface);
+  border-bottom: 1px solid var(--ss-line);
 }

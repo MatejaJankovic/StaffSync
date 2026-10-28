@@ -1,20 +1,37 @@
-.home {
-  padding: 24px;
-  max-width: 1080px;
+// Page frame, width and padding come from .ss-page
+.home__header {
+  margin-bottom: var(--ss-space-8);
 
   h1 {
-    font: var(--mat-sys-headline-small);
-    margin: 0 0 16px;
+    margin: 0;
+    font-size: var(--ss-text-2xl);
+    line-height: 1.1;
   }
 }
 
+.home__context {
+  margin: var(--ss-space-2) 0 0;
+  max-width: 56ch;
+  color: var(--ss-ink-muted);
+  font-size: var(--ss-text-md);
+}
+
 .home__message {
-  color: var(--mat-sys-on-surface-variant);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ss-space-3);
+  margin: 0;
+  padding-block: var(--ss-space-6);
+  border-top: 1px solid var(--ss-line);
+  color: var(--ss-ink-muted);
 }
 
 // One column on a phone, up to four side by side on a wide screen
 .home__cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: var(--ss-space-4);
+  padding-top: var(--ss-space-6);
+  border-top: 1px solid var(--ss-line);
 }

@@ -1,64 +1,139 @@
-<mat-toolbar class="shell__toolbar">
-  @if (isHandset()) {
-    <button mat-icon-button type="button" aria-label="Toggle menu" (click)="sidenav.toggle()">
-      <mat-icon>menu</mat-icon>
-    </button>
-  }
-  <a class="shell__brand" routerLink="/home">StaffSync</a>
-  <span class="shell__spacer"></span>
+<ng-template #sidebar>
+  <div class="shell__panel" [class.shell__panel--rail]="rail()">
+    <div class="shell__head">
+      <a class="shell__brand" routerLink="/home" [attr.title]="rail() ? 'StaffSync' : null">
+        <svg class="shell__mark" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+          <circle
+            class="shell__mark-arc"
+            cx="14"
+            cy="14"
+            r="10"
+            pathLength="100"
+            stroke-dasharray="100"
+            transform="rotate(-90 14 14)"
+          />
+          <line class="shell__mark-tick" x1="14" y1="1.5" x2="14" y2="6.5" />
+        </svg>
+        <span class="shell__wordmark">StaffSync</span>
+      </a>
+    </div>
 
-  @if (user(); as current) {
-    <button
-      mat-button
-      type="button"
-      class="shell__user"
-      [matMenuTriggerFor]="userMenu"
-      aria-label="User menu"
-    >
-      <mat-icon>account_circle</mat-icon>
-      <span class="shell__user-text">
-        <span class="shell__user-name">{{ current.firstName }} {{ current.lastName }}</span>
-        <span class="shell__user-role">{{ roleLabel() }}</span>
-      </span>
-    </button>
-    <mat-menu #userMenu="matMenu" xPosition="before">
-      <button mat-menu-item type="button" (click)="openChangePassword()">
-        <mat-icon>lock</mat-icon>
-        <span>Change password</span>
-      </button>
-      <button mat-menu-item type="button" (click)="logout()">
-        <mat-icon>logout</mat-icon>
-        <span>Logout</span>
-      </button>
-    </mat-menu>
-  }
-</mat-toolbar>
-
-<mat-sidenav-container class="shell__container">
-  <mat-sidenav
-    #sidenav
-    class="shell__sidenav"
-    [mode]="isHandset() ? 'over' : 'side'"
-    [opened]="!isHandset()"
-  >
-    <mat-nav-list aria-label="Main menu">
+    <nav id="shell-nav" class="shell__nav" aria-label="Main menu">
       @for (item of menu(); track item.path) {
         <a
-          mat-list-item
+          class="shell__link"
           [routerLink]="'/' + item.path"
-          routerLinkActive
-          #rla="routerLinkActive"
-          [activated]="rla.isActive"
-          (click)="isHandset() && sidenav.close()"
+          routerLinkActive="shell__link--active"
+          ariaCurrentWhenActive="page"
+          [attr.title]="rail() ? item.label : null"
+          (click)="onNavigate()"
         >
-          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-          <span matListItemTitle>{{ item.label }}</span>
+          <ss-icon>{{ item.icon }}</ss-icon>
+          <span class="shell__link-label">{{ item.label }}</span>
         </a>
       }
-    </mat-nav-list>
-  </mat-sidenav>
+    </nav>
 
-  <mat-sidenav-content>
-    <router-outlet />
-  </mat-sidenav-content>
-</mat-sidenav-container>
+    @if (!isHandset()) {
+      <!-- Same place in both states, so the control to unfold the rail never moves.
+           A constant name with aria-expanded; the title tells the mouse what a click does. -->
+      <div class="shell__tools">
+        <button
+          type="button"
+          class="shell__collapse"
+          aria-label="Sidebar"
+          [attr.title]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+          [attr.aria-expanded]="!collapsed()"
+          aria-controls="shell-nav"
+          (click)="toggleCollapsed()"
+        >
+          <ss-icon>{{ collapsed() ? 'last_page' : 'first_page' }}</ss-icon>
+        </button>
+      </div>
+    }
+
+    @if (user(); as current) {
+      <div class="shell__foot">
+        <button
+          type="button"
+          class="shell__user"
+          [ssMenuTriggerFor]="userMenu"
+          [ssMenuPosition]="userMenuPosition"
+          [attr.title]="rail() ? current.firstName + ' ' + current.lastName : null"
+        >
+          <span class="shell__avatar" aria-hidden="true">{{ initials() }}</span>
+          <span class="shell__user-text">
+            <span class="shell__user-name">{{ current.firstName }} {{ current.lastName }}</span>
+            <span class="shell__user-role">{{ roleLabel() }}</span>
+          </span>
+          <ss-icon class="shell__user-caret">unfold_more</ss-icon>
+        </button>
+        <ng-template #userMenu>
+          <div ssMenu aria-label="User menu">
+            <button ssMenuItem type="button" (click)="openChangePassword()">
+              <ss-icon>lock</ss-icon>
+              <span>Change password</span>
+            </button>
+            <button ssMenuItem type="button" (click)="logout()">
+              <ss-icon>logout</ss-icon>
+              <span>Logout</span>
+            </button>
+          </div>
+        </ng-template>
+      </div>
+    }
+  </div>
+</ng-template>
+
+@if (isHandset()) {
+  <div class="shell shell--handset">
+    <header class="shell__topbar">
+      <button
+        ss-button="icon"
+        type="button"
+        class="shell__menu-button"
+        aria-label="Toggle menu"
+        aria-controls="shell-drawer"
+        [attr.aria-expanded]="drawerOpen()"
+        (click)="toggleDrawer()"
+      >
+        <ss-icon>menu</ss-icon>
+      </button>
+      <span class="shell__topbar-title">StaffSync</span>
+    </header>
+    <main class="shell__main">
+      <router-outlet />
+    </main>
+  </div>
+
+  @if (drawerOpen()) {
+    <button
+      type="button"
+      class="shell__scrim"
+      tabindex="-1"
+      aria-label="Close menu"
+      (click)="closeDrawer()"
+    ></button>
+    <aside
+      id="shell-drawer"
+      class="shell__drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Menu"
+      cdkTrapFocus
+      cdkTrapFocusAutoCapture
+      (keydown.escape)="closeDrawer()"
+    >
+      <ng-container *ngTemplateOutlet="sidebar" />
+    </aside>
+  }
+} @else {
+  <div class="shell" [class.shell--rail]="rail()">
+    <aside class="shell__sidebar">
+      <ng-container *ngTemplateOutlet="sidebar" />
+    </aside>
+    <main class="shell__main">
+      <router-outlet />
+    </main>
+  </div>
+}

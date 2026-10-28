@@ -1,9 +1,10 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { AuthService } from '../../core/auth/auth.service';
 import { shortDate } from '../../shared/dates';
 import { StatCard } from '../../shared/stat-card/stat-card';
 import { DashboardCard } from './dashboard.models';
 import { DashboardService } from './dashboard.service';
+import { SsButton } from '../../shared/ui';
 
 type LoadState = 'loading' | 'ready' | 'failed';
 
@@ -13,12 +14,22 @@ type LoadState = 'loading' | 'ready' | 'failed';
  */
 @Component({
   selector: 'app-home-page',
-  imports: [MatButtonModule, StatCard],
+  imports: [SsButton, StatCard],
   templateUrl: './home-page.html',
   styleUrl: './home-page.scss',
 })
 export class HomePage implements OnInit {
   private readonly dashboard = inject(DashboardService);
+  private readonly auth = inject(AuthService);
+
+  /** `Tuesday 27 October`, the quiet label above the title. */
+  protected readonly today = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date());
+
+  protected readonly firstName = computed(() => this.auth.currentUser()?.firstName ?? null);
 
   protected readonly cards = signal<DashboardCard[]>([]);
   protected readonly state = signal<LoadState>('loading');
