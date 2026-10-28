@@ -7,8 +7,31 @@
 // overlay it needs land in the initial bundle (it added 160 kB when Notifications did it).
 
 export { SsButton, type SsButtonVariant } from './button/button';
+export { SsCalendar, type SsCalendarPeriod, type SsCalendarRange } from './calendar/calendar';
+export {
+  SsCalendarPopup,
+  SsCalendarPopupRef,
+  type SsCalendarPopupConfig,
+} from './calendar/calendar-popup';
+export {
+  addDays,
+  addMonths,
+  addYears,
+  clampDate,
+  compareDays,
+  daysInMonth,
+  endOfMonth,
+  endOfWeek,
+  isValidDate,
+  isWithinLimits,
+  sameDay,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+} from './calendar/date-utils';
 export { SsCheckbox } from './checkbox/checkbox';
 export { SsChip } from './chip/chip';
+export { SsDateInput } from './date-input/date-input';
 export {
   SS_DIALOG_DATA,
   SsDialog,

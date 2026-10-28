@@ -1,8 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { SS_DIALOG_DATA, SsDialogRef } from '../../shared/ui';
 import { Project } from './project.models';
 import { PROJECTS_URL } from './project.service';
 import { toIsoDate } from '../../shared/dates';
@@ -32,9 +31,8 @@ describe('ProjectDialog', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: MAT_DIALOG_DATA, useValue: data },
-        { provide: MatDialogRef, useValue: { close } },
+        { provide: SS_DIALOG_DATA, useValue: data },
+        { provide: SsDialogRef, useValue: { close } },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
@@ -70,8 +68,8 @@ describe('ProjectDialog', () => {
   }
 
   function type(label: string, text: string): void {
-    const input = [...el().querySelectorAll('mat-form-field')]
-      .find((field) => field.querySelector('mat-label')?.textContent?.trim() === label)!
+    const input = [...el().querySelectorAll('ss-field')]
+      .find((field) => field.querySelector('ss-label')?.textContent?.trim() === label)!
       .querySelector('input')!;
     input.value = text;
     input.dispatchEvent(new Event('input'));

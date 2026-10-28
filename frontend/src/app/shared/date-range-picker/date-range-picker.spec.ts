@@ -1,7 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { DateRangePicker, DateRangeValue } from './date-range-picker';
 
 @Component({
@@ -30,13 +29,12 @@ describe('DateRangePicker', () => {
   async function render(): Promise<void> {
     await TestBed.configureTestingModule({
       imports: [Host],
-      providers: [{ provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } }],
     }).compileComponents();
     fixture = TestBed.createComponent(Host);
     await settle();
   }
 
-  /** Material's inputs and the error message each take a round of change detection to settle. */
+  /** The inputs and the error message each take a round of change detection to settle. */
   async function settle(): Promise<void> {
     for (let round = 0; round < 3; round++) {
       fixture.detectChanges();
@@ -150,7 +148,7 @@ describe('DateRangePicker', () => {
     await type(inputs()[1], '31/01/2027');
     await touch();
 
-    expect(fixture.componentInstance.period.hasError('matDatepickerMin')).toBe(true);
+    expect(fixture.componentInstance.period.hasError('dateMin')).toBe(true);
     expect(message()).toBe('Dates must be between 01/11/2026 and 31/03/2027');
   });
 
@@ -161,7 +159,7 @@ describe('DateRangePicker', () => {
     await type(inputs()[1], '01/04/2027');
     await touch();
 
-    expect(fixture.componentInstance.period.hasError('matDatepickerMax')).toBe(true);
+    expect(fixture.componentInstance.period.hasError('dateMax')).toBe(true);
     expect(message()).toContain('Dates must be between');
   });
 
@@ -204,7 +202,7 @@ describe('DateRangePicker', () => {
     await settle();
     await settle();
 
-    expect(fixture.componentInstance.period.hasError('matDatepickerMax')).toBe(true);
+    expect(fixture.componentInstance.period.hasError('dateMax')).toBe(true);
   });
 
   it('shows an error that the server set on the control', async () => {
