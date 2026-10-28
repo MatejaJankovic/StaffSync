@@ -1,4 +1,10 @@
-import { Allocation, overloadedRuns, PendingApproval, requestedValues } from './allocation.models';
+import {
+  Allocation,
+  overloadedRuns,
+  PendingApproval,
+  rejectionNote,
+  requestedValues,
+} from './allocation.models';
 
 const ALLOCATION: Allocation = {
   id: 1,
@@ -17,6 +23,8 @@ const ALLOCATION: Allocation = {
   pendingStartDate: null,
   pendingEndDate: null,
   changeReason: null,
+  decidedByName: null,
+  decisionComment: null,
 };
 
 describe('requestedValues', () => {
@@ -26,6 +34,10 @@ describe('requestedValues', () => {
       allocation: ALLOCATION,
       proposedById: 7,
       proposedByName: 'Ana PM',
+      awaitingSince: '2026-10-22T09:00:00Z',
+      capacityPercent: 100,
+      peakLoad: 60,
+      overCapacityDays: 0,
     };
 
     expect(requestedValues(item)).toMatchObject({
@@ -45,9 +57,15 @@ describe('requestedValues', () => {
         pendingStartDate: '2026-11-01',
         pendingEndDate: '2027-02-28',
         changeReason: 'The client asked for more work',
+        decidedByName: null,
+        decisionComment: null,
       },
       proposedById: 7,
       proposedByName: 'Ana PM',
+      awaitingSince: '2026-10-22T09:00:00Z',
+      capacityPercent: 100,
+      peakLoad: 60,
+      overCapacityDays: 0,
     };
 
     expect(requestedValues(item)).toEqual({
@@ -87,5 +105,36 @@ describe('overloadedRuns', () => {
   it('skips entries that are not a day and a load, and is empty without days', () => {
     expect(overloadedRuns([{ field: 'comment', message: 'x' }, null, 'text'])).toEqual([]);
     expect(overloadedRuns([])).toEqual([]);
+  });
+});
+
+describe('rejectionNote', () => {
+  it('says who rejected a proposal and why (BR-6)', () => {
+    expect(
+      rejectionNote({
+        status: 'REJECTED',
+        decidedByName: 'Igor Stankovic',
+        decisionComment: 'Fully booked until December',
+      }),
+    ).toBe('Rejected by Igor Stankovic: Fully booked until December');
+  });
+
+  it('marks the comment on an approved allocation as a rejected change', () => {
+    expect(
+      rejectionNote({
+        status: 'APPROVED',
+        decidedByName: 'Igor Stankovic',
+        decisionComment: 'No capacity left for 80%',
+      }),
+    ).toBe('Change rejected by Igor Stankovic: No capacity left for 80%');
+  });
+
+  it('has nothing to say without a comment, or while a decision is still awaited', () => {
+    expect(
+      rejectionNote({ status: 'APPROVED', decidedByName: 'Igor', decisionComment: null }),
+    ).toBeNull();
+    expect(
+      rejectionNote({ status: 'PROPOSED', decidedByName: null, decisionComment: 'Old comment' }),
+    ).toBeNull();
   });
 });

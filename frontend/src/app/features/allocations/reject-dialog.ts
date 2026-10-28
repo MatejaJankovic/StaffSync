@@ -138,7 +138,7 @@ export class RejectDialog {
   protected readonly maxCommentLength = MAX_TEXT_LENGTH;
 
   protected readonly form = inject(NonNullableFormBuilder).group({
-    comment: ['', [textLength, Validators.maxLength(MAX_TEXT_LENGTH)]],
+    comment: ['', [Validators.required, textLength, Validators.maxLength(MAX_TEXT_LENGTH)]],
   });
 
   protected readonly saving = signal(false);

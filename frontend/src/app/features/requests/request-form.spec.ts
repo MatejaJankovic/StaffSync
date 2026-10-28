@@ -37,6 +37,7 @@ const EXISTING: StaffingRequest = {
   startDate: '2026-11-01',
   endDate: '2027-01-31',
   headcount: 2,
+  filled: 0,
   status: 'OPEN',
   createdAt: '2026-10-21T09:15:30Z',
   skills: [

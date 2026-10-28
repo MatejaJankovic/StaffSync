@@ -9,7 +9,8 @@ import { Allocation, AllocationStatus } from './allocation.models';
 import { MyAllocationsPage } from './my-allocations-page';
 
 const ME = 4;
-const LIST_URL = '/api/allocations?page=0&size=20';
+const LIST_URL =
+  '/api/allocations?status=PROPOSED&status=APPROVED&status=CHANGE_PENDING&page=0&size=20';
 const AVAILABILITY_URL = `/api/users/${ME}/availability`;
 
 function allocation(
@@ -35,6 +36,8 @@ function allocation(
     pendingStartDate: null,
     pendingEndDate: null,
     changeReason: null,
+    decidedByName: null,
+    decisionComment: null,
     ...pending,
   };
 }

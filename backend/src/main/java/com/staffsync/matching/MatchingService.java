@@ -81,7 +81,7 @@ public class MatchingService {
 
 	/**
 	 * One page of the ranked candidates of a request. BR-4: only the PM who owns the request's project.
-	 * BR-9: only for an open or partially filled request, the only ones that take a proposal.
+	 * BR-9: only for an open or partially filled request that hasn't ended, the only ones that take a proposal.
 	 * The order is always by score, so the page's own sort is ignored.
 	 */
 	public Page<CandidateDto> getCandidates(Long requestId, AuthUser currentUser, Pageable pageable) {
@@ -89,6 +89,10 @@ public class MatchingService {
 			.orElseThrow(() -> new NotFoundException("Staffing request", requestId));
 		checkOwner(request.getProject(), currentUser);
 		checkOpen(request);
+		if (request.getEndDate().isBefore(LocalDate.now())) {
+			throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_ENDED",
+					"The request ended on " + request.getEndDate() + ", so nobody can be proposed for it");
+		}
 
 		List<CandidateDto> ranked = rank(request);
 		int from = (int) Math.min(pageable.getOffset(), ranked.size());
@@ -199,15 +203,21 @@ public class MatchingService {
 
 	/**
 	 * The share of the working days of the request on which the free capacity covers the requested percent,
-	 * × 40. A period without a working day has nothing to fall short on, so it scores in full.
+	 * × 40, counted from today for a request that has already started, since nobody can be staffed in the past.
+	 * A period without a working day has nothing to fall short on, so it scores in full.
 	 * <p>
 	 * One {@code CapacityService} call, so one query, per candidate: fine for the same reason as §7's day-by-day
 	 * walk. The free capacity counts APPROVED and CHANGE_PENDING allocations only (§7), so an employee who is
 	 * only PROPOSED elsewhere still shows as free. A soft-booking warning like BR-2's could be added later.
 	 */
 	private double availabilityScore(StaffingRequest request, User employee, List<String> warnings) {
+		LocalDate today = LocalDate.now();
+		LocalDate from = request.getStartDate().isBefore(today) ? today : request.getStartDate();
+		if (from.isAfter(request.getEndDate())) {
+			return AVAILABILITY_WEIGHT;
+		}
 		SortedMap<LocalDate, Integer> free = new TreeMap<>(
-				capacityService.getFreeCapacity(employee.getId(), request.getStartDate(), request.getEndDate()));
+				capacityService.getFreeCapacity(employee.getId(), from, request.getEndDate()));
 		if (free.isEmpty()) {
 			return AVAILABILITY_WEIGHT;
 		}

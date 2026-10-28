@@ -1,4 +1,11 @@
-import { isValidDate, parseDayFirstDate, parseIsoDate, shortDate, toIsoDate } from './dates';
+import {
+  isValidDate,
+  parseDayFirstDate,
+  parseIsoDate,
+  readableMessage,
+  shortDate,
+  toIsoDate,
+} from './dates';
 
 describe('dates', () => {
   it('round-trip an ISO date without a time zone shift', () => {
@@ -9,6 +16,18 @@ describe('dates', () => {
 
   it('shows a short date', () => {
     expect(shortDate('2026-11-01')).toBe('1 Nov 2026');
+  });
+
+  it('writes the dates and seniority levels of an API message the way the UI does', () => {
+    expect(
+      readableMessage('Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)'),
+    ).toBe('Insufficient capacity 2 Nov 2026 – 13 Nov 2026 (40% free, 60% required)');
+    expect(readableMessage('Seniority SENIOR (MEDIOR requested)')).toBe(
+      'Seniority Senior (Medior requested)',
+    );
+    expect(readableMessage('Missing PostgreSQL (nice to have)')).toBe(
+      'Missing PostgreSQL (nice to have)',
+    );
   });
 
   describe('parseDayFirstDate', () => {

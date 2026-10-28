@@ -28,6 +28,32 @@ export interface Allocation {
   pendingStartDate: string | null;
   pendingEndDate: string | null;
   changeReason: string | null;
+  /** The RM who made the last decision, on the allocation or on a change */
+  decidedByName: string | null;
+  /** The RM's comment: set when they rejected the proposal, or the last change (BR-6) */
+  decisionComment: string | null;
+}
+
+/**
+ * Why the RM said no, for the PM (BR-6): the comment of a rejected proposal, or of the last change
+ * the RM rejected on an allocation that is still approved. Approving clears the comment, so an
+ * approved allocation with one had its last change rejected. `null` when there is nothing to show.
+ */
+export function rejectionNote(
+  allocation: Pick<Allocation, 'status' | 'decisionComment' | 'decidedByName'>,
+): string | null {
+  const comment = allocation.decisionComment;
+  if (!comment) {
+    return null;
+  }
+  const by = allocation.decidedByName ? ` by ${allocation.decidedByName}` : '';
+  if (allocation.status === 'REJECTED') {
+    return `Rejected${by}: ${comment}`;
+  }
+  if (allocation.status === 'APPROVED') {
+    return `Change rejected${by}: ${comment}`;
+  }
+  return null;
 }
 
 /** What a PM sends to propose an employee for a request (`POST /api/allocations`). */
@@ -73,7 +99,8 @@ export interface AllocationChange {
 
 /** What `GET /api/allocations` filters by, on top of what the caller's role may see. */
 export interface AllocationFilters {
-  status?: AllocationStatus;
+  /** One or more statuses; sent as one `status` parameter each */
+  status?: AllocationStatus | readonly AllocationStatus[];
   employeeId?: number;
   projectId?: number;
   /** `yyyy-MM-dd`: only allocations whose period overlaps from–to */
@@ -159,6 +186,14 @@ export interface PendingApproval {
   allocation: Allocation;
   proposedById: number;
   proposedByName: string;
+  /** When the change was requested (CHANGE), or the allocation proposed (NEW): the list's order */
+  awaitingSince: string;
+  /** The employee's capacity % */
+  capacityPercent: number;
+  /** The highest daily load % if the RM approves */
+  peakLoad: number;
+  /** Working days approving would go over capacity; above 0, Approve answers 409 (BR-1) */
+  overCapacityDays: number;
 }
 
 /** What the RM sends to reject a proposal or a change (`POST /api/allocations/{id}/reject`). */

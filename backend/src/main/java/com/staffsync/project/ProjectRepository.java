@@ -20,4 +20,9 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
 	@EntityGraph(attributePaths = "pm")
 	Optional<Project> findById(Long id);
 
+	/** Project names are unique regardless of case, like skills and departments. */
+	boolean existsByNameIgnoreCase(String name);
+
+	boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
+
 }

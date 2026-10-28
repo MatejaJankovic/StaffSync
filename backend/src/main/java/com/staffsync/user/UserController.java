@@ -65,7 +65,7 @@ public class UserController {
 	@GetMapping
 	public Page<UserAccountDto> list(@RequestParam(required = false) Long departmentId,
 			@RequestParam(required = false) Role role, @RequestParam(required = false) Boolean active,
-			@ParameterObject @PageableDefault(sort = "lastName") Pageable pageable) {
+			@ParameterObject @PageableDefault(size = 20, sort = "lastName") Pageable pageable) {
 		return userService.list(departmentId, role, active, pageable);
 	}
 

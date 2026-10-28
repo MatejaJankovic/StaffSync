@@ -60,12 +60,13 @@ export class PendingApprovalsPage {
 
   protected readonly columns: PagedTableColumn<PendingApproval>[] = [
     { key: 'type', header: 'Type' },
-    { key: 'employee', header: 'Employee', value: (item) => item.allocation.employeeName },
-    { key: 'project', header: 'Project', value: (item) => item.allocation.projectName },
-    { key: 'request', header: 'Request', value: (item) => item.allocation.requestTitle },
+    // The employee, where they would go and who asked, in one column so the row fits a laptop
+    { key: 'employee', header: 'Employee and request' },
     // change-diff shows the percent and the period together: as they are for a proposal, and
     // old → new for a change (60% → 80%), so both kinds of row read the same way
     { key: 'values', header: 'Allocation and period' },
+    // What approving would do to their capacity (BR-1), before the RM clicks Approve
+    { key: 'capacity', header: 'Capacity' },
     { key: 'actions', header: '' },
   ];
 
@@ -73,6 +74,11 @@ export class PendingApprovalsPage {
   protected readonly fetch = (query: PageQuery) => this.allocations.pending(query);
 
   protected readonly requestedValues = requestedValues;
+
+  /** Approve answers 409 CAPACITY_EXCEEDED when this is true (BR-1). */
+  protected overCapacity(item: PendingApproval): boolean {
+    return item.overCapacityDays > 0;
+  }
 
   /** The last approval refused for capacity, until the RM dismisses it or decides again. */
   protected readonly capacityNotice = signal<CapacityNotice | null>(null);

@@ -96,7 +96,11 @@ export class AllocationService {
   list(query: PageQuery, filters: AllocationFilters = {}): Observable<Page<Allocation>> {
     let params = new HttpParams();
     for (const [key, value] of Object.entries(filters)) {
-      if (value !== undefined) {
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          params = params.append(key, item);
+        }
+      } else if (value !== undefined) {
         params = params.set(key, value);
       }
     }

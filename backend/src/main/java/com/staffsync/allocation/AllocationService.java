@@ -2,6 +2,7 @@ package com.staffsync.allocation;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +33,7 @@ import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -75,7 +77,9 @@ public class AllocationService {
 
 	/**
 	 * Proposes an employee for a staffing request: the allocation starts {@code PROPOSED} (§9), and the
-	 * percent and period default to the request's. The checks run in this order: BR-4 (403), BR-3 (400),
+	 * percent and period default to the request's, but the start never before today: nobody is staffed in the
+	 * past. The checks run in this order: BR-4 (403), the request hasn't ended (409 REQUEST_ENDED), BR-3 (400),
+	 * the start isn't before today (400 ALLOCATION_IN_PAST),
 	 * the project and request are open (409, BR-9), the employee is eligible (400, BR-9), no overlap on the
 	 * same request (409, BR-8). Going over capacity only adds a warning (BR-2): approval enforces it (BR-1).
 	 */
@@ -85,13 +89,20 @@ public class AllocationService {
 			.orElseThrow(() -> new NotFoundException("Staffing request", body.requestId()));
 		checkOwner(request.getProject(), currentUser, "propose employees for its requests");
 
+		LocalDate today = LocalDate.now();
+		if (request.getEndDate().isBefore(today)) {
+			throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_ENDED",
+					"The request ended on " + request.getEndDate() + ", so nobody can be proposed for it");
+		}
 		int percent = body.percent() != null ? body.percent() : request.getAllocationPercent();
-		LocalDate startDate = body.startDate() != null ? body.startDate() : request.getStartDate();
+		LocalDate startDate = body.startDate() != null ? body.startDate()
+				: (request.getStartDate().isBefore(today) ? today : request.getStartDate());
 		LocalDate endDate = body.endDate() != null ? body.endDate() : request.getEndDate();
 		if (percent % 10 != 0) {
 			throw validationError("percent", "Percent must be a multiple of 10");
 		}
 		checkPeriod(startDate, endDate, request);
+		checkNotInPast(startDate);
 		checkOpen(request, "proposals");
 
 		User employee = userRepository.findById(body.employeeId())
@@ -111,7 +122,9 @@ public class AllocationService {
 	 * The RM approves a proposed allocation (§9: {@code PROPOSED → APPROVED}) or a pending change
 	 * ({@code CHANGE_PENDING → APPROVED}, see {@link #approveChange}). For a proposal the checks run in this
 	 * order: BR-5 (403), BR-7 (409), the request and project are still open (409), the employee is still
-	 * active (409), then the hard capacity check on every working day of the period (409 CAPACITY_EXCEEDED,
+	 * active (409), the proposed start hasn't passed (409 ALLOCATION_START_PASSED: approving would staff someone
+	 * in the past, so the PM proposes again from today), then the hard capacity check on every working day of
+	 * the period (409 CAPACITY_EXCEEDED,
 	 * BR-1). Nothing is changed before the last check passes, so a failed approval leaves the allocation
 	 * {@code PROPOSED}. Then the request status is recalculated (BR-10).
 	 */
@@ -125,6 +138,7 @@ public class AllocationService {
 		}
 		checkOpen(allocation.getRequest(), "approvals");
 		checkEmployeeActive(allocation);
+		checkStartNotPassed(allocation.getStartDate());
 		// A PROPOSED allocation is not active, so it isn't counted in its own load
 		capacityService.checkCapacity(allocation.getEmployee().getId(), allocation.getStartDate(),
 				allocation.getEndDate(), allocation.getPercent(), null);
@@ -156,6 +170,9 @@ public class AllocationService {
 			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_ALREADY_STARTED",
 					"Allocation has already started (on " + allocation.getStartDate()
 							+ "), so a change that moves its start date can't be approved");
+		}
+		if (!allocation.getPendingStartDate().equals(allocation.getStartDate())) {
+			checkStartNotPassed(allocation.getPendingStartDate());
 		}
 		capacityService.checkCapacity(allocation.getEmployee().getId(), allocation.getPendingStartDate(),
 				allocation.getPendingEndDate(), allocation.getPendingPercent(), allocation.getId());
@@ -219,7 +236,8 @@ public class AllocationService {
 	 * (400), BR-4 (403), the project is still open (409), the allocation is {@code APPROVED} (409, and
 	 * {@code CHANGE_ALREADY_PENDING} when a change already waits, T-31) and hasn't ended, i.e. its
 	 * {@code endDate} is not before today (409, T-33), the percent is a step of 10 and something changes
-	 * (400), the start date stays the same once the allocation has started (400, T-32), BR-3 (400), and the
+	 * (400), the start date stays the same once the allocation has started (400, T-32), a new start date isn't
+	 * in the past (400 ALLOCATION_IN_PAST), BR-3 (400), and the
 	 * new period doesn't overlap another allocation of the employee on the same request (409, BR-8).
 	 * "Started" is the same as for {@link #cancel}: an allocation starts on its start date, so it has
 	 * started once its {@code startDate} is today or earlier.
@@ -254,6 +272,9 @@ public class AllocationService {
 							+ "), so its start date can't change");
 		}
 		checkPeriod(startDate, endDate, request);
+		if (!startDate.equals(allocation.getStartDate())) {
+			checkNotInPast(startDate);
+		}
 		checkNoOverlap(request, allocation.getEmployee(), startDate, endDate, allocation.getId());
 
 		// Without this allocation's current values, which the new ones would replace
@@ -328,7 +349,7 @@ public class AllocationService {
 	 * page, not a 403. {@code from} and {@code to} keep the allocations whose period overlaps them.
 	 */
 	@Transactional(readOnly = true)
-	public Page<AllocationDto> search(AllocationStatus status, Long employeeId, Long projectId, LocalDate from,
+	public Page<AllocationDto> search(Set<AllocationStatus> statuses, Long employeeId, Long projectId, LocalDate from,
 			LocalDate to, Pageable pageable, AuthUser currentUser) {
 		if (from != null && to != null && from.isAfter(to)) {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_PERIOD", "From must not be after to");
@@ -336,8 +357,8 @@ public class AllocationService {
 		Specification<Allocation> scope = roleScope(currentUser);
 		Specification<Allocation> filters = (root, query, cb) -> {
 			List<Predicate> predicates = new ArrayList<>();
-			if (status != null) {
-				predicates.add(cb.equal(root.get("status"), status));
+			if (statuses != null && !statuses.isEmpty()) {
+				predicates.add(root.get("status").in(statuses));
 			}
 			if (employeeId != null) {
 				predicates.add(cb.equal(root.get("employee").get("id"), employeeId));
@@ -359,8 +380,15 @@ public class AllocationService {
 	/**
 	 * The RM's pending approvals (US-14, §10): the allocations of their own team ({@code employee.manager_id},
 	 * BR-5) that can still be decided, i.e. {@code PROPOSED} and {@code CHANGE_PENDING} (BR-7). Each one is
-	 * marked {@code NEW} or {@code CHANGE}. Always the caller's team, so another role is a 403 here too, not
-	 * an empty page, and no RM can list another team's.
+	 * marked {@code NEW} or {@code CHANGE}, and comes with a capacity preview: what approving it would do to the
+	 * employee's load (BR-1), so the RM sees an overbooking before clicking Approve. Always the caller's team, so
+	 * another role is a 403 here too, not an empty page, and no RM can list another team's.
+	 * <p>
+	 * By default ({@code sort=createdAt}, or no sort) the list is ordered by how long each item has waited, oldest
+	 * first: a change counts from when it was requested, not from when the allocation was first proposed. A team
+	 * has a few dozen items at most, so they are sorted here and then cut into the page.
+	 * {@code sort=createdAt,desc} reverses the order. Any other sort is applied by the query, like on the other
+	 * lists.
 	 */
 	@Transactional(readOnly = true)
 	public Page<PendingApprovalDto> pending(Pageable pageable, AuthUser currentUser) {
@@ -368,10 +396,37 @@ public class AllocationService {
 			throw new BusinessException(HttpStatus.FORBIDDEN, "NOT_RESOURCE_MANAGER",
 					"Only a resource manager has pending approvals");
 		}
-		return allocationRepository
-			.findByEmployeeManagerIdAndStatusIn(currentUser.id(), AllocationStatus.AWAITING_DECISION,
-					checkedSort(pageable))
-			.map(PendingApprovalDto::from);
+		Pageable checked = checkedSort(pageable);
+		if (!pageable.getSort().stream().allMatch(order -> order.getProperty().equals("createdAt"))) {
+			return allocationRepository
+				.findByEmployeeManagerIdAndStatusIn(currentUser.id(), AllocationStatus.AWAITING_DECISION, checked)
+				.map(this::toPending);
+		}
+		Sort.Order order = checked.getSort().getOrderFor("createdAt");
+		Comparator<Allocation> byWait = Comparator.comparing(Allocation::getAwaitingSince)
+			.thenComparing(Allocation::getId);
+		if (order != null && order.isDescending()) {
+			byWait = byWait.reversed();
+		}
+		List<Allocation> all = allocationRepository
+			.findByEmployeeManagerIdAndStatusIn(currentUser.id(), AllocationStatus.AWAITING_DECISION, Pageable.unpaged())
+			.stream()
+			.sorted(byWait)
+			.toList();
+		int from = (int) Math.min(pageable.getOffset(), all.size());
+		int to = (int) Math.min((long) from + pageable.getPageSize(), all.size());
+		List<PendingApprovalDto> content = all.subList(from, to).stream().map(this::toPending).toList();
+		return new PageImpl<>(content, pageable, all.size());
+	}
+
+	/** The item with what approving it would mean for the employee's capacity, as checked by approve (BR-1). */
+	private PendingApprovalDto toPending(Allocation allocation) {
+		CapacityService.LoadPreview preview = allocation.hasPendingChange()
+				? capacityService.preview(allocation.getEmployee().getId(), allocation.getPendingStartDate(),
+						allocation.getPendingEndDate(), allocation.getPendingPercent(), allocation.getId())
+				: capacityService.preview(allocation.getEmployee().getId(), allocation.getStartDate(),
+						allocation.getEndDate(), allocation.getPercent(), null);
+		return PendingApprovalDto.from(allocation, preview);
 	}
 
 	/**
@@ -397,6 +452,23 @@ public class AllocationService {
 		if (!project.getPm().getId().equals(currentUser.id())) {
 			throw new BusinessException(HttpStatus.FORBIDDEN, "NOT_PROJECT_OWNER",
 					"Only the project manager who owns this project can " + what);
+		}
+	}
+
+	/** Nobody is staffed in the past: a new or moved start date is today or later. */
+	private static void checkNotInPast(LocalDate startDate) {
+		if (startDate.isBefore(LocalDate.now())) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "ALLOCATION_IN_PAST",
+					"The allocation can't start in the past (before " + LocalDate.now() + ")");
+		}
+	}
+
+	/** A start date that was in the future when it was proposed may have passed by the time the RM decides. */
+	private static void checkStartNotPassed(LocalDate startDate) {
+		if (startDate.isBefore(LocalDate.now())) {
+			throw new BusinessException(HttpStatus.CONFLICT, "ALLOCATION_START_PASSED",
+					"The proposed start (" + startDate + ") has passed, so approving it would staff someone in "
+							+ "the past. Ask the project manager to propose it again from today");
 		}
 	}
 

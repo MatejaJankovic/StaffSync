@@ -64,7 +64,8 @@ public class MatchingController {
 			+ "(BR-9)", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('PM')")
 	@GetMapping("/api/requests/{id}/candidates")
-	public Page<CandidateDto> candidates(@PathVariable Long id, @ParameterObject @PageableDefault Pageable pageable,
+	public Page<CandidateDto> candidates(@PathVariable Long id,
+			@ParameterObject @PageableDefault(size = 20) Pageable pageable,
 			@AuthenticationPrincipal AuthUser user) {
 		return matchingService.getCandidates(id, user, pageable);
 	}

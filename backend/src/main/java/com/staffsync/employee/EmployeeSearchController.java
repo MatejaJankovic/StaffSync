@@ -98,7 +98,7 @@ public class EmployeeSearchController {
 					example = "50")
 			@RequestParam(required = false) @Min(value = 0, message = FREE_RANGE) @Max(value = 100,
 					message = FREE_RANGE) Integer minFreePercent,
-			@ParameterObject @PageableDefault(sort = "lastName") Pageable pageable) {
+			@ParameterObject @PageableDefault(size = 20, sort = "lastName") Pageable pageable) {
 		return employeeSearchService.search(new EmployeeSearchFilters(skillId, minLevel, seniority, departmentId,
 				availableFrom, availableTo, minFreePercent), pageable);
 	}

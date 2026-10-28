@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { readableMessage } from '../../shared/dates';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { SS_DIALOG_DATA, SsDialogRef } from '../../shared/ui';
@@ -20,6 +21,7 @@ const REQUEST: StaffingRequest = {
   startDate: '2026-11-01',
   endDate: '2027-01-31',
   headcount: 2,
+  filled: 0,
   status: 'OPEN',
   createdAt: '2026-10-21T09:15:30Z',
   skills: [
@@ -61,6 +63,8 @@ const PROPOSAL: AllocationProposal = {
     pendingStartDate: null,
     pendingEndDate: null,
     changeReason: null,
+    decidedByName: null,
+    decisionComment: null,
   },
   warnings: ['Capacity would be exceeded on 2026-11-02 – 2026-11-13 (120%)'],
 };
@@ -164,7 +168,7 @@ describe('ProposeDialog', () => {
     const warnings = [...el().querySelectorAll('.propose-dialog__warnings li span')].map((node) =>
       node.textContent?.trim(),
     );
-    expect(warnings).toEqual(JELENA.warnings);
+    expect(warnings).toEqual(JELENA.warnings.map(readableMessage));
     expect(el().querySelectorAll('.propose-dialog__warnings ss-icon')).toHaveLength(2);
   });
 

@@ -70,8 +70,34 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 			@Param("from") LocalDate from, @Param("to") LocalDate to,
 			@Param("statuses") Collection<AllocationStatus> statuses, @Param("excludeId") Long excludeId);
 
-	/** BR-10: how many of the request's allocations are in the given statuses (the active ones, BR-16). */
-	long countByRequestIdAndStatusIn(Long requestId, Collection<AllocationStatus> statuses);
+	/**
+	 * BR-10: how many different employees have an allocation in the given statuses (the active ones, BR-16) on
+	 * the request. Headcount is about people, so one employee with two allocations in a row counts once.
+	 */
+	@Query("""
+			select count(distinct a.employee.id) from Allocation a
+			where a.request.id = :requestId
+			  and a.status in :statuses
+			""")
+	long countEmployeesByRequest(@Param("requestId") Long requestId,
+			@Param("statuses") Collection<AllocationStatus> statuses);
+
+	/**
+	 * {@link #countEmployeesByRequest} for several requests at once, as {@code [requestId, count]} rows. A request
+	 * without such an allocation has no row.
+	 */
+	@Query("""
+			select a.request.id, count(distinct a.employee.id) from Allocation a
+			where a.request.id in :requestIds
+			  and a.status in :statuses
+			group by a.request.id
+			""")
+	List<Object[]> countEmployeesByRequests(@Param("requestIds") Collection<Long> requestIds,
+			@Param("statuses") Collection<AllocationStatus> statuses);
+
+	/** The request's allocations in the given statuses, with their employees (BR-3 when the request is edited). */
+	@EntityGraph(attributePaths = "employee")
+	List<Allocation> findByRequestIdAndStatusIn(Long requestId, Collection<AllocationStatus> statuses);
 
 	/** BR-11: the allocations in the given statuses on all of the project's requests, cleaned up when it closes. */
 	List<Allocation> findByRequestProjectIdAndStatusIn(Long projectId, Collection<AllocationStatus> statuses);

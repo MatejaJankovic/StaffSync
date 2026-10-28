@@ -12,6 +12,7 @@ import com.staffsync.common.NotFoundException;
 import com.staffsync.project.dto.ProjectDto;
 import com.staffsync.project.dto.ProjectRequest;
 import com.staffsync.request.RequestStatus;
+import com.staffsync.request.StaffingRequest;
 import com.staffsync.request.StaffingRequestRepository;
 import com.staffsync.user.User;
 import com.staffsync.user.UserRepository;
@@ -67,10 +68,17 @@ public class ProjectService {
 		return ProjectDto.from(find(id));
 	}
 
-	/** The current user becomes the project's PM, and the status starts as {@code PLANNED}. */
+	/**
+	 * The current user becomes the project's PM, and the status starts as {@code PLANNED}. The name is not taken
+	 * (409), and the project doesn't end in the past: StaffSync plans work, it doesn't record finished projects.
+	 */
 	@Transactional
 	public ProjectDto create(ProjectRequest request, AuthUser currentUser) {
 		checkPeriod(request);
+		checkNotEnded(request.endDate());
+		if (projectRepository.existsByNameIgnoreCase(request.name().trim())) {
+			throw nameTaken(request.name().trim());
+		}
 		User pm = userRepository.findById(currentUser.id())
 			.orElseThrow(() -> new NotFoundException("User", currentUser.id()));
 		Project project = new Project(request.name().trim(), request.client().trim(), cleanDescription(request),
@@ -78,7 +86,11 @@ public class ProjectService {
 		return ProjectDto.from(projectRepository.save(project));
 	}
 
-	/** BR-4: only the PM who owns the project can change it. The status is not touched here. */
+	/**
+	 * BR-4: only the PM who owns the project can change it. The status is not touched here. BR-3: the new period
+	 * still covers every request that isn't cancelled (400 REQUESTS_OUTSIDE_PROJECT), so their allocations stay
+	 * inside the project too. A new end date can't be in the past; to stop a project, complete or cancel it.
+	 */
 	@Transactional
 	public ProjectDto update(Long id, ProjectRequest request, AuthUser currentUser) {
 		Project project = find(id);
@@ -91,6 +103,13 @@ public class ProjectService {
 					"A " + label(project.getStatus()) + " project can't be edited");
 		}
 		checkPeriod(request);
+		if (!request.endDate().equals(project.getEndDate())) {
+			checkNotEnded(request.endDate());
+		}
+		if (projectRepository.existsByNameIgnoreCaseAndIdNot(request.name().trim(), id)) {
+			throw nameTaken(request.name().trim());
+		}
+		checkCoversRequests(project, request);
 		project.setName(request.name().trim());
 		project.setClient(request.client().trim());
 		project.setDescription(cleanDescription(request));
@@ -102,7 +121,9 @@ public class ProjectService {
 	/**
 	 * The PM who owns the project moves it to its next status (§9): {@code PLANNED → ACTIVE → COMPLETED}, or
 	 * {@code PLANNED}/{@code ACTIVE → CANCELLED}. The checks run in this order: BR-4 (403), the move is allowed
-	 * (409 INVALID_STATUS_TRANSITION, which includes staying in the same status). Completing or cancelling it
+	 * (409 INVALID_STATUS_TRANSITION, which includes staying in the same status), and a project starts on its start
+	 * date at the earliest (409 PROJECT_NOT_STARTED: move the start date to start it earlier). Completing or
+	 * cancelling it
 	 * runs the BR-11 clean-up in this one transaction, with today as the closing day (T-21): first the
 	 * allocations ({@link AllocationService#closeForProject}, which also recalculates their requests), then the
 	 * requests left {@code OPEN} or {@code PARTIALLY_FILLED} are cancelled. A request still filled by its
@@ -119,6 +140,12 @@ public class ProjectService {
 		if (!current.canMoveTo(next)) {
 			throw new BusinessException(HttpStatus.CONFLICT, "INVALID_STATUS_TRANSITION",
 					"A project can't move from " + label(current) + " to " + label(next));
+		}
+
+		if (next == ProjectStatus.ACTIVE && project.getStartDate().isAfter(LocalDate.now())) {
+			throw new BusinessException(HttpStatus.CONFLICT, "PROJECT_NOT_STARTED",
+					"The project starts on " + project.getStartDate()
+							+ ". To start it earlier, change its start date first");
 		}
 
 		project.setStatus(next);
@@ -140,6 +167,30 @@ public class ProjectService {
 		if (request.startDate().isAfter(request.endDate())) {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_PERIOD",
 					"Start date must not be after end date");
+		}
+	}
+
+	private static void checkNotEnded(LocalDate endDate) {
+		if (endDate.isBefore(LocalDate.now())) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "PROJECT_IN_PAST", "The project must not end in the past");
+		}
+	}
+
+	private static BusinessException nameTaken(String name) {
+		return new BusinessException(HttpStatus.CONFLICT, "PROJECT_NAME_TAKEN",
+				"A project named '" + name + "' already exists");
+	}
+
+	/** BR-3: the requests' periods lie inside the project's, so the project can't shrink past one of them. */
+	private void checkCoversRequests(Project project, ProjectRequest request) {
+		for (StaffingRequest staffing : requestRepository.findByProjectIdAndStatusIn(project.getId(),
+				List.of(RequestStatus.OPEN, RequestStatus.PARTIALLY_FILLED, RequestStatus.FILLED))) {
+			if (staffing.getStartDate().isBefore(request.startDate())
+					|| staffing.getEndDate().isAfter(request.endDate())) {
+				throw new BusinessException(HttpStatus.BAD_REQUEST, "REQUESTS_OUTSIDE_PROJECT",
+						"The project period must still cover its staffing requests: '" + staffing.getTitle()
+								+ "' runs from " + staffing.getStartDate() + " to " + staffing.getEndDate());
+			}
 		}
 	}
 

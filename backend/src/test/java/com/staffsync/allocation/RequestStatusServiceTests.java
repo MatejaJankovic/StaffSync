@@ -103,7 +103,7 @@ class RequestStatusServiceTests {
 
 		requestStatusService.recalculate(REQUEST_ID);
 
-		verify(allocationRepository).countByRequestIdAndStatusIn(REQUEST_ID, AllocationStatus.ACTIVE);
+		verify(allocationRepository).countEmployeesByRequest(REQUEST_ID, AllocationStatus.ACTIVE);
 		assertThat(AllocationStatus.ACTIVE).containsExactlyInAnyOrder(AllocationStatus.APPROVED,
 				AllocationStatus.CHANGE_PENDING);
 	}
@@ -117,7 +117,7 @@ class RequestStatusServiceTests {
 
 		assertThat(requestStatusService.recalculate(REQUEST_ID)).isEqualTo(RequestStatus.CANCELLED);
 		assertThat(request.getStatus()).isEqualTo(RequestStatus.CANCELLED);
-		verify(allocationRepository, never()).countByRequestIdAndStatusIn(any(), any());
+		verify(allocationRepository, never()).countEmployeesByRequest(any(), any());
 	}
 
 	@Test
@@ -129,7 +129,7 @@ class RequestStatusServiceTests {
 
 	private void givenActive(long count) {
 		when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
-		when(allocationRepository.countByRequestIdAndStatusIn(REQUEST_ID, AllocationStatus.ACTIVE)).thenReturn(count);
+		when(allocationRepository.countEmployeesByRequest(REQUEST_ID, AllocationStatus.ACTIVE)).thenReturn(count);
 	}
 
 	private Allocation proposal() {

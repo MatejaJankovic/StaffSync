@@ -1,4 +1,5 @@
 import { Component, input } from '@angular/core';
+import { readableMessage } from '../dates';
 import { SsIcon } from '../ui';
 
 /**
@@ -9,7 +10,8 @@ import { SsIcon } from '../ui';
  * <app-warning-list [warnings]="candidate.warnings" />
  * ```
  *
- * Hidden when there are no warnings, so a margin set on it by the page doesn't leave a gap.
+ * Hidden when there are no warnings, so a margin set on it by the page doesn't leave a gap. The
+ * API's dates and seniority levels are shown the way the rest of the UI writes them.
  */
 @Component({
   selector: 'app-warning-list',
@@ -19,7 +21,7 @@ import { SsIcon } from '../ui';
       @for (warning of warnings(); track $index) {
         <li>
           <ss-icon>warning</ss-icon>
-          <span>{{ warning }}</span>
+          <span>{{ readable(warning) }}</span>
         </li>
       }
     </ul>
@@ -62,4 +64,6 @@ import { SsIcon } from '../ui';
 })
 export class WarningList {
   readonly warnings = input.required<readonly string[]>();
+
+  protected readonly readable = readableMessage;
 }

@@ -105,7 +105,7 @@ class MatchingControllerTests {
 		LoggedIn pm = login(PM);
 		int project = createProject(pm.token());
 		int request = createRequest(pm.token(), project, skills);
-		int otherRequest = createRequest(pm.token(), project, skills);
+		int otherRequest = createRequest(pm.token(), project, skills, "Second Java Developer");
 
 		Department engineering = departmentRepository.save(new Department("Engineering-" + UUID.randomUUID()));
 		User marko = newEmployee("Marko", Seniority.SENIOR, 100);
@@ -479,8 +479,13 @@ class MatchingControllerTests {
 
 	/** §4: MEDIOR, 60%, 1.11–31.1, Java ≥ 4 and Spring ≥ 3 required, PostgreSQL ≥ 2 nice to have. */
 	private int createRequest(String token, int project, Skills skills) {
+		return createRequest(token, project, skills, "Java Developer");
+	}
+
+	/** Titles are unique within a project, so a second request on it needs another one. */
+	private int createRequest(String token, int project, Skills skills, String title) {
 		Map<String, Object> body = new HashMap<>();
-		body.put("title", "Java Developer");
+		body.put("title", title);
 		body.put("seniority", "MEDIOR");
 		body.put("allocationPercent", 60);
 		body.put("startDate", "2026-11-01");

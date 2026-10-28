@@ -14,13 +14,15 @@ public record StaffingRequestDto(@Schema(example = "1") Long id, @Schema(example
 		@Schema(example = "Java Developer") String title, @Schema(example = "MEDIOR") Seniority seniority,
 		@Schema(example = "60") int allocationPercent, @Schema(example = "2026-11-01") LocalDate startDate,
 		@Schema(example = "2027-01-31") LocalDate endDate, @Schema(example = "2") int headcount,
-		@Schema(example = "OPEN") RequestStatus status, @Schema(example = "2026-10-21T09:15:30Z") Instant createdAt,
-		List<RequestSkillDto> skills) {
+		@Schema(example = "1", description = "How many different people have an active allocation on it (BR-10)")
+		int filled, @Schema(example = "PARTIALLY_FILLED") RequestStatus status,
+		@Schema(example = "2026-10-21T09:15:30Z") Instant createdAt, List<RequestSkillDto> skills) {
 
-	public static StaffingRequestDto from(StaffingRequest request) {
+	/** {@code filled} is the number of people with an active allocation, see {@code RequestStatusService}. */
+	public static StaffingRequestDto from(StaffingRequest request, long filled) {
 		return new StaffingRequestDto(request.getId(), request.getProject().getId(), request.getTitle(),
 				request.getSeniority(), request.getAllocationPercent(), request.getStartDate(), request.getEndDate(),
-				request.getHeadcount(), request.getStatus(), request.getCreatedAt(),
+				request.getHeadcount(), (int) filled, request.getStatus(), request.getCreatedAt(),
 				request.getSkills().stream().map(RequestSkillDto::from).toList());
 	}
 

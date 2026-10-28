@@ -1,5 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
-import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { catchError, debounceTime, EMPTY, map, switchMap } from 'rxjs';
 import { DateRangePicker, DateRangeValue } from '../../shared/date-range-picker/date-range-picker';
 import { parseIsoDate, toIsoDate } from '../../shared/dates';
 import {
@@ -19,8 +21,14 @@ import { WarningList } from '../../shared/warning-list/warning-list';
 import { AllocationProposal } from '../allocations/allocation.models';
 import { AllocationService } from '../allocations/allocation.service';
 import { formatPeriod } from '../projects/project.models';
+import { UserService } from '../users/user.service';
 import { ALLOCATION_OPTIONS, StaffingRequest } from '../requests/request.models';
-import { Candidate, scoreParts } from './candidate.models';
+import {
+  Candidate,
+  CAPACITY_WARNING_PREFIX,
+  capacityWarnings,
+  scoreParts,
+} from './candidate.models';
 
 /** Pass the request and the candidate to propose for it. Closes with the proposal that was made. */
 export interface ProposeDialogData {
@@ -31,8 +39,10 @@ export interface ProposeDialogData {
 /**
  * The *Propose* dialog on *Candidates*: the percent and the period of the new allocation, filled in
  * from the request. The PM can pick another percent and shorten the period, never beyond the
- * request's (BR-3), e.g. to start after the days the person is busy. API errors (400, 403, 409)
- * are shown by the global error snackbar, and the dialog stays open so the PM can fix the input.
+ * request's (BR-3), e.g. to start after the days the person is busy, and never before today: nobody
+ * is staffed in the past. The capacity warnings follow the chosen percent and period: they are
+ * worked out again from the employee's availability whenever either changes. API errors (400, 403,
+ * 409) are shown by the global error snackbar, and the dialog stays open so the PM can fix the input.
  */
 @Component({
   selector: 'app-propose-dialog',
@@ -67,10 +77,10 @@ export interface ProposeDialogData {
           }
         </dl>
 
-        @if (candidate.warnings.length) {
+        @if (warnings().length) {
           <p class="propose-dialog__section">Check before proposing</p>
         }
-        <app-warning-list class="propose-dialog__warnings" [warnings]="candidate.warnings" />
+        <app-warning-list class="propose-dialog__warnings" [warnings]="warnings()" />
 
         <div class="propose-dialog__fields">
           <ss-field>
@@ -86,12 +96,13 @@ export interface ProposeDialogData {
             formControlName="period"
             label="Period"
             required
-            [min]="requestStart"
+            [min]="minStart"
             [max]="requestEnd"
           />
         </div>
         <p class="propose-dialog__hint">
-          The period can be shorter than the request’s ({{ requestPeriod }}), but not longer.
+          The period can be shorter than the request’s ({{ requestPeriod }}), but not longer, and it
+          can’t start before today.
         </p>
       </ss-dialog-content>
 
@@ -173,8 +184,10 @@ export interface ProposeDialogData {
     }
   `,
 })
-export class ProposeDialog {
+export class ProposeDialog implements OnInit {
   private readonly allocations = inject(AllocationService);
+  private readonly users = inject(UserService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly dialogRef = inject<SsDialogRef<ProposeDialog, AllocationProposal>>(SsDialogRef);
   private readonly data = inject<ProposeDialogData>(SS_DIALOG_DATA);
 
@@ -187,14 +200,51 @@ export class ProposeDialog {
   /** The period of the allocation must stay inside the request's (BR-3). */
   protected readonly requestStart = parseIsoDate(this.request.startDate);
   protected readonly requestEnd = parseIsoDate(this.request.endDate);
+  /** Nobody is staffed in the past, so a request that has already started is proposed from today. */
+  protected readonly minStart = laterOf(this.requestStart, today());
 
-  /** Starts with the request's percent and period, which is what the API uses when none is sent. */
+  /**
+   * Starts with the request's percent and period, which is what the API uses when none is sent,
+   * from today on for a request that has already started.
+   */
   protected readonly form = inject(NonNullableFormBuilder).group({
-    percent: this.request.allocationPercent,
-    period: { start: this.requestStart, end: this.requestEnd } as DateRangeValue,
+    percent: [this.request.allocationPercent, Validators.required],
+    period: { start: this.minStart, end: this.requestEnd } as DateRangeValue,
   });
 
   protected readonly saving = signal(false);
+
+  /**
+   * The candidate's warnings, with the capacity ones for the chosen percent and period. They start as
+   * the matching engine's (the request's percent and period) and follow every change of either.
+   */
+  protected readonly warnings = signal<readonly string[]>(this.candidate.warnings);
+
+  private readonly otherWarnings = this.candidate.warnings.filter(
+    (warning) => !warning.startsWith(CAPACITY_WARNING_PREFIX),
+  );
+
+  ngOnInit(): void {
+    this.form.valueChanges
+      .pipe(
+        debounceTime(250),
+        map(() => this.form.getRawValue()),
+        switchMap(({ percent, period }) => {
+          if (!period.start || !period.end || period.start > period.end) {
+            return EMPTY;
+          }
+          return this.users
+            .availability(this.candidate.employeeId, toIsoDate(period.start), toIsoDate(period.end))
+            .pipe(
+              map((availability) => capacityWarnings(availability.days, percent)),
+              // Keep the last warnings: the error snackbar has said what went wrong
+              catchError(() => EMPTY),
+            );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((capacity) => this.warnings.set([...capacity, ...this.otherWarnings]));
+  }
 
   protected propose(): void {
     if (this.form.invalid || this.saving()) {
@@ -224,4 +274,14 @@ export class ProposeDialog {
         },
       });
   }
+}
+
+/** Today at midnight, so it compares with the dates of the picker. */
+function today(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function laterOf(a: Date, b: Date): Date {
+  return a > b ? a : b;
 }

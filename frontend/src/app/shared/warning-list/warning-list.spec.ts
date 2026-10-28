@@ -15,8 +15,9 @@ describe('WarningList', () => {
       'Missing PostgreSQL (nice to have)',
     ]);
     const items = el.querySelectorAll('[aria-label="Warnings"] li');
+    // The API's ISO dates are written the way the rest of the UI writes dates
     expect([...items].map((item) => item.querySelector('span')?.textContent)).toEqual([
-      'Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)',
+      'Insufficient capacity 2 Nov 2026 – 13 Nov 2026 (40% free, 60% required)',
       'Missing PostgreSQL (nice to have)',
     ]);
     expect([...items].map((item) => item.querySelector('ss-icon')?.textContent)).toEqual([

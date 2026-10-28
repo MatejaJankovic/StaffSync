@@ -78,8 +78,22 @@ class ProjectServiceTests {
 	// ---- §9: the allowed moves
 
 	@Test
+	void aProjectCannotBecomeActiveBeforeItsStartDate() {
+		givenProject(ProjectStatus.PLANNED);
+		project.setStartDate(LocalDate.now().plusDays(1));
+
+		assertThatThrownBy(() -> projectService.changeStatus(PROJECT_ID, ProjectStatus.ACTIVE, PM))
+			.isInstanceOfSatisfying(BusinessException.class, ex -> {
+				assertThat(ex.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+				assertThat(ex.getCode()).isEqualTo("PROJECT_NOT_STARTED");
+			});
+		assertThat(project.getStatus()).isEqualTo(ProjectStatus.PLANNED);
+	}
+
+	@Test
 	void aPlannedProjectBecomesActiveWithoutAnyCleanUp() {
 		givenProject(ProjectStatus.PLANNED);
+		project.setStartDate(LocalDate.now());
 
 		ProjectDto result = projectService.changeStatus(PROJECT_ID, ProjectStatus.ACTIVE, PM);
 

@@ -1,5 +1,7 @@
 package com.staffsync.request;
 
+import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -7,6 +9,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.staffsync.allocation.Allocation;
+import com.staffsync.allocation.AllocationRepository;
+import com.staffsync.allocation.AllocationStatus;
+import com.staffsync.allocation.RequestStatusService;
 import com.staffsync.auth.AuthUser;
 import com.staffsync.common.BusinessException;
 import com.staffsync.common.ErrorResponse.FieldViolation;
@@ -40,11 +46,18 @@ public class StaffingRequestService {
 
 	private final SkillRepository skillRepository;
 
+	private final AllocationRepository allocationRepository;
+
+	private final RequestStatusService requestStatusService;
+
 	public StaffingRequestService(StaffingRequestRepository requestRepository, ProjectRepository projectRepository,
-			SkillRepository skillRepository) {
+			SkillRepository skillRepository, AllocationRepository allocationRepository,
+			RequestStatusService requestStatusService) {
 		this.requestRepository = requestRepository;
 		this.projectRepository = projectRepository;
 		this.skillRepository = skillRepository;
+		this.allocationRepository = allocationRepository;
+		this.requestStatusService = requestStatusService;
 	}
 
 	@Transactional(readOnly = true)
@@ -52,7 +65,15 @@ public class StaffingRequestService {
 		if (!projectRepository.existsById(projectId)) {
 			throw new NotFoundException("Project", projectId);
 		}
-		return requestRepository.findByProjectId(projectId, checkedSort(pageable)).map(StaffingRequestDto::from);
+		Page<StaffingRequest> page = requestRepository.findByProjectId(projectId, checkedSort(pageable));
+		Map<Long, Long> filled = new HashMap<>();
+		if (page.hasContent()) {
+			List<Long> ids = page.getContent().stream().map(StaffingRequest::getId).toList();
+			for (Object[] row : allocationRepository.countEmployeesByRequests(ids, AllocationStatus.ACTIVE)) {
+				filled.put((Long) row[0], (Long) row[1]);
+			}
+		}
+		return page.map(request -> StaffingRequestDto.from(request, filled.getOrDefault(request.getId(), 0L)));
 	}
 
 	/** BR-4: only the PM who owns the request's project can read a single request. */
@@ -60,10 +81,14 @@ public class StaffingRequestService {
 	public StaffingRequestDto get(Long id, AuthUser currentUser) {
 		StaffingRequest request = find(id);
 		checkOwner(request.getProject(), currentUser);
-		return StaffingRequestDto.from(request);
+		return toDto(request);
 	}
 
-	/** The new request is {@code OPEN}. BR-4: only the project's PM. BR-3: the period is inside the project's. */
+	/**
+	 * The new request is {@code OPEN}. BR-4: only the project's PM. BR-3: the period is inside the project's, and it
+	 * doesn't end before today, since nobody could be proposed for it any more. The title isn't taken by another
+	 * request of the project that isn't cancelled (409).
+	 */
 	@Transactional
 	public StaffingRequestDto create(Long projectId, StaffingRequestRequest body, AuthUser currentUser) {
 		Project project = projectRepository.findById(projectId)
@@ -71,17 +96,23 @@ public class StaffingRequestService {
 		checkOwner(project, currentUser);
 		checkProjectOpen(project);
 		checkValues(body, project);
+		checkNotEnded(body.endDate());
+		checkTitleFree(project, body.title().trim(), null);
 		Map<Long, Skill> skills = resolveSkills(body.skills());
 
 		StaffingRequest request = new StaffingRequest(project, body.title().trim(), body.seniority(),
 				body.allocationPercent(), body.startDate(), body.endDate(), body.headcount());
 		applySkills(request, body.skills(), skills);
-		return StaffingRequestDto.from(requestRepository.save(request));
+		return StaffingRequestDto.from(requestRepository.save(request), 0);
 	}
 
 	/**
-	 * BR-3 and BR-4 again. The skills replace the current ones. The status is not touched here: it is
-	 * calculated from the allocations (BR-10).
+	 * BR-3 and BR-4 again. The skills replace the current ones. While the request has allocations, the edit must
+	 * still fit them: the period covers every proposed and active allocation, a pending change included (BR-3,
+	 * 400 ALLOCATION_OUTSIDE_REQUEST, as for a proposal outside the request), and the headcount is not below
+	 * the number of people already allocated (409 HEADCOUNT_BELOW_FILLED). The allocations keep their own percent and the RM's decisions, so a new
+	 * percent or new skills only apply to the next proposals. Then the status is recalculated (BR-10): a higher
+	 * headcount reopens a filled request, and one lowered to the people allocated fills it, which closes it.
 	 */
 	@Transactional
 	public StaffingRequestDto update(Long id, StaffingRequestRequest body, AuthUser currentUser) {
@@ -92,9 +123,12 @@ public class StaffingRequestService {
 		}
 		checkProjectOpen(request.getProject());
 		checkValues(body, request.getProject());
+		if (!body.endDate().equals(request.getEndDate())) {
+			checkNotEnded(body.endDate());
+		}
+		checkTitleFree(request.getProject(), body.title().trim(), request.getId());
+		checkFitsAllocations(request, body);
 		Map<Long, Skill> skills = resolveSkills(body.skills());
-		// TODO(#18, BR-3, BR-10): once the allocation table exists (#23), refuse to lower the headcount or to
-		// change the period or the allocation percentage while the request has active allocations
 
 		request.setTitle(body.title().trim());
 		request.setSeniority(body.seniority());
@@ -103,12 +137,16 @@ public class StaffingRequestService {
 		request.setEndDate(body.endDate());
 		request.setHeadcount(body.headcount());
 		applySkills(request, body.skills(), skills);
-		return StaffingRequestDto.from(request);
+		requestStatusService.recalculate(request.getId());
+		return toDto(request);
 	}
 
 	/**
-	 * Cancels the request (it is never deleted). BR-4: only the project's PM. §9: a request can be
-	 * cancelled from {@code OPEN} or {@code PARTIALLY_FILLED}, but not once it is {@code FILLED}.
+	 * Cancels the request (it is never deleted). BR-4: only the project's PM. §9: only a request nobody is
+	 * allocated to can be cancelled, i.e. an {@code OPEN} one (409 REQUEST_HAS_ACTIVE_ALLOCATIONS otherwise),
+	 * because an approved allocation can't stay on a cancelled request. To stop looking for more people on a
+	 * partially filled request, lower its headcount instead. The request's proposals are cancelled with it, so
+	 * they leave the RM's pending approvals.
 	 */
 	@Transactional
 	public StaffingRequestDto cancel(Long id, AuthUser currentUser) {
@@ -117,15 +155,66 @@ public class StaffingRequestService {
 		switch (request.getStatus()) {
 			case CANCELLED -> throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_CANCELLED",
 					"The request is already cancelled");
-			case FILLED -> throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_HAS_ACTIVE_ALLOCATIONS",
-					"A filled request can't be cancelled. Cancel one of its allocations first");
-			case OPEN, PARTIALLY_FILLED -> {
+			case OPEN, PARTIALLY_FILLED, FILLED -> {
 			}
 		}
-		// TODO(#18 open question, to agree with Lazar): once the allocation table exists (#23), cancel the
-		// request's PROPOSED allocations here, and decide what happens to its approved ones
+		long people = requestStatusService.activePeople(id);
+		if (people > 0) {
+			throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_HAS_ACTIVE_ALLOCATIONS",
+					"This request has " + (people == 1 ? "1 person" : people + " people") + " allocated, so it can't "
+							+ "be cancelled. Cancel their allocations first, or lower the headcount to " + people
+							+ " to stop looking for more people");
+		}
+		allocationRepository.findByRequestIdAndStatus(id, AllocationStatus.PROPOSED)
+			.forEach(proposal -> proposal.setStatus(AllocationStatus.CANCELLED));
 		request.setStatus(RequestStatus.CANCELLED);
-		return StaffingRequestDto.from(request);
+		return StaffingRequestDto.from(request, 0);
+	}
+
+	private StaffingRequestDto toDto(StaffingRequest request) {
+		return StaffingRequestDto.from(request, requestStatusService.activePeople(request.getId()));
+	}
+
+	/** A request that has already ended can't take a proposal, so it isn't created or moved there either. */
+	private static void checkNotEnded(LocalDate endDate) {
+		if (endDate.isBefore(LocalDate.now())) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "REQUEST_IN_PAST",
+					"The request must not end in the past");
+		}
+	}
+
+	private void checkTitleFree(Project project, String title, Long excludeId) {
+		if (requestRepository.existsOpenTitle(project.getId(), title, excludeId)) {
+			throw new BusinessException(HttpStatus.CONFLICT, "REQUEST_TITLE_TAKEN",
+					"This project already has a request called '" + title + "'");
+		}
+	}
+
+	/**
+	 * The edited request must still hold its allocations: every proposed or active one, with its pending change,
+	 * inside the new period (BR-3), and at least as many places as people already allocated (BR-10).
+	 */
+	private void checkFitsAllocations(StaffingRequest request, StaffingRequestRequest body) {
+		for (Allocation allocation : allocationRepository.findByRequestIdAndStatusIn(request.getId(),
+				AllocationStatus.ACTIVE_OR_PROPOSED)) {
+			LocalDate start = allocation.getStartDate();
+			LocalDate end = allocation.getEndDate();
+			if (allocation.hasPendingChange()) {
+				start = start.isBefore(allocation.getPendingStartDate()) ? start : allocation.getPendingStartDate();
+				end = end.isAfter(allocation.getPendingEndDate()) ? end : allocation.getPendingEndDate();
+			}
+			if (start.isBefore(body.startDate()) || end.isAfter(body.endDate())) {
+				throw new BusinessException(HttpStatus.BAD_REQUEST, "ALLOCATION_OUTSIDE_REQUEST",
+						"The request period must still cover its allocations: " + allocation.getEmployee().getFirstName()
+								+ " " + allocation.getEmployee().getLastName() + " is allocated from " + start + " to "
+								+ end);
+			}
+		}
+		long people = requestStatusService.activePeople(request.getId());
+		if (body.headcount() < people) {
+			throw new BusinessException(HttpStatus.CONFLICT, "HEADCOUNT_BELOW_FILLED",
+					"The headcount can't be lower than the " + people + " people already allocated");
+		}
 	}
 
 	private StaffingRequest find(Long id) {

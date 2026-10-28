@@ -84,11 +84,12 @@
 
         <section class="project__section" aria-labelledby="project-requests">
           <h2 id="project-requests">Staffing requests</h2>
-          <app-project-requests [project]="current" />
+          <!-- Cancelling a request withdraws its proposals, which the team panel lists -->
+          <app-project-requests [project]="current" (cancelled)="team()?.reload()" />
         </section>
 
         <section class="project__section" aria-labelledby="project-team">
-          <h2 id="project-team">Team</h2>
+          <h2 id="project-team">{{ teamTitle() }}</h2>
           <!-- Withdrawing or cancelling changes the request's status (BR-10) -->
           <app-team-panel [project]="current" (changed)="requests()?.reload()" />
         </section>

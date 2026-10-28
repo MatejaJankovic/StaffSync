@@ -34,6 +34,8 @@ function allocation(
     pendingStartDate: null,
     pendingEndDate: null,
     changeReason: null,
+    decidedByName: null,
+    decisionComment: null,
     ...values,
   };
 }
@@ -44,6 +46,10 @@ const JELENA: PendingApproval = {
   allocation: allocation(2, 'Jelena Jovic'),
   proposedById: 7,
   proposedByName: 'Ana PM',
+  awaitingSince: '2026-10-22T09:00:00Z',
+  capacityPercent: 100,
+  peakLoad: 60,
+  overCapacityDays: 0,
 };
 
 // §4 step 8: Marko, approved at 60%, with a change to 80% waiting
@@ -55,9 +61,15 @@ const MARKO_CHANGE: PendingApproval = {
     pendingStartDate: '2026-11-01',
     pendingEndDate: '2027-01-31',
     changeReason: 'The client asked for more work',
+    decidedByName: null,
+    decisionComment: null,
   }),
   proposedById: 7,
   proposedByName: 'Ana PM',
+  awaitingSince: '2026-10-22T09:00:00Z',
+  capacityPercent: 100,
+  peakLoad: 60,
+  overCapacityDays: 0,
 };
 
 /** One `{ date, load }` per working day, as the API sends them. */
@@ -155,10 +167,9 @@ describe('PendingApprovalsPage', () => {
     const headers = [...el().querySelectorAll('th')].map((th) => th.textContent?.trim());
     expect(headers).toEqual([
       'Type',
-      'Employee',
-      'Project',
-      'Request',
+      'Employee and request',
       'Allocation and period',
+      'Capacity',
       '',
     ]);
 
@@ -166,9 +177,22 @@ describe('PendingApprovalsPage', () => {
     expect(jelena.querySelector('app-status-chip')?.textContent?.trim()).toBe('New');
     expect(jelena.textContent).toContain('Project Alpha');
     expect(jelena.textContent).toContain('Java Developer');
+    expect(jelena.textContent).toContain('Proposed by Ana PM');
     expect(jelena.textContent).toContain('60%');
     expect(jelena.textContent).toContain('1 Nov 2026 – 31 Jan 2027');
     expect(jelena.querySelector('.change-diff__new')).toBeNull();
+  });
+
+  it('says before approving whether the allocation fits the employee’s capacity (BR-1)', async () => {
+    await open([{ ...JELENA, peakLoad: 120, overCapacityDays: 10 }, MARKO_CHANGE]);
+
+    expect(rowOf('Jelena Jovic').querySelector('.approvals__fit--over')?.textContent).toContain(
+      'Over capacity on 10 working days (up to 120% of 100%)',
+    );
+    expect(rowOf('Marko Markovic').querySelector('.approvals__fit')?.textContent).toContain(
+      'Fits: up to 60% of 100%',
+    );
+    expect(rowOf('Marko Markovic').querySelector('.approvals__fit--over')).toBeNull();
   });
 
   it('shows a change as old → new with change-diff, and its reason', async () => {

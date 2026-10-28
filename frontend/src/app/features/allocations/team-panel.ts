@@ -5,11 +5,12 @@ import { AuthService } from '../../core/auth/auth.service';
 import { Notifications } from '../../core/error/notifications';
 import { ConfirmDialogData } from '../../shared/confirm-dialog/confirm-dialog';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
+import { readableMessage } from '../../shared/dates';
 import { PagedTable, PagedTableColumn } from '../../shared/paged-table/paged-table';
 import { PagedTableCell } from '../../shared/paged-table/paged-table-cell';
 import { StatusChip } from '../../shared/status-chip/status-chip';
 import { SsDialog, SsButton, SsIcon } from '../../shared/ui';
-import { formatPeriod, isEditable, Project } from '../projects/project.models';
+import { formatPeriod, isEditable, isProjectOwner, Project } from '../projects/project.models';
 import { RequestService } from '../requests/request.service';
 import {
   Allocation,
@@ -19,6 +20,7 @@ import {
   isCancellable,
   isChangeable,
   isWithdrawable,
+  rejectionNote,
 } from './allocation.models';
 import { AllocationService } from './allocation.service';
 import { ChangeRequestDialog, ChangeRequestDialogData } from './change-request-dialog';
@@ -86,6 +88,12 @@ export class TeamPanel {
     { key: 'actions', header: '' },
   ];
 
+  /** Why the RM rejected the proposal or the last change (BR-6), so the PM knows what to do next. */
+  protected readonly rejectionNote = rejectionNote;
+
+  /** The API's dates written the way the rest of the UI writes them. */
+  protected readonly readable = readableMessage;
+
   /** The last change request that came back with warnings, until the PM dismisses it. */
   protected readonly changeNotice = signal<ChangeNotice | null>(null);
 
@@ -99,7 +107,9 @@ export class TeamPanel {
   });
 
   /** Only the PM who owns the project withdraws and cancels (BR-4). */
-  protected readonly isOwner = computed(() => this.project().pmId === this.auth.currentUser()?.id);
+  protected readonly isOwner = computed(() =>
+    isProjectOwner(this.project(), this.auth.currentUser()),
+  );
 
   /** The API returns only what the role may see, so "no rows" means something different to each. */
   protected readonly emptyText = computed(() => {

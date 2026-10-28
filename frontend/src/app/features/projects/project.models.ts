@@ -1,3 +1,4 @@
+import { User } from '../../core/auth/auth.models';
 import { shortDate } from '../../shared/dates';
 import { ProjectStatus } from '../../shared/status-chip/status-chip';
 
@@ -62,6 +63,17 @@ export function nextStatuses(status: ProjectStatus): ProjectStatus[] {
 }
 
 /** A COMPLETED or CANCELLED project can't be edited (the API answers 409). */
+/**
+ * Whether the user manages this project (BR-4): a PM, and its PM. The role matters too, because a PM
+ * who was given another role still owns their old projects until an Admin hands them over.
+ */
+export function isProjectOwner(
+  project: Pick<Project, 'pmId'>,
+  user: Pick<User, 'id' | 'role'> | null | undefined,
+): boolean {
+  return !!user && user.role === 'PM' && project.pmId === user.id;
+}
+
 export function isEditable(project: Pick<Project, 'status'>): boolean {
   return project.status === 'PLANNED' || project.status === 'ACTIVE';
 }

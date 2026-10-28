@@ -1,18 +1,23 @@
 package com.staffsync;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.staffsync.allocation.Allocation;
+import com.staffsync.allocation.AllocationRepository;
+import com.staffsync.allocation.AllocationStatus;
 import com.staffsync.project.Project;
 import com.staffsync.project.ProjectRepository;
 import com.staffsync.project.ProjectStatus;
@@ -67,6 +72,9 @@ class StaffingRequestControllerTests {
 
 	@Autowired
 	SkillRepository skillRepository;
+
+	@Autowired
+	AllocationRepository allocationRepository;
 
 	@Autowired
 	PasswordEncoder passwordEncoder;
@@ -496,7 +504,7 @@ class StaffingRequestControllerTests {
 		int project = createProject(pm.token());
 		int otherProject = createProject(pm.token());
 		for (int i = 0; i < 3; i++) {
-			createRequest(pm.token(), project);
+			createRequest(pm.token(), project, "Java Developer " + i);
 		}
 		createRequest(pm.token(), otherProject);
 
@@ -702,10 +710,17 @@ class StaffingRequestControllerTests {
 	}
 
 	@Test
-	void aFilledRequestCannotBeCancelled() {
+	void aRequestWithSomebodyAllocatedCannotBeCancelled() {
 		LoggedIn pm = login(PM);
 		int request = createRequest(pm.token(), createProject(pm.token()));
-		setRequestStatus(request, RequestStatus.FILLED); // BR-10 does this once allocations exist (US-10)
+		StaffingRequest saved = requestRepository.findById((long) request).orElseThrow();
+		User employee = userRepository.findAll().stream().filter(user -> user.getRole() == Role.EMPLOYEE)
+			.findFirst().orElseThrow();
+		Allocation approved = new Allocation(saved, employee, 60, saved.getStartDate(), saved.getEndDate(),
+				saved.getProject().getPm());
+		approved.setStatus(AllocationStatus.APPROVED);
+		allocationRepository.save(approved);
+		setRequestStatus(request, RequestStatus.FILLED);
 
 		given().auth().oauth2(pm.token()).when().delete("/api/requests/" + request)
 			.then()
@@ -713,6 +728,161 @@ class StaffingRequestControllerTests {
 			.body("code", equalTo("REQUEST_HAS_ACTIVE_ALLOCATIONS"));
 		given().auth().oauth2(pm.token()).when().get("/api/requests/" + request)
 			.then().body("status", equalTo("FILLED"));
+	}
+
+	@Test
+	void cancellingARequestWithdrawsItsProposals() {
+		LoggedIn pm = login(PM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		Allocation proposal = allocate(request, employees().get(0), "2026-11-02", "2026-11-30",
+				AllocationStatus.PROPOSED);
+
+		given().auth().oauth2(pm.token()).when().delete("/api/requests/" + request)
+			.then().statusCode(200).body("status", equalTo("CANCELLED"));
+
+		assertThat(allocationRepository.findById(proposal.getId()).orElseThrow().getStatus())
+			.isEqualTo(AllocationStatus.CANCELLED);
+	}
+
+	@Test
+	void anEditMustKeepTheAllocationsInsideTheRequest() {
+		LoggedIn pm = login(PM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		allocate(request, employees().get(0), "2026-11-02", "2026-12-31", AllocationStatus.APPROVED);
+		Map<String, Object> body = demoRequest();
+		body.put("startDate", "2026-12-01");
+
+		// BR-3 is a 400, the same status as a proposal outside the request
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(body)
+			.when().put("/api/requests/" + request)
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("ALLOCATION_OUTSIDE_REQUEST"));
+	}
+
+	@Test
+	void anEditMustKeepAPendingChangeInsideTheRequest() {
+		LoggedIn pm = login(PM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		Allocation allocation = allocate(request, employees().get(0), "2026-11-02", "2026-12-31",
+				AllocationStatus.APPROVED);
+		allocation.requestChange(60, LocalDate.of(2026, 11, 2), LocalDate.of(2027, 1, 29), "The client extended the work");
+		allocationRepository.save(allocation);
+		// Covers the current values (Nov 2 – Dec 31), but not the pending end date (Jan 29)
+		Map<String, Object> body = demoRequest();
+		body.put("endDate", "2027-01-15");
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(body)
+			.when().put("/api/requests/" + request)
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("ALLOCATION_OUTSIDE_REQUEST"));
+	}
+
+	@Test
+	void theHeadcountCannotGoBelowThePeopleAllocated() {
+		LoggedIn pm = login(PM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		allocate(request, employees().get(0), "2026-11-02", "2026-12-31", AllocationStatus.APPROVED);
+		allocate(request, employees().get(1), "2026-11-02", "2026-12-31", AllocationStatus.APPROVED);
+		Map<String, Object> body = demoRequest();
+		body.put("headcount", 1);
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(body)
+			.when().put("/api/requests/" + request)
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("HEADCOUNT_BELOW_FILLED"));
+	}
+
+	@Test
+	void loweringTheHeadcountToThePeopleAllocatedFillsTheRequestAndWithdrawsItsProposals() {
+		LoggedIn pm = login(PM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		allocate(request, employees().get(0), "2026-11-02", "2026-12-31", AllocationStatus.APPROVED);
+		Allocation proposal = allocate(request, employees().get(1), "2026-11-02", "2026-12-31",
+				AllocationStatus.PROPOSED);
+		setRequestStatus(request, RequestStatus.PARTIALLY_FILLED);
+		Map<String, Object> body = demoRequest();
+		body.put("headcount", 1);
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(body)
+			.when().put("/api/requests/" + request)
+			.then()
+			.statusCode(200)
+			.body("status", equalTo("FILLED"))
+			.body("filled", equalTo(1));
+		assertThat(allocationRepository.findById(proposal.getId()).orElseThrow().getStatus())
+			.isEqualTo(AllocationStatus.CANCELLED);
+	}
+
+	@Test
+	void raisingTheHeadcountReopensAFilledRequest() {
+		LoggedIn pm = login(PM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		allocate(request, employees().get(0), "2026-11-02", "2026-12-31", AllocationStatus.APPROVED);
+		allocate(request, employees().get(1), "2026-11-02", "2026-12-31", AllocationStatus.APPROVED);
+		setRequestStatus(request, RequestStatus.FILLED);
+		Map<String, Object> body = demoRequest();
+		body.put("headcount", 3);
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(body)
+			.when().put("/api/requests/" + request)
+			.then()
+			.statusCode(200)
+			.body("status", equalTo("PARTIALLY_FILLED"))
+			.body("filled", equalTo(2));
+	}
+
+	@Test
+	void onePersonWithTwoAllocationsInARowFillsOnePlace() {
+		LoggedIn pm = login(PM);
+		int request = createRequest(pm.token(), createProject(pm.token()));
+		User employee = employees().get(0);
+		allocate(request, employee, "2026-11-02", "2026-11-30", AllocationStatus.APPROVED);
+		allocate(request, employee, "2026-12-01", "2027-01-29", AllocationStatus.APPROVED);
+
+		// Saving the request unchanged recalculates its status (BR-10)
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(demoRequest())
+			.when().put("/api/requests/" + request)
+			.then()
+			.statusCode(200)
+			.body("status", equalTo("PARTIALLY_FILLED"))
+			.body("filled", equalTo(1));
+	}
+
+	@Test
+	void aTitleIsUniqueWithinAProjectUnlessTheOtherRequestIsCancelled() {
+		LoggedIn pm = login(PM);
+		int project = createProject(pm.token());
+		int first = createRequest(pm.token(), project);
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(demoRequest())
+			.when().post("/api/projects/" + project + "/requests")
+			.then()
+			.statusCode(409)
+			.body("code", equalTo("REQUEST_TITLE_TAKEN"));
+
+		given().auth().oauth2(pm.token()).when().delete("/api/requests/" + first).then().statusCode(200);
+		createRequest(pm.token(), project);
+	}
+
+	@Test
+	void aRequestCannotEndInThePast() {
+		LoggedIn pm = login(PM);
+		int project = createProject(pm.token());
+		Project saved = projectRepository.findById((long) project).orElseThrow();
+		saved.setStartDate(LocalDate.now().minusMonths(2));
+		projectRepository.save(saved);
+		Map<String, Object> body = demoRequest();
+		body.put("startDate", LocalDate.now().minusMonths(1).toString());
+		body.put("endDate", LocalDate.now().minusDays(1).toString());
+
+		given().auth().oauth2(pm.token()).contentType(ContentType.JSON).body(body)
+			.when().post("/api/projects/" + project + "/requests")
+			.then()
+			.statusCode(400)
+			.body("code", equalTo("REQUEST_IN_PAST"));
 	}
 
 	@Test
@@ -727,6 +897,20 @@ class StaffingRequestControllerTests {
 	}
 
 	// ---- helpers
+
+	/** Two different employees from the dev seed. */
+	private List<User> employees() {
+		return userRepository.findAll().stream().filter(user -> user.getRole() == Role.EMPLOYEE).limit(2).toList();
+	}
+
+	/** Saved directly, so a test can start from allocations in any status. */
+	private Allocation allocate(int requestId, User employee, String start, String end, AllocationStatus status) {
+		StaffingRequest request = requestRepository.findById((long) requestId).orElseThrow();
+		Allocation allocation = new Allocation(request, employee, 60, LocalDate.parse(start), LocalDate.parse(end),
+				request.getProject().getPm());
+		allocation.setStatus(status);
+		return allocationRepository.save(allocation);
+	}
 
 	private Map<String, Object> demoRequest() {
 		Map<String, Object> body = new HashMap<>();

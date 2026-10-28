@@ -51,7 +51,7 @@ public class StaffingRequestController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@GetMapping("/api/projects/{projectId}/requests")
 	public Page<StaffingRequestDto> list(@PathVariable Long projectId,
-			@ParameterObject @PageableDefault(sort = "createdAt") Pageable pageable) {
+			@ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
 		return requestService.listForProject(projectId, pageable);
 	}
 
@@ -98,7 +98,9 @@ public class StaffingRequestController {
 	@ApiResponse(responseCode = "200", description = "Updated")
 	@ApiResponse(responseCode = "400",
 			description = "A field is missing or out of range, the start date is after the end date, the period is "
-					+ "outside the project, or a skill is unknown or listed twice (BR-3)",
+					+ "outside the project, a skill is unknown or listed twice, or the new period no longer covers one "
+					+ "of its proposed or active allocations, a pending change included (ALLOCATION_OUTSIDE_REQUEST) "
+					+ "(BR-3)",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))

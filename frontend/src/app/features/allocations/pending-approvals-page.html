@@ -4,7 +4,7 @@
       <p class="ss-eyebrow">Resource manager</p>
       <h1>Pending approvals</h1>
       <p class="ss-page-context">
-        Proposals and changes for the people in your team, oldest first.
+        Proposals and changes for the people in your team, longest waiting first.
       </p>
     </div>
   </header>
@@ -53,6 +53,32 @@
   <app-paged-table [columns]="columns" [fetch]="fetch" emptyText="Nothing is waiting for you">
     <ng-template appPagedTableCell="type" let-row>
       <app-status-chip [status]="row.type" />
+    </ng-template>
+
+    <ng-template appPagedTableCell="employee" let-row>
+      <div class="approvals__who">
+        <span class="approvals__employee">{{ row.allocation.employeeName }}</span>
+        <span>{{ row.allocation.projectName }} · {{ row.allocation.requestTitle }}</span>
+        <span class="approvals__proposer">Proposed by {{ row.proposedByName }}</span>
+      </div>
+    </ng-template>
+
+    <ng-template appPagedTableCell="capacity" let-row>
+      @if (overCapacity(row)) {
+        <p class="approvals__fit approvals__fit--over">
+          <ss-icon aria-hidden="true">warning</ss-icon>
+          <span>
+            Over capacity on {{ row.overCapacityDays }} working
+            {{ row.overCapacityDays === 1 ? 'day' : 'days' }} (up to {{ row.peakLoad }}% of
+            {{ row.capacityPercent }}%)
+          </span>
+        </p>
+      } @else {
+        <p class="approvals__fit">
+          <ss-icon aria-hidden="true">check_circle</ss-icon>
+          <span>Fits: up to {{ row.peakLoad }}% of {{ row.capacityPercent }}%</span>
+        </p>
+      }
     </ng-template>
 
     <ng-template appPagedTableCell="values" let-row>

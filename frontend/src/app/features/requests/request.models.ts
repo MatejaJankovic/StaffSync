@@ -39,6 +39,8 @@ export interface StaffingRequest {
   /** `yyyy-MM-dd` */
   endDate: string;
   headcount: number;
+  /** How many different people have an active allocation on it (BR-10) */
+  filled: number;
   status: RequestStatus;
   createdAt: string;
   skills: RequestSkill[];
@@ -60,9 +62,12 @@ export function isCancelled(request: Pick<StaffingRequest, 'status'>): boolean {
   return request.status === 'CANCELLED';
 }
 
-/** §9: a request can be cancelled from OPEN or PARTIALLY_FILLED, but not once it is FILLED (the API answers 409). */
+/**
+ * §9: only a request nobody is allocated to, an OPEN one, can be cancelled (the API answers 409
+ * otherwise). To stop looking for more people, the PM lowers the headcount instead.
+ */
 export function isCancellable(request: Pick<StaffingRequest, 'status'>): boolean {
-  return request.status === 'OPEN' || request.status === 'PARTIALLY_FILLED';
+  return request.status === 'OPEN';
 }
 
 /** Candidates can be proposed on a request that is still looking for people (BR-9). */
