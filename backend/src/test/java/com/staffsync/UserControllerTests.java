@@ -195,11 +195,8 @@ class UserControllerTests {
 	}
 
 	@Test
-	void adminCreatesAPmWithoutDepartmentOrManager() {
-		Map<String, Object> body = employeeBody(uniqueEmail());
-		body.put("role", "PM");
-		body.put("departmentId", null);
-		body.put("managerId", null);
+	void adminCreatesAPmWithADepartmentButNoManagerSeniorityOrPartTime() {
+		Map<String, Object> body = managerBody(uniqueEmail(), "PM");
 
 		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
 			.when().post("/api/users")
@@ -265,8 +262,8 @@ class UserControllerTests {
 
 	@Test
 	void onlyAnEmployeeHasAManager() {
-		Map<String, Object> body = employeeBody(uniqueEmail());
-		body.put("role", "PM");
+		Map<String, Object> body = managerBody(uniqueEmail(), "PM");
+		body.put("managerId", rm().getId());
 
 		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
 			.when().post("/api/users")
@@ -575,10 +572,87 @@ class UserControllerTests {
 		Map<String, Object> body = editBody(rm, 100);
 		body.put("role", "PM");
 		body.put("managerId", null);
+		body.put("seniority", null);
 
 		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
 			.when().put("/api/users/" + rm.getId())
 			.then().statusCode(409).body("code", equalTo("RM_HAS_TEAM"));
+	}
+
+	@Test
+	void anEmployeeNeedsASeniorityAndOnlyAnEmployeeHasOneOrWorksPartTime() {
+		Map<String, Object> employee = employeeBody(uniqueEmail());
+		employee.put("seniority", null);
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(employee)
+			.when().post("/api/users")
+			.then().statusCode(400).body("details.field", containsInAnyOrder("seniority"));
+
+		Map<String, Object> pm = managerBody(uniqueEmail(), "PM");
+		pm.put("seniority", "SENIOR");
+		pm.put("capacityPercent", 50);
+		pm.put("departmentId", null);
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(pm)
+			.when().post("/api/users")
+			.then()
+			.statusCode(400)
+			.body("details.field", containsInAnyOrder("seniority", "capacityPercent", "departmentId"));
+	}
+
+	@Test
+	void aNewAccountAndAResetPasswordMustBeChangedAtTheNextLogin() {
+		String email = uniqueEmail();
+		int id = given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(employeeBody(email))
+			.when().post("/api/users")
+			.then().statusCode(201).extract().path("id");
+
+		given().contentType(ContentType.JSON).body(Map.of("email", email, "password", "Welcome2026!"))
+			.when().post("/api/auth/login")
+			.then().statusCode(200).body("user.mustChangePassword", equalTo(true));
+
+		User saved = userRepository.findById((long) id).orElseThrow();
+		saved.setMustChangePassword(false);
+		userRepository.save(saved);
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON)
+			.body(Map.of("temporaryPassword", "Another2026!"))
+			.when().put("/api/users/" + id + "/password")
+			.then().statusCode(200);
+
+		given().contentType(ContentType.JSON).body(Map.of("email", email, "password", "Another2026!"))
+			.when().post("/api/auth/login")
+			.then().statusCode(200).body("user.mustChangePassword", equalTo(true));
+	}
+
+	@Test
+	void aPmWithOpenProjectsIsHandedOverBeforeBeingDeactivated() {
+		User pm = newUser("Leaving", Role.PM);
+		pm.setDepartment(engineering());
+		userRepository.save(pm);
+		User successor = newUser("Successor", Role.PM);
+		Project open = projectRepository.save(new Project("Project-" + UUID.randomUUID(), "Acme", null,
+				LocalDate.now(), LocalDate.now().plusMonths(3), pm));
+
+		given().auth().oauth2(tokenFor(ADMIN)).when().patch("/api/users/" + pm.getId() + "/deactivate")
+			.then().statusCode(409).body("code", equalTo("PM_HAS_OPEN_PROJECTS"));
+
+		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON)
+			.body(Map.of("toPmId", successor.getId()))
+			.when().post("/api/users/" + pm.getId() + "/hand-over-projects")
+			.then().statusCode(200).body("projects", equalTo(1));
+		assertThat(projectRepository.findById(open.getId()).orElseThrow().getPm().getId())
+			.isEqualTo(successor.getId());
+
+		given().auth().oauth2(tokenFor(ADMIN)).when().patch("/api/users/" + pm.getId() + "/deactivate")
+			.then().statusCode(200).body("active", equalTo(false));
+	}
+
+	@Test
+	void aDeactivatedUserCanBeActivatedAgain() {
+		User employee = newEmployee("Returning", engineering(), rm());
+		employee.setActive(false);
+		userRepository.save(employee);
+
+		given().auth().oauth2(tokenFor(ADMIN)).when().patch("/api/users/" + employee.getId() + "/activate")
+			.then().statusCode(200).body("active", equalTo(true));
 	}
 
 	@Test
@@ -600,9 +674,10 @@ class UserControllerTests {
 		LocalDate today = LocalDate.now();
 		// Only their RM can decide on it (BR-5), and a PM has none
 		allocate(employee, 50, today.plusDays(10), today.plusDays(20), AllocationStatus.PROPOSED);
-		Map<String, Object> body = editBody(employee, 80);
+		Map<String, Object> body = editBody(employee, 100);
 		body.put("role", "PM");
 		body.put("managerId", null);
+		body.put("seniority", null);
 
 		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
 			.when().put("/api/users/" + employee.getId())
@@ -618,9 +693,10 @@ class UserControllerTests {
 		User employee = newEmployee("Promoted", engineering(), rm());
 		LocalDate today = LocalDate.now();
 		allocate(employee, 50, today.minusDays(20), today.minusDays(1), AllocationStatus.APPROVED);
-		Map<String, Object> body = editBody(employee, 80);
+		Map<String, Object> body = editBody(employee, 100);
 		body.put("role", "PM");
 		body.put("managerId", null);
+		body.put("seniority", null);
 
 		given().auth().oauth2(tokenFor(ADMIN)).contentType(ContentType.JSON).body(body)
 			.when().put("/api/users/" + employee.getId())
@@ -931,6 +1007,16 @@ class UserControllerTests {
 		Allocation allocation = new Allocation(request, employee, percent, start, end, pm);
 		allocation.setStatus(status);
 		return allocationRepository.save(allocation);
+	}
+
+	/** A PM or an RM: a department, but no manager, no seniority and full time. */
+	private Map<String, Object> managerBody(String email, String role) {
+		Map<String, Object> body = employeeBody(email);
+		body.put("role", role);
+		body.put("managerId", null);
+		body.put("seniority", null);
+		body.put("capacityPercent", 100);
+		return body;
 	}
 
 	private Map<String, Object> employeeBody(String email) {

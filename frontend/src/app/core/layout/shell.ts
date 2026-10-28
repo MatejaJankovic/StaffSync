@@ -8,7 +8,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { map } from 'rxjs';
 import { ROLE_LABELS } from '../auth/auth.models';
 import { AuthService } from '../auth/auth.service';
-import { ChangePasswordDialog } from '../auth/change-password-dialog';
+import { ChangePasswordDialog, ChangePasswordDialogData } from '../auth/change-password-dialog';
 import { SsButton, SsDialog, SsIcon, SsMenu, SsMenuItem, SsMenuTrigger } from '../../shared/ui';
 import { menuFor } from './menu';
 
@@ -100,7 +100,23 @@ export class Shell {
       }
     });
     inject(DestroyRef).onDestroy(() => this.scrollBlock.disable());
+    // A temporary password from an Admin is replaced before anything else (a new account or a reset)
+    effect(() => {
+      if (this.auth.mustChangePassword() && !this.passwordDialogOpen) {
+        this.passwordDialogOpen = true;
+        this.dialog
+          .open<ChangePasswordDialog, ChangePasswordDialogData>(ChangePasswordDialog, {
+            data: { required: true },
+            width: '420px',
+            disableClose: true,
+          })
+          .afterClosed()
+          .subscribe(() => (this.passwordDialogOpen = false));
+      }
+    });
   }
+
+  private passwordDialogOpen = false;
 
   protected toggleCollapsed(): void {
     const next = !this.collapsed();

@@ -1,5 +1,7 @@
 package com.staffsync.project;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -19,6 +21,9 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
 	@Override
 	@EntityGraph(attributePaths = "pm")
 	Optional<Project> findById(Long id);
+
+	/** A PM's projects in the given statuses: the open ones, which need a PM, are PLANNED and ACTIVE. */
+	List<Project> findByPmIdAndStatusIn(Long pmId, Collection<ProjectStatus> statuses);
 
 	/** Project names are unique regardless of case, like skills and departments. */
 	boolean existsByNameIgnoreCase(String name);

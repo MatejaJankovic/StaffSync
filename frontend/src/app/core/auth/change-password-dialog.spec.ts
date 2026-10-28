@@ -4,8 +4,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideRouter } from '@angular/router';
 import { errorInterceptor } from '../error/error.interceptor';
 import { Notifications } from '../error/notifications';
-import { SsDialogRef } from '../../shared/ui';
-import { PASSWORD_URL } from './auth.service';
+import { SS_DIALOG_DATA, SsDialogRef } from '../../shared/ui';
+import { AuthService, PASSWORD_URL } from './auth.service';
 import { ChangePasswordDialog } from './change-password-dialog';
 
 describe('ChangePasswordDialog', () => {
@@ -192,5 +192,43 @@ describe('ChangePasswordDialog', () => {
 
     expect(close).toHaveBeenCalledWith();
     expect(el().querySelector('[role="alert"]')).toBeNull();
+  });
+});
+
+describe('ChangePasswordDialog after a temporary password', () => {
+  const close = vi.fn();
+  const logout = vi.fn();
+
+  beforeEach(async () => {
+    close.mockReset();
+    logout.mockReset();
+    await TestBed.configureTestingModule({
+      imports: [ChangePasswordDialog],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: SsDialogRef, useValue: { close, disableClose: true } },
+        { provide: SS_DIALOG_DATA, useValue: { required: true } },
+        { provide: AuthService, useValue: { logout, changePassword: vi.fn() } },
+      ],
+    }).compileComponents();
+  });
+
+  it('asks the user to choose their own password, with Log out instead of Cancel', async () => {
+    const fixture = TestBed.createComponent(ChangePasswordDialog);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('Choose your own password');
+    expect(el.textContent).toContain('temporary password from an administrator');
+    const buttons = [...el.querySelectorAll('button')].map((b) => b.textContent?.trim());
+    expect(buttons).not.toContain('Cancel');
+
+    [...el.querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent?.trim() === 'Log out')!
+      .click();
+    expect(close).toHaveBeenCalled();
+    expect(logout).toHaveBeenCalled();
   });
 });

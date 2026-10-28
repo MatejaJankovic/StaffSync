@@ -7,6 +7,9 @@ import com.staffsync.auth.AuthUser;
 import com.staffsync.common.ErrorResponse;
 import com.staffsync.user.dto.AvailabilityDto;
 import com.staffsync.user.dto.CreateUserRequest;
+import com.staffsync.user.dto.HandOverProjectsRequest;
+import com.staffsync.user.dto.HandOverResultDto;
+import com.staffsync.user.dto.ResetPasswordRequest;
 import com.staffsync.user.dto.TeamMemberDto;
 import com.staffsync.user.dto.UpdateUserRequest;
 import com.staffsync.user.dto.UserAccountDto;
@@ -163,6 +166,8 @@ public class UserController {
 					+ "the lower capacity would be exceeded by existing active allocations, details lists the days. "
 					+ "RM_HAS_TEAM: an RM with active employees can't get another role. USER_HAS_ACTIVE_ALLOCATIONS: "
 					+ "an employee with allocations or proposals that haven't ended can't get another role. "
+					+ "PM_HAS_OPEN_PROJECTS: a PM with PLANNED or ACTIVE projects keeps the role until they are "
+					+ "handed over. "
 					+ "CANNOT_CHANGE_OWN_ROLE: your own account",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('ADMIN')")
@@ -184,12 +189,72 @@ public class UserController {
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@ApiResponse(responseCode = "409",
 			description = "USER_HAS_ACTIVE_ALLOCATIONS (BR-12): an APPROVED or CHANGE_PENDING allocation hasn't ended. "
-					+ "RM_HAS_TEAM: the RM still has active employees. CANNOT_DEACTIVATE_SELF: your own account",
+					+ "RM_HAS_TEAM: the RM still has active employees. PM_HAS_OPEN_PROJECTS: the PM still manages "
+					+ "PLANNED or ACTIVE projects, hand them over first. CANNOT_DEACTIVATE_SELF: your own account",
 			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 	@PreAuthorize("hasRole('ADMIN')")
 	@PatchMapping("/{id}/deactivate")
 	public UserAccountDto deactivate(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
 		return userService.deactivate(id, user);
+	}
+
+	@Operation(summary = "Activate an account again (Admin)",
+			description = "A deactivated user can log in again. Activating an active user changes nothing")
+	@ApiResponse(responseCode = "200", description = "Active")
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not an Admin",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No user with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409", description = "MANAGER_INACTIVE: an employee whose RM is no longer active "
+			+ "gets a new RM with Edit first", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('ADMIN')")
+	@PatchMapping("/{id}/activate")
+	public UserAccountDto activate(@PathVariable Long id) {
+		return userService.activate(id);
+	}
+
+	@Operation(summary = "Reset a forgotten password (Admin)",
+			description = "Sets a new temporary password. The user has to replace it with their own at the next login")
+	@ApiResponse(responseCode = "200", description = "Reset")
+	@ApiResponse(responseCode = "400", description = "The temporary password is missing, or not 8 to 72 characters",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not an Admin",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No user with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409", description = "CANNOT_RESET_OWN_PASSWORD: use Change password instead",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('ADMIN')")
+	@PutMapping("/{id}/password")
+	public UserAccountDto resetPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest request,
+			@AuthenticationPrincipal AuthUser user) {
+		return userService.resetPassword(id, request, user);
+	}
+
+	@Operation(summary = "Hand a PM's open projects over to another PM (Admin)",
+			description = "Moves every PLANNED and ACTIVE project of the PM to another active PM, who then manages "
+					+ "them (BR-4). Completed and cancelled projects keep their PM. Needed before a PM with open "
+					+ "projects can be deactivated or given another role")
+	@ApiResponse(responseCode = "200", description = "How many projects changed hands")
+	@ApiResponse(responseCode = "400", description = "toPmId is missing, or not another active PM",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "401", description = "Missing, invalid or expired token",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "403", description = "Not an Admin",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "404", description = "No user with this id",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@ApiResponse(responseCode = "409", description = "NOT_A_PROJECT_MANAGER: the user is not a PM",
+			content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+	@PreAuthorize("hasRole('ADMIN')")
+	@PostMapping("/{id}/hand-over-projects")
+	public HandOverResultDto handOverProjects(@PathVariable Long id,
+			@Valid @RequestBody HandOverProjectsRequest request) {
+		return userService.handOverProjects(id, request);
 	}
 
 }

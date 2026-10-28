@@ -12,6 +12,7 @@ import {
 } from '@angular/forms';
 import { apiErrorMessage, isApiError } from '../api/api-error';
 import {
+  SS_DIALOG_DATA,
   SsDialogActions,
   SsDialogClose,
   SsDialogContent,
@@ -57,9 +58,17 @@ class ConfirmPasswordErrorMatcher implements SsErrorStateMatcher {
   }
 }
 
+/** Pass `required: true` when the user must replace a temporary password before going on. */
+export interface ChangePasswordDialogData {
+  required?: boolean;
+}
+
 /**
  * The *Change password* dialog from the user menu. Shows the API's errors itself, a wrong
  * current password on its field, and closes with a success toast once the password is changed.
+ *
+ * With `required`, it is opened by the shell for a user who logged in with a temporary password
+ * from an Admin: it can't be dismissed, and its only other way out is to log out.
  */
 @Component({
   selector: 'app-change-password-dialog',
@@ -78,9 +87,15 @@ class ConfirmPasswordErrorMatcher implements SsErrorStateMatcher {
     SsLabel,
   ],
   template: `
-    <h2 ssDialogTitle>Change password</h2>
+    <h2 ssDialogTitle>{{ required ? 'Choose your own password' : 'Change password' }}</h2>
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
       <ss-dialog-content class="change-password__content">
+        @if (required) {
+          <p class="change-password__intro">
+            You signed in with a temporary password from an administrator. Choose your own before
+            you go on.
+          </p>
+        }
         @if (error(); as message) {
           <p class="change-password__error ss-notice ss-notice--danger" role="alert">
             <ss-icon class="ss-notice__icon">error</ss-icon>
@@ -146,12 +161,20 @@ class ConfirmPasswordErrorMatcher implements SsErrorStateMatcher {
       </ss-dialog-content>
 
       <ss-dialog-actions>
-        <button ss-button type="button" ssDialogClose [disabled]="saving()">Cancel</button>
+        @if (required) {
+          <button ss-button type="button" [disabled]="saving()" (click)="logout()">Log out</button>
+        } @else {
+          <button ss-button type="button" ssDialogClose [disabled]="saving()">Cancel</button>
+        }
         <button ss-button="filled" type="submit" [disabled]="saving()">Change password</button>
       </ss-dialog-actions>
     </form>
   `,
   styles: `
+    .change-password__intro {
+      margin: 0 0 var(--ss-space-4);
+      color: var(--ss-ink-muted);
+    }
     // A quiet divider under the title and above the actions
     h2[ssDialogTitle] {
       padding-bottom: var(--ss-space-4);
@@ -207,6 +230,9 @@ export class ChangePasswordDialog {
     { validators: passwordsMatch },
   );
 
+  protected readonly required =
+    inject<ChangePasswordDialogData | null>(SS_DIALOG_DATA, { optional: true })?.required ?? false;
+
   protected readonly confirmMatcher = new ConfirmPasswordErrorMatcher();
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -234,7 +260,8 @@ export class ChangePasswordDialog {
         this.dialogRef.close(true);
       },
       error: (err: unknown) => {
-        this.dialogRef.disableClose = false;
+        // A required change stays open until the password is changed
+        this.dialogRef.disableClose = this.required;
         this.saving.set(false);
         if (err instanceof HttpErrorResponse && err.status === 401) {
           // The auth interceptor has ended the session and is going to the login page, and
@@ -253,5 +280,11 @@ export class ChangePasswordDialog {
         }
       },
     });
+  }
+
+  /** The only other way out of a required change. */
+  protected logout(): void {
+    this.dialogRef.close();
+    this.auth.logout();
   }
 }

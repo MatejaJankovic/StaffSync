@@ -18,9 +18,15 @@ import com.staffsync.common.GlobalExceptionHandler;
 import com.staffsync.common.NotFoundException;
 import com.staffsync.department.Department;
 import com.staffsync.department.DepartmentRepository;
+import com.staffsync.project.Project;
+import com.staffsync.project.ProjectRepository;
+import com.staffsync.project.ProjectStatus;
 import com.staffsync.user.dto.AvailabilityDto;
 import com.staffsync.user.dto.CreateUserRequest;
 import com.staffsync.user.dto.DayAvailabilityDto;
+import com.staffsync.user.dto.HandOverProjectsRequest;
+import com.staffsync.user.dto.HandOverResultDto;
+import com.staffsync.user.dto.ResetPasswordRequest;
 import com.staffsync.user.dto.TeamMemberDto;
 import com.staffsync.user.dto.UpdateUserRequest;
 import com.staffsync.user.dto.UserAccountDto;
@@ -54,6 +60,11 @@ public class UserService {
 
 	public static final String INVALID_PERIOD = "INVALID_PERIOD";
 
+	public static final String PM_HAS_OPEN_PROJECTS = "PM_HAS_OPEN_PROJECTS";
+
+	/** The projects that still need a PM: completed and cancelled ones keep the PM who ran them. */
+	private static final Set<ProjectStatus> OPEN_PROJECTS = Set.of(ProjectStatus.PLANNED, ProjectStatus.ACTIVE);
+
 	/** The unique index on {@code lower(email)}, see V1. */
 	private static final String EMAIL_INDEX = "uq_users_email_lower";
 
@@ -82,14 +93,17 @@ public class UserService {
 
 	private final PasswordEncoder passwordEncoder;
 
+	private final ProjectRepository projectRepository;
+
 	public UserService(UserRepository userRepository, DepartmentRepository departmentRepository,
 			AllocationRepository allocationRepository, CapacityService capacityService,
-			PasswordEncoder passwordEncoder) {
+			PasswordEncoder passwordEncoder, ProjectRepository projectRepository) {
 		this.userRepository = userRepository;
 		this.departmentRepository = departmentRepository;
 		this.allocationRepository = allocationRepository;
 		this.capacityService = capacityService;
 		this.passwordEncoder = passwordEncoder;
+		this.projectRepository = projectRepository;
 	}
 
 	@Transactional(readOnly = true)
@@ -154,7 +168,10 @@ public class UserService {
 		return new AvailabilityDto(id, user.getCapacityPercent(), from, to, days);
 	}
 
-	/** Emails are unique regardless of case (409). The temporary password is stored as a BCrypt hash. */
+	/**
+	 * Emails are unique regardless of case (409). The temporary password is stored as a BCrypt hash, and the user
+	 * has to replace it with their own at the first login.
+	 */
 	@Transactional
 	public UserAccountDto create(CreateUserRequest request) {
 		String email = request.email().trim();
@@ -167,11 +184,13 @@ public class UserService {
 		User user = new User(email, passwordEncoder.encode(request.temporaryPassword()), request.firstName().trim(),
 				request.lastName().trim(), request.role());
 		copy(user, request, links);
+		user.setMustChangePassword(true);
 		return UserAccountDto.from(saveAndFlush(user, email));
 	}
 
 	/**
-	 * The same checks as {@link #create}, plus these 409s: the Admin can't change their own role, so an
+	 * The same checks as {@link #create}, plus these 409s: a PM who still manages open projects stays a PM until
+	 * they are handed over (PM_HAS_OPEN_PROJECTS), so no project is left without a PM (BR-4); the Admin can't change their own role, so an
 	 * Admin is always left; an RM who still has active employees keeps the RM role; an employee with
 	 * allocations or proposals that haven't ended stays an employee, because only their RM can decide on
 	 * them (BR-5); and BR-13: capacity can't go down if the active allocations from today on would exceed
@@ -194,6 +213,9 @@ public class UserService {
 		if (roleChanges && user.getRole() == Role.RM && userRepository.existsByManagerIdAndActiveTrue(id)) {
 			throw rmHasTeam("given another role");
 		}
+		if (roleChanges && user.getRole() == Role.PM) {
+			checkNoOpenProjects(user, "given another role");
+		}
 		if (roleChanges && user.getRole() == Role.EMPLOYEE
 				&& hasAllocationsFrom(id, AllocationStatus.ACTIVE_OR_PROPOSED, LocalDate.now())) {
 			throw hasActiveAllocations(user, "current or future allocations or proposals and must stay an employee");
@@ -208,7 +230,8 @@ public class UserService {
 	/**
 	 * BR-12 / BR-16: a user with an APPROVED or CHANGE_PENDING allocation that hasn't ended yet can't be
 	 * deactivated (409, T-22). Neither can the Admin themself, or an RM who still has active employees.
-	 * A deactivated user can't log in, and their tokens stop working (T-37).
+	 * A deactivated user can't log in, and their tokens stop working (T-37). A PM who still manages open projects
+	 * is refused too (409 PM_HAS_OPEN_PROJECTS): hand the projects over first, so they keep a PM (BR-4).
 	 */
 	@Transactional
 	public UserAccountDto deactivate(Long id, AuthUser currentUser) {
@@ -223,8 +246,85 @@ public class UserService {
 		if (user.getRole() == Role.RM && userRepository.existsByManagerIdAndActiveTrue(id)) {
 			throw rmHasTeam("deactivated");
 		}
+		if (user.getRole() == Role.PM) {
+			checkNoOpenProjects(user, "deactivated");
+		}
 		user.setActive(false);
 		return UserAccountDto.from(user);
+	}
+
+	/**
+	 * Lets a deactivated user log in again. An employee needs an active RM to decide on their allocations (BR-5),
+	 * so one whose RM has left gets a new RM first, with Edit (409 MANAGER_INACTIVE). Activating an active user
+	 * changes nothing.
+	 */
+	@Transactional
+	public UserAccountDto activate(Long id) {
+		User user = find(id);
+		User manager = user.getManager();
+		if (user.getRole() == Role.EMPLOYEE && (manager == null || !manager.isActive() || manager.getRole() != Role.RM)) {
+			throw new BusinessException(HttpStatus.CONFLICT, "MANAGER_INACTIVE",
+					user.getFirstName() + " " + user.getLastName() + "'s resource manager is no longer active. "
+							+ "Give them an active resource manager with Edit first");
+		}
+		user.setActive(true);
+		return UserAccountDto.from(user);
+	}
+
+	/**
+	 * Sets a new temporary password for a user who forgot theirs. Like a new account's, it has to be replaced at
+	 * the next login. The Admin can't reset their own here: they use Change password like everybody else.
+	 */
+	@Transactional
+	public UserAccountDto resetPassword(Long id, ResetPasswordRequest request, AuthUser currentUser) {
+		if (id.equals(currentUser.id())) {
+			throw new BusinessException(HttpStatus.CONFLICT, "CANNOT_RESET_OWN_PASSWORD",
+					"Use Change password for your own account");
+		}
+		User user = find(id);
+		List<FieldViolation> violations = new ArrayList<>();
+		checkPasswordLength(request.temporaryPassword(), violations);
+		if (!violations.isEmpty()) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, GlobalExceptionHandler.VALIDATION_ERROR,
+					"Some fields are invalid", violations);
+		}
+		user.setPasswordHash(passwordEncoder.encode(request.temporaryPassword()));
+		user.setMustChangePassword(true);
+		return UserAccountDto.from(user);
+	}
+
+	/**
+	 * Hands every open (PLANNED or ACTIVE) project of a PM over to another active PM, e.g. before the first one
+	 * leaves or gets another role. The new PM then owns them (BR-4): their requests, proposals and changes.
+	 * Completed and cancelled projects keep the PM who ran them. Returns how many projects changed hands.
+	 */
+	@Transactional
+	public HandOverResultDto handOverProjects(Long fromId, HandOverProjectsRequest request) {
+		User from = find(fromId);
+		if (from.getRole() != Role.PM) {
+			throw new BusinessException(HttpStatus.CONFLICT, "NOT_A_PROJECT_MANAGER",
+					from.getFirstName() + " " + from.getLastName() + " is not a project manager");
+		}
+		User to = userRepository.findById(request.toPmId())
+			.filter(candidate -> candidate.getRole() == Role.PM && candidate.isActive()
+					&& !candidate.getId().equals(fromId))
+			.orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, GlobalExceptionHandler.VALIDATION_ERROR,
+					"Some fields are invalid",
+					List.of(new FieldViolation("toPmId", "Pick another active project manager"))));
+		List<Project> projects = projectRepository.findByPmIdAndStatusIn(fromId, OPEN_PROJECTS);
+		projects.forEach(project -> project.setPm(to));
+		return new HandOverResultDto(projects.size());
+	}
+
+	/** BR-4: every open project keeps a PM who can manage it. */
+	private void checkNoOpenProjects(User pm, String action) {
+		int open = projectRepository.findByPmIdAndStatusIn(pm.getId(), OPEN_PROJECTS).size();
+		if (open > 0) {
+			throw new BusinessException(HttpStatus.CONFLICT, PM_HAS_OPEN_PROJECTS,
+					pm.getFirstName() + " " + pm.getLastName() + " still manages " + open + " open "
+							+ (open == 1 ? "project" : "projects") + " and can't be " + action
+							+ ". Hand them over to another project manager first");
+		}
 	}
 
 	/** Whether the employee has an allocation in the given statuses that ends on or after {@code day}. */
@@ -261,6 +361,20 @@ public class UserService {
 		if (!CAPACITIES.contains(request.capacityPercent())) {
 			violations.add(new FieldViolation("capacityPercent", "Capacity must be 100, 80 or 50"));
 		}
+		// Seniority and a part-time capacity are what matching and capacity read, so only an employee has them
+		if (request.role() == Role.EMPLOYEE) {
+			if (request.seniority() == null) {
+				violations.add(new FieldViolation("seniority", "An employee needs a seniority"));
+			}
+		}
+		else {
+			if (request.seniority() != null) {
+				violations.add(new FieldViolation("seniority", "Only an employee has a seniority"));
+			}
+			if (request.capacityPercent() != 100) {
+				violations.add(new FieldViolation("capacityPercent", "Only an employee can work part-time"));
+			}
+		}
 
 		Department department = null;
 		if (request.departmentId() != null) {
@@ -269,8 +383,8 @@ public class UserService {
 				violations.add(new FieldViolation("departmentId", "Department " + request.departmentId() + " not found"));
 			}
 		}
-		else if (request.role() == Role.EMPLOYEE) {
-			violations.add(new FieldViolation("departmentId", "An employee needs a department"));
+		else if (request.role() != Role.ADMIN) {
+			violations.add(new FieldViolation("departmentId", "An employee, a PM and an RM need a department"));
 		}
 
 		User manager = null;

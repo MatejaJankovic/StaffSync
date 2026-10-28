@@ -136,7 +136,8 @@ describe('UserDialog', () => {
     await submit();
 
     httpMock.expectNone({ method: 'POST', url: USERS_URL });
-    expect(el().textContent).toContain('An employee needs a department');
+    expect(el().textContent).toContain('An employee, a PM and an RM need a department');
+    expect(el().textContent).toContain('An employee needs a seniority');
     expect(el().textContent).toContain('An employee needs a resource manager');
     expect(el().textContent).toContain('Temporary password is required');
   });
@@ -163,18 +164,36 @@ describe('UserDialog', () => {
     expect(close).toHaveBeenCalledWith({ ...MARKO, id: 9 });
   });
 
-  it('hides the resource manager and sends none for other roles', async () => {
+  it('hides the resource manager, seniority and capacity, and sends none for other roles', async () => {
     await open({ departments: signal(DEPARTMENTS) });
     fillEmployee();
-    form().patchValue({ role: 'PM', departmentId: null });
+    form().patchValue({ role: 'PM' });
     await settle();
 
     expect(el().textContent).not.toContain('Resource manager');
+    expect(el().textContent).not.toContain('Seniority and capacity');
     await submit();
 
     const req = httpMock.expectOne({ method: 'POST', url: USERS_URL });
-    expect(req.request.body).toMatchObject({ role: 'PM', departmentId: null, managerId: null });
+    expect(req.request.body).toMatchObject({
+      role: 'PM',
+      managerId: null,
+      seniority: null,
+      capacityPercent: 100,
+    });
     req.flush({ ...LAZAR, role: 'PM' });
+  });
+
+  it('lets only an Admin go without a department', async () => {
+    await open({ departments: signal(DEPARTMENTS) });
+    fillEmployee();
+    form().patchValue({ role: 'ADMIN', departmentId: null });
+    await settle();
+    await submit();
+
+    const req = httpMock.expectOne({ method: 'POST', url: USERS_URL });
+    expect(req.request.body).toMatchObject({ role: 'ADMIN', departmentId: null });
+    req.flush({ ...LAZAR, role: 'ADMIN' });
   });
 
   it('generates a temporary password and shows it', async () => {

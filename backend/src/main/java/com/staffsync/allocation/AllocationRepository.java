@@ -95,6 +95,14 @@ public interface AllocationRepository extends JpaRepository<Allocation, Long>, J
 	List<Object[]> countEmployeesByRequests(@Param("requestIds") Collection<Long> requestIds,
 			@Param("statuses") Collection<AllocationStatus> statuses);
 
+	/**
+	 * The employee's allocations in the given statuses that end on or after {@code day}, with the skills their
+	 * requests ask for: the ones an employee still has to qualify for when they edit their skills (BR-9).
+	 */
+	@EntityGraph(attributePaths = { "request", "request.project", "request.skills", "request.skills.skill" })
+	List<Allocation> findByEmployeeIdAndStatusInAndEndDateGreaterThanEqual(Long employeeId,
+			Collection<AllocationStatus> statuses, LocalDate day);
+
 	/** The request's allocations in the given statuses, with their employees (BR-3 when the request is edited). */
 	@EntityGraph(attributePaths = "employee")
 	List<Allocation> findByRequestIdAndStatusIn(Long requestId, Collection<AllocationStatus> statuses);
