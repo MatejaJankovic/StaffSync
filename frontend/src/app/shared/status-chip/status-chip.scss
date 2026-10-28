@@ -1,37 +1,51 @@
+// A pill tag: tinted background, dark text of the same tone, and a leading dot. The word is always
+// there, so the color is never the only carrier of meaning. Every pair is AA (see styles/_tokens).
 :host {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   height: 24px;
-  padding: 0 10px;
-  border-radius: 12px;
-  font: var(--mat-sys-label-medium);
+  padding: 0 10px 0 8px;
+  border-radius: var(--ss-radius-pill);
+  font-size: var(--ss-text-xs);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: var(--ss-tracking-label);
   white-space: nowrap;
   background: var(--status-chip-bg);
   color: var(--status-chip-fg);
+
+  &::before {
+    content: '';
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
 }
 
 :host(.status-chip--info) {
-  --status-chip-bg: var(--mat-sys-primary-container);
-  --status-chip-fg: var(--mat-sys-on-primary-container);
+  --status-chip-bg: var(--ss-info-tint);
+  --status-chip-fg: var(--ss-info);
 }
 
-// Material has no success or warning roles, so these two use the app's own tokens (styles.scss)
 :host(.status-chip--success) {
-  --status-chip-bg: var(--app-success-container);
-  --status-chip-fg: var(--app-on-success-container);
+  --status-chip-bg: var(--ss-success-tint);
+  --status-chip-fg: var(--ss-success);
 }
 
 :host(.status-chip--warning) {
-  --status-chip-bg: var(--app-warning-container);
-  --status-chip-fg: var(--app-on-warning-container);
+  --status-chip-bg: var(--ss-sand-tint);
+  --status-chip-fg: var(--ss-sand);
 }
 
 :host(.status-chip--neutral) {
-  --status-chip-bg: var(--mat-sys-surface-container-highest);
-  --status-chip-fg: var(--mat-sys-on-surface-variant);
+  --status-chip-bg: var(--ss-neutral-tint);
+  --status-chip-fg: var(--ss-neutral);
 }
 
 :host(.status-chip--error) {
-  --status-chip-bg: var(--mat-sys-error-container);
-  --status-chip-fg: var(--mat-sys-on-error-container);
+  --status-chip-bg: var(--ss-danger-tint);
+  --status-chip-fg: var(--ss-danger);
 }

@@ -1,0 +1,117 @@
+.ss-field {
+  display: block;
+  margin-bottom: var(--ss-space-4);
+}
+
+.ss-field__head {
+  display: flex;
+  align-items: baseline;
+}
+
+.ss-field__label {
+  display: block;
+  margin-bottom: var(--ss-space-1);
+  color: var(--ss-ink);
+  font-size: var(--ss-text-sm);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.ss-field__required {
+  margin-inline-start: 2px;
+  color: var(--ss-ink-muted);
+}
+
+// The box carries the border, the focus ring and the error color, so a prefix, a suffix button and
+// a select trigger all share one edge. The input inside has no border of its own.
+.ss-field__box {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 var(--ss-space-3);
+  border: 1px solid var(--ss-control-border);
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface-raised);
+  color: var(--ss-ink);
+  transition: border-color var(--ss-dur-fast) var(--ss-ease);
+
+  &:hover {
+    border-color: var(--ss-ink-muted);
+  }
+}
+
+.ss-field--focused .ss-field__box {
+  border-color: var(--ss-teal);
+  outline: var(--ss-focus-ring);
+  outline-offset: 0;
+}
+
+.ss-field--invalid .ss-field__box {
+  border-color: var(--ss-danger);
+}
+
+.ss-field--disabled .ss-field__box {
+  background: var(--ss-neutral-tint);
+  color: var(--ss-ink-muted);
+  border-color: var(--ss-line-strong);
+}
+
+.ss-input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: var(--ss-space-3) 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+
+  &::placeholder {
+    color: var(--ss-ink-muted);
+    opacity: 1;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+// Tabular figures only where the value is a number: for text (an email address) they widen the dots
+.ss-input[type='number'],
+.ss-input[inputmode='numeric'],
+.ss-input[type='tel'] {
+  font-variant-numeric: tabular-nums;
+}
+
+textarea.ss-input {
+  min-height: 88px;
+  resize: vertical;
+}
+
+// A button in the box (e.g. show password) keeps a 40px target without making the box taller.
+.ss-field__box > .ss-button--icon {
+  margin-inline-end: calc(var(--ss-space-2) * -1);
+}
+
+.ss-field__sub {
+  min-height: var(--ss-space-1);
+}
+
+.ss-field__hint,
+.ss-field__error {
+  display: block;
+  margin-top: var(--ss-space-1);
+  font-size: var(--ss-text-xs);
+  line-height: 1.4;
+}
+
+.ss-field__hint {
+  color: var(--ss-ink-muted);
+}
+
+.ss-field__error {
+  color: var(--ss-danger);
+  font-weight: 500;
+}

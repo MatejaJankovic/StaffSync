@@ -1,0 +1,109 @@
+.ss-select {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+.ss-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ss-space-2);
+  box-sizing: border-box;
+  min-height: 42px;
+  cursor: pointer;
+  outline: 0; // the field box draws the focus ring, see field.scss
+
+  &[aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+}
+
+// Used outside a field the trigger draws its own box and ring.
+.ss-select:not(.ss-field__box .ss-select) .ss-select__trigger {
+  padding: 0 var(--ss-space-3);
+  border: 1px solid var(--ss-control-border);
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface-raised);
+
+  &:focus-visible {
+    outline: var(--ss-focus-ring);
+    outline-offset: var(--ss-focus-offset);
+  }
+}
+
+.ss-select__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ss-select__placeholder {
+  color: var(--ss-ink-muted);
+}
+
+.ss-select__arrow {
+  color: var(--ss-ink-muted);
+  transition: transform var(--ss-dur-fast) var(--ss-ease);
+}
+
+.ss-select__trigger[aria-expanded='true'] .ss-select__arrow {
+  transform: rotate(180deg);
+}
+
+// The panel lives in the overlay container, so its styles are global (ViewEncapsulation.None).
+.ss-select__panel {
+  box-sizing: border-box;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: var(--ss-space-1);
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface-raised);
+  color: var(--ss-ink);
+  box-shadow: var(--ss-shadow-overlay);
+}
+
+.ss-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ss-space-2);
+  min-height: 40px;
+  padding: 0 var(--ss-space-3);
+  border-radius: var(--ss-radius-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.ss-option--active {
+  background: var(--ss-wash-hover);
+}
+
+.ss-option--selected {
+  background: var(--ss-teal-tint);
+  font-weight: 600;
+}
+
+.ss-option--disabled {
+  color: var(--ss-ink-muted);
+  cursor: not-allowed;
+}
+
+.ss-option__check {
+  flex: none;
+  fill: currentcolor;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  color: var(--ss-teal);
+}
+
+.ss-optgroup__label {
+  display: block;
+  padding: var(--ss-space-2) var(--ss-space-3) var(--ss-space-1);
+  color: var(--ss-ink-muted);
+  font-size: var(--ss-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--ss-tracking-label);
+}

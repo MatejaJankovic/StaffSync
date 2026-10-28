@@ -1,0 +1,24 @@
+.ss-checkbox {
+  display: inline-block;
+}
+
+.ss-checkbox__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ss-space-3);
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.ss-checkbox__input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--ss-teal);
+  cursor: inherit;
+}
+
+.ss-checkbox__input:disabled + .ss-checkbox__text {
+  color: var(--ss-ink-muted);
+}

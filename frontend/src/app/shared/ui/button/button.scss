@@ -1,0 +1,105 @@
+.ss-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ss-space-2);
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 0 var(--ss-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--ss-radius-md);
+  background: transparent;
+  color: var(--ss-teal);
+  font: inherit;
+  font-size: var(--ss-text-sm);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--ss-dur-fast) var(--ss-ease),
+    border-color var(--ss-dur-fast) var(--ss-ease),
+    color var(--ss-dur-fast) var(--ss-ease);
+
+  &:hover:not(:disabled) {
+    background: var(--ss-wash-hover);
+    text-decoration: none;
+  }
+
+  &:active:not(:disabled) {
+    background: var(--ss-wash-pressed);
+  }
+
+  &:disabled {
+    color: var(--ss-ink-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+// An icon next to a label is smaller than a lone icon, to sit with the 14px text.
+.ss-button:not(.ss-button--icon) > .ss-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.ss-button--filled {
+  background: var(--ss-teal);
+  color: var(--ss-on-teal);
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    background: var(--ss-teal-strong);
+  }
+
+  &:disabled {
+    background: var(--ss-neutral-tint);
+    color: var(--ss-ink-muted);
+  }
+
+  &.ss-button-danger {
+    background: var(--ss-danger);
+
+    &:hover:not(:disabled),
+    &:active:not(:disabled) {
+      background: var(--ss-danger-strong);
+    }
+  }
+}
+
+.ss-button--outlined {
+  border-color: var(--ss-control-border);
+}
+
+// A destructive action on a text or outlined button: danger ink, and a danger wash on hover. (A
+// filled button is handled above.)
+.ss-button--text.ss-button-danger,
+.ss-button--outlined.ss-button-danger {
+  color: var(--ss-danger);
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    background: var(--ss-danger-tint);
+  }
+
+  &:disabled {
+    color: var(--ss-ink-muted);
+  }
+}
+
+.ss-button--outlined.ss-button-danger:not(:disabled) {
+  border-color: var(--ss-danger);
+}
+
+// A square 40px target; its glyph is ink-muted until hovered.
+.ss-button--icon {
+  width: 40px;
+  padding: 0;
+  color: var(--ss-ink-muted);
+
+  &:hover:not(:disabled) {
+    color: var(--ss-ink);
+  }
+}

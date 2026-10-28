@@ -58,29 +58,42 @@ export interface ChangeValues {
     }
     .change-diff {
       display: grid;
-      gap: 4px;
+      gap: var(--ss-space-2);
       margin: 0;
     }
     .change-diff__row {
       display: grid;
       grid-template-columns: 96px 1fr;
-      gap: 12px;
-      font: var(--mat-sys-body-medium);
+      gap: var(--ss-space-3);
+      align-items: baseline;
+      font: var(--ss-type-body-medium);
+      font-variant-numeric: tabular-nums;
+      color: var(--ss-ink);
     }
     dt {
-      color: var(--mat-sys-on-surface-variant);
+      font-size: var(--ss-text-xs);
+      font-weight: 500;
+      letter-spacing: var(--ss-tracking-label);
+      color: var(--ss-ink-muted);
     }
     dd {
       margin: 0;
     }
     .change-diff__old {
-      color: var(--mat-sys-on-surface-variant);
+      color: var(--ss-ink-muted);
       text-decoration: line-through;
+      text-decoration-color: var(--ss-control-border);
     }
     .change-diff__arrow {
       white-space: pre;
+      color: var(--ss-ink-muted);
     }
+    /* What changes stands out: bold on a sand wash, the "change pending" color */
     .change-diff__new {
+      padding: 1px var(--ss-space-2);
+      border-radius: var(--ss-radius-sm);
+      background: var(--ss-sand-tint);
+      color: var(--ss-ink);
       font-weight: 600;
     }
     /* Read out instead of the arrow */

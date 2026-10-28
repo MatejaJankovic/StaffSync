@@ -1,0 +1,205 @@
+:host {
+  --ring-size: 72px;
+  --ring-tone: var(--ss-cap-free);
+  --ring-value-size: var(--ss-text-md);
+  --ring-flag-size: 18px;
+  // The 100% tick's width in viewBox units (100 units = the ring's size): about 1.6px at any size.
+  --ring-tick: 2.2;
+
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ss-space-2);
+  color: var(--ss-ink);
+  font-family: var(--ss-font);
+}
+
+:host(.capacity-ring--sm) {
+  --ring-size: 40px;
+  --ring-value-size: var(--ss-text-xs);
+  --ring-flag-size: 14px;
+  --ring-tick: 4;
+}
+
+:host(.capacity-ring--lg) {
+  --ring-size: 120px;
+  --ring-value-size: var(--ss-text-xl);
+  --ring-flag-size: 24px;
+  --ring-tick: 1.6;
+}
+
+:host(.capacity-ring--nearly-full) {
+  --ring-tone: var(--ss-cap-near);
+}
+
+:host(.capacity-ring--full) {
+  --ring-tone: var(--ss-cap-over);
+}
+
+.capacity-ring__stage {
+  position: relative;
+  display: block;
+  inline-size: var(--ring-size);
+  block-size: var(--ring-size);
+  flex: none;
+}
+
+.capacity-ring__svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+  fill: none;
+}
+
+.capacity-ring__track {
+  stroke: var(--ss-line);
+  stroke-width: 8;
+}
+
+.capacity-ring__arc {
+  stroke: var(--ring-tone);
+  stroke-width: 8;
+  stroke-linecap: butt;
+}
+
+// Project tints: the teal family. Every tint is at least 3:1 against the surface and against the
+// --ss-line track (WCAG 1.4.11), so none is lighter than an 85% mix, and the order alternates dark
+// and light. Next to each other two arcs are still close in tone, so they are set apart by the
+// gap between them, and the legend and the text label name every project: the tint is never the
+// only carrier. The swatch is a box, so its stroke declaration is harmless.
+.capacity-ring__arc--tint-0,
+.capacity-ring__swatch--0 {
+  stroke: color-mix(in srgb, var(--ss-ink) 50%, var(--ss-teal-strong));
+  background: color-mix(in srgb, var(--ss-ink) 50%, var(--ss-teal-strong));
+}
+
+.capacity-ring__arc--tint-1,
+.capacity-ring__swatch--1 {
+  stroke: color-mix(in srgb, var(--ss-teal) 85%, var(--ss-surface));
+  background: color-mix(in srgb, var(--ss-teal) 85%, var(--ss-surface));
+}
+
+.capacity-ring__arc--tint-2,
+.capacity-ring__swatch--2 {
+  stroke: var(--ss-teal-strong);
+  background: var(--ss-teal-strong);
+}
+
+.capacity-ring__arc--tint-3,
+.capacity-ring__swatch--3 {
+  stroke: var(--ss-teal);
+  background: var(--ss-teal);
+}
+
+.capacity-ring__arc--over {
+  stroke: var(--ss-cap-over);
+  stroke-width: 5;
+}
+
+// The fixed mark for 100%, drawn over the arcs at 12 o'clock. A surface-colored halo behind it
+// keeps it readable where it crosses a dark arc.
+.capacity-ring__tick {
+  stroke: var(--ss-ink);
+  stroke-width: var(--ring-tick);
+}
+
+.capacity-ring__tick-halo {
+  stroke: var(--ss-surface);
+  stroke-width: calc(var(--ring-tick) + 2);
+}
+
+.capacity-ring__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.capacity-ring__value {
+  font-size: var(--ring-value-size);
+  font-weight: 700;
+  letter-spacing: var(--ss-tracking-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+:host(.capacity-ring--sm) .capacity-ring__value {
+  font-weight: 600;
+}
+
+:host(.capacity-ring--nearly-full) .capacity-ring__value {
+  color: var(--ss-sand);
+}
+
+:host(.capacity-ring--full) .capacity-ring__value {
+  color: var(--ss-danger);
+}
+
+.capacity-ring__sub {
+  margin-top: var(--ss-space-1);
+  color: var(--ss-ink-muted);
+  font-size: var(--ss-text-xs);
+  font-weight: 500;
+}
+
+.capacity-ring__sub--over {
+  color: var(--ss-danger);
+  font-weight: 700;
+}
+
+// The "!" mark for an overbooked employee: a shape and a glyph, so it reads in grayscale.
+.capacity-ring__flag {
+  position: absolute;
+  inset-block-start: calc(var(--ring-flag-size) / -4);
+  inset-inline-end: calc(var(--ring-flag-size) / -4);
+  display: grid;
+  place-items: center;
+  inline-size: var(--ring-flag-size);
+  block-size: var(--ring-flag-size);
+  border-radius: var(--ss-radius-pill);
+  background: var(--ss-danger);
+  color: var(--ss-on-teal);
+  font-size: calc(var(--ring-flag-size) * 0.7);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.capacity-ring__label {
+  color: var(--ss-ink-muted);
+  font-size: var(--ss-text-xs);
+  font-weight: 500;
+  text-align: center;
+}
+
+:host(.capacity-ring--full) .capacity-ring__label {
+  color: var(--ss-danger);
+}
+
+.capacity-ring__legend {
+  display: grid;
+  gap: var(--ss-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--ss-text-xs);
+
+  li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--ss-space-2);
+  }
+}
+
+.capacity-ring__swatch {
+  inline-size: 8px;
+  block-size: 8px;
+}
+
+.capacity-ring__legend-value {
+  color: var(--ss-ink-muted);
+  font-weight: 500;
+}

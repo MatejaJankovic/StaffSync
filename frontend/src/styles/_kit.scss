@@ -1,0 +1,156 @@
+// Styles for the parts of the UI kit (app/shared/ui) that the CDK creates itself or that are plain
+// elements: the dialog container, the menu panel and the table. Components of the kit carry their
+// own styles. All values come from the --ss-* tokens, never from Material.
+
+// ---------------------------------------------------------------------------------------------
+// Dialog (SsDialog on the CDK dialog)
+// ---------------------------------------------------------------------------------------------
+
+.ss-dialog-backdrop {
+  background: var(--ss-scrim);
+}
+
+.ss-dialog-panel .cdk-dialog-container {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-height: 90vh;
+  overflow: hidden;
+  border-radius: var(--ss-radius-lg);
+  background: var(--ss-surface-raised);
+  color: var(--ss-ink);
+  box-shadow: var(--ss-shadow-overlay);
+
+  // The container itself takes focus when the dialog has nothing to focus; no ring around a modal.
+  &:focus {
+    outline: 0;
+  }
+}
+
+// The CDK mounts the dialog component's host element as the only child of the container. It must be a
+// flex column that may shrink (min-height: 0), or the scroll area of ss-dialog-content gets no height
+// limit and the container clips the content and the actions on a short screen.
+.ss-dialog-panel .cdk-dialog-container > * {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ss-dialog__title {
+  margin: 0;
+  padding: var(--ss-space-6) var(--ss-space-6) var(--ss-space-2);
+  font-size: var(--ss-text-lg);
+  font-weight: 600;
+  line-height: 1.75rem;
+  letter-spacing: var(--ss-tracking-snug);
+}
+
+.ss-dialog__content {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  padding: var(--ss-space-2) var(--ss-space-6);
+  overflow-y: auto;
+}
+
+.ss-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ss-space-2);
+  padding: var(--ss-space-4) var(--ss-space-6) var(--ss-space-6);
+}
+
+.ss-dialog__actions--start {
+  justify-content: flex-start;
+}
+
+.ss-dialog__actions--center {
+  justify-content: center;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Menu (ssMenu on the CDK menu)
+// ---------------------------------------------------------------------------------------------
+
+.ss-menu {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 200px;
+  padding: var(--ss-space-1);
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-surface-raised);
+  color: var(--ss-ink);
+  box-shadow: var(--ss-shadow-overlay);
+}
+
+.ss-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ss-space-3);
+  min-height: 40px;
+  padding: 0 var(--ss-space-3);
+  border: 0;
+  border-radius: var(--ss-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--ss-wash-hover);
+  }
+
+  // Inside the menu panel the ring sits on the item, not outside the rounded panel
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .ss-icon {
+    color: var(--ss-ink-muted);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Table (the CDK table: `table[cdk-table].ss-table`)
+// ---------------------------------------------------------------------------------------------
+
+.ss-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--ss-surface);
+
+  th,
+  td {
+    padding: 0 var(--ss-space-4);
+    border-bottom: 1px solid var(--ss-line);
+    text-align: start;
+  }
+
+  th {
+    height: 44px;
+    color: var(--ss-ink-muted);
+    font-size: var(--ss-text-xs);
+    font-weight: 600;
+    letter-spacing: var(--ss-tracking-label);
+  }
+
+  td {
+    height: 48px;
+  }
+
+  tbody tr {
+    transition: background-color var(--ss-dur-fast) var(--ss-ease);
+
+    &:hover {
+      background: var(--ss-wash-hover);
+    }
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+}

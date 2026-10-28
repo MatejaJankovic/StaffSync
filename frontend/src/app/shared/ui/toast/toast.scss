@@ -1,0 +1,54 @@
+.ss-toast-pane {
+  max-width: min(560px, calc(100vw - 32px));
+}
+
+.ss-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--ss-space-4);
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: var(--ss-space-3) var(--ss-space-4);
+  border-radius: var(--ss-radius-md);
+  background: var(--ss-ink);
+  color: var(--ss-surface);
+  box-shadow: var(--ss-shadow-overlay);
+  font-size: var(--ss-text-sm);
+  line-height: 1.4;
+}
+
+.ss-toast__message {
+  flex: 1;
+}
+
+.ss-toast__action {
+  min-height: 40px;
+  margin-block: calc(var(--ss-space-2) * -1);
+  margin-inline-end: calc(var(--ss-space-2) * -1);
+  padding: 0 var(--ss-space-3);
+  border: 0;
+  border-radius: var(--ss-radius-sm);
+  background: transparent;
+  color: var(--ss-teal-on-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(255 255 255 / 10%);
+  }
+}
+
+// The error look, kept under the name the app already uses (see styles.scss).
+.ss-toast.snackbar--error {
+  background: var(--ss-danger-tint);
+  color: var(--ss-ink);
+
+  .ss-toast__action {
+    color: var(--ss-ink);
+
+    &:hover {
+      background: var(--ss-wash-pressed);
+    }
+  }
+}
