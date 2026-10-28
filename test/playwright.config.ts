@@ -22,5 +22,15 @@ export default defineConfig({
         trace: 'retain-on-failure',
       },
     },
+    {
+      name: 'e2e',
+      testDir: './tests/e2e',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: APP_URL,
+        screenshot: 'only-on-failure',
+        trace: 'retain-on-failure',
+      },
+    },
   ],
 });

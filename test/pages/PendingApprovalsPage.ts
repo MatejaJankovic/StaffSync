@@ -28,10 +28,10 @@ export class PendingApprovalsPage {
     return this.row(fullName, requestTitle).getByRole('cell').first();
   }
 
-  /** Clicks Approve on the row, then Approve in the confirmation. */
+  /** Clicks Approve on the row, then confirms (Approve, or Approve change for a change). */
   async approve(fullName: string, requestTitle: string): Promise<void> {
     await this.row(fullName, requestTitle).getByRole('button', { name: 'Approve' }).click();
-    await this.dialog.getByRole('button', { name: 'Approve' }).click();
+    await this.dialog.getByRole('button', { name: /^Approve/ }).click();
   }
 
   async openReject(fullName: string, requestTitle: string): Promise<void> {

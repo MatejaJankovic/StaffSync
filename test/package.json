@@ -3,8 +3,10 @@
   "private": true,
   "description": "QA tests for StaffSync: Playwright API, UI and E2E tests",
   "scripts": {
-    "test": "playwright test",
+    "test": "playwright test --project=api --project=ui",
     "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --project=ui",
+    "test:e2e": "playwright test --project=e2e",
     "report": "playwright show-report",
     "typecheck": "tsc"
   },

@@ -29,4 +29,14 @@ export class CandidatesPage {
   async openPropose(fullName: string): Promise<void> {
     await this.page.getByRole('button', { name: `Propose ${fullName}`, exact: true }).click();
   }
+
+  /** Proposes a candidate. Without a period, the dialog keeps the request's. Dates are DD/MM/YYYY. */
+  async propose(fullName: string, period?: { startDate: string; endDate: string }): Promise<void> {
+    await this.openPropose(fullName);
+    if (period) {
+      await this.proposeDialog.getByLabel('Start date').fill(period.startDate);
+      await this.proposeDialog.getByLabel('End date').fill(period.endDate);
+    }
+    await this.proposeDialog.getByRole('button', { name: 'Propose' }).click();
+  }
 }
