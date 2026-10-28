@@ -1,6 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 import { API_URL, APP_URL } from './fixtures/env';
 
+// The UI and E2E tests: Chromium on the app, with a screenshot and a trace of each failure
+const browser = {
+  ...devices['Desktop Chrome'],
+  baseURL: APP_URL,
+  screenshot: 'only-on-failure',
+  trace: 'retain-on-failure',
+} as const;
+
 export default defineConfig({
   testDir: './tests',
   // One test at a time: the suites share one database, and the API tests book the seeded employees' capacity
@@ -15,22 +23,14 @@ export default defineConfig({
     {
       name: 'ui',
       testDir: './tests/ui',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: APP_URL,
-        screenshot: 'only-on-failure',
-        trace: 'retain-on-failure',
-      },
+      use: browser,
     },
     {
       name: 'e2e',
       testDir: './tests/e2e',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: APP_URL,
-        screenshot: 'only-on-failure',
-        trace: 'retain-on-failure',
-      },
+      // The 8 demo steps run as one test, with a logout and login per role switch
+      timeout: 120_000,
+      use: browser,
     },
   ],
 });

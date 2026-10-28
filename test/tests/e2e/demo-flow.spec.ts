@@ -15,7 +15,6 @@ const MARKO = fullName(users.marko);
 const JELENA = fullName(users.jelena);
 
 test('TC_E2E_001 the §4 demo flow across roles', async ({ page, loginAs }) => {
-  test.setTimeout(120_000);
   const shell = new Shell(page);
   const details = new ProjectDetailsPage(page);
   const candidates = new CandidatesPage(page);
