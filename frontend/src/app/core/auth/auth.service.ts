@@ -25,6 +25,8 @@ export class AuthService {
   readonly currentUser = this.userState.asReadonly();
   readonly role = computed(() => this.userState()?.role ?? null);
   readonly isLoggedIn = computed(() => this.tokenState() !== null && this.userState() !== null);
+  /** A temporary password from an Admin has to be replaced before anything else. */
+  readonly mustChangePassword = computed(() => this.userState()?.mustChangePassword === true);
 
   login(email: string, password: string): Observable<User> {
     // The login page shows its own error message
@@ -37,7 +39,16 @@ export class AuthService {
 
   changePassword(request: ChangePasswordRequest): Observable<void> {
     // The Change password dialog shows its own error message
-    return this.http.put<void>(PASSWORD_URL, request, { context: skipErrorSnackbar() });
+    return this.http.put<void>(PASSWORD_URL, request, { context: skipErrorSnackbar() }).pipe(
+      // The password is the user's own now
+      tap(() => {
+        const user = this.userState();
+        const token = this.tokenState();
+        if (user && token && user.mustChangePassword) {
+          this.setSession(token, { ...user, mustChangePassword: false });
+        }
+      }),
+    );
   }
 
   logout(): void {

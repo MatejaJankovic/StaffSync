@@ -156,6 +156,30 @@ describe('UsersPage', () => {
     expect(button('Deactivate Gone Markovic')).toBeNull();
   });
 
+  it('offers Activate for an inactive user, and activates a confirmed one', async () => {
+    await load();
+    expect(button('Activate Marko Markovic')).toBeNull();
+    closeDialogWith(true);
+
+    button('Activate Gone Markovic')!.click();
+    httpMock
+      .expectOne({ method: 'PATCH', url: `${USERS_URL}/5/activate` })
+      .flush({ ...GONE, active: true });
+    await load(pageOf(ADMIN, MARKO));
+
+    expect(notifications.success).toHaveBeenCalledWith('Activated Gone Markovic');
+  });
+
+  it('offers a password reset for other active users, and a hand-over for project managers', async () => {
+    const pm: UserAccount = { ...MARKO, id: 6, firstName: 'Ana', role: 'PM', manager: null };
+    await load(pageOf(ADMIN, MARKO, pm));
+
+    expect(button('Reset the password of Marko Markovic')).not.toBeNull();
+    expect(button('Reset the password of Vukasin Patkovic')).toBeNull();
+    expect(button('Hand over the projects of Ana Markovic')).not.toBeNull();
+    expect(button('Hand over the projects of Marko Markovic')).toBeNull();
+  });
+
   it('deactivates a confirmed user and reloads the table', async () => {
     await load();
     closeDialogWith(true);
