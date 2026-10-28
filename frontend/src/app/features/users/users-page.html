@@ -63,6 +63,26 @@
         >
           <ss-icon>edit</ss-icon>
         </button>
+        @if (canResetPassword(row)) {
+          <button
+            ss-button="icon"
+            [attr.aria-label]="'Reset the password of ' + row.firstName + ' ' + row.lastName"
+            [attr.title]="'Reset the password of ' + row.firstName + ' ' + row.lastName"
+            (click)="resetPassword(row)"
+          >
+            <ss-icon>lock_reset</ss-icon>
+          </button>
+        }
+        @if (canHandOver(row)) {
+          <button
+            ss-button="icon"
+            [attr.aria-label]="'Hand over the projects of ' + row.firstName + ' ' + row.lastName"
+            [attr.title]="'Hand over the projects of ' + row.firstName + ' ' + row.lastName"
+            (click)="handOver(row)"
+          >
+            <ss-icon>swap_horiz</ss-icon>
+          </button>
+        }
         @if (canDeactivate(row)) {
           <button
             ss-button="icon"
@@ -71,6 +91,16 @@
             (click)="deactivate(row)"
           >
             <ss-icon>person_off</ss-icon>
+          </button>
+        }
+        @if (!row.active) {
+          <button
+            ss-button="icon"
+            [attr.aria-label]="'Activate ' + row.firstName + ' ' + row.lastName"
+            [attr.title]="'Activate ' + row.firstName + ' ' + row.lastName"
+            (click)="activate(row)"
+          >
+            <ss-icon>how_to_reg</ss-icon>
           </button>
         }
       </span>

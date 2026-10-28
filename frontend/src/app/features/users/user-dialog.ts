@@ -167,7 +167,7 @@ export interface UserDialogData {
             <ss-field>
               <ss-label>Department</ss-label>
               <ss-select formControlName="departmentId">
-                @if (!isEmployee()) {
+                @if (isAdmin()) {
                   <ss-option [value]="null">None</ss-option>
                 }
                 @for (department of departments(); track department.id) {
@@ -175,7 +175,7 @@ export interface UserDialogData {
                 }
               </ss-select>
               @if (form.controls.departmentId.hasError('required')) {
-                <ss-error>An employee needs a department</ss-error>
+                <ss-error>An employee, a PM and an RM need a department</ss-error>
               } @else if (form.controls.departmentId.hasError('server')) {
                 <ss-error>{{ form.controls.departmentId.getError('server') }}</ss-error>
               }
@@ -198,53 +198,60 @@ export interface UserDialogData {
           </div>
         </section>
 
-        <section class="user-dialog__section" aria-labelledby="user-dialog-capacity">
-          <h3 class="user-dialog__section-title" id="user-dialog-capacity">
-            Seniority and capacity
-          </h3>
-          <div class="user-dialog__grid">
-            <ss-field>
-              <ss-label>Seniority</ss-label>
-              <ss-select formControlName="seniority">
-                <ss-option [value]="null">None</ss-option>
-                @for (seniority of seniorities; track seniority) {
-                  <ss-option [value]="seniority">{{ seniorityLabels[seniority] }}</ss-option>
-                }
-              </ss-select>
-            </ss-field>
-            <ss-field>
-              <ss-label>Capacity</ss-label>
-              <ss-select formControlName="capacityPercent">
-                @for (capacity of capacities; track capacity) {
-                  <ss-option [value]="capacity">{{ capacity }}%</ss-option>
-                }
-              </ss-select>
-              @if (form.controls.capacityPercent.hasError('server')) {
-                <ss-error>{{ form.controls.capacityPercent.getError('server') }}</ss-error>
-              }
-            </ss-field>
-          </div>
-
-          @if (conflict(); as conflict) {
-            <div class="user-dialog__conflict" role="alert">
-              <ss-icon aria-hidden="true">error_outline</ss-icon>
-              <div>
-                <p>{{ conflict.message }}</p>
-                @if (conflict.days.length > 0) {
-                  <ul>
-                    @for (day of conflict.days.slice(0, maxDaysShown); track day.date) {
-                      <li class="ss-num">{{ formatDay(day.date) }}: {{ day.load }}% allocated</li>
-                    }
-                  </ul>
-                  @if (conflict.days.length > maxDaysShown) {
-                    @let more = conflict.days.length - maxDaysShown;
-                    <p>and {{ more }} more {{ more === 1 ? 'day' : 'days' }}.</p>
+        <!-- Only an employee is matched and allocated, so only they have a seniority and a capacity -->
+        @if (isEmployee()) {
+          <section class="user-dialog__section" aria-labelledby="user-dialog-capacity">
+            <h3 class="user-dialog__section-title" id="user-dialog-capacity">
+              Seniority and capacity
+            </h3>
+            <div class="user-dialog__grid">
+              <ss-field>
+                <ss-label>Seniority</ss-label>
+                <ss-select formControlName="seniority">
+                  @for (seniority of seniorities; track seniority) {
+                    <ss-option [value]="seniority">{{ seniorityLabels[seniority] }}</ss-option>
                   }
+                </ss-select>
+                @if (form.controls.seniority.hasError('required')) {
+                  <ss-error>An employee needs a seniority</ss-error>
+                } @else if (form.controls.seniority.hasError('server')) {
+                  <ss-error>{{ form.controls.seniority.getError('server') }}</ss-error>
                 }
-              </div>
+              </ss-field>
+              <ss-field>
+                <ss-label>Capacity</ss-label>
+                <ss-select formControlName="capacityPercent">
+                  @for (capacity of capacities; track capacity) {
+                    <ss-option [value]="capacity">{{ capacity }}%</ss-option>
+                  }
+                </ss-select>
+                @if (form.controls.capacityPercent.hasError('server')) {
+                  <ss-error>{{ form.controls.capacityPercent.getError('server') }}</ss-error>
+                }
+              </ss-field>
             </div>
-          }
-        </section>
+          </section>
+        }
+
+        @if (conflict(); as conflict) {
+          <div class="user-dialog__conflict" role="alert">
+            <ss-icon aria-hidden="true">error_outline</ss-icon>
+            <div>
+              <p>{{ conflict.message }}</p>
+              @if (conflict.days.length > 0) {
+                <ul>
+                  @for (day of conflict.days.slice(0, maxDaysShown); track day.date) {
+                    <li class="ss-num">{{ formatDay(day.date) }}: {{ day.load }}% allocated</li>
+                  }
+                </ul>
+                @if (conflict.days.length > maxDaysShown) {
+                  @let more = conflict.days.length - maxDaysShown;
+                  <p>and {{ more }} more {{ more === 1 ? 'day' : 'days' }}.</p>
+                }
+              }
+            </div>
+          </div>
+        }
 
         @if (!user) {
           <section class="user-dialog__section" aria-labelledby="user-dialog-signin">
@@ -501,6 +508,10 @@ export class UserDialog implements OnInit {
     return this.role() === 'EMPLOYEE';
   }
 
+  protected isAdmin(): boolean {
+    return this.role() === 'ADMIN';
+  }
+
   protected formatDay(iso: string): string {
     return shortDate(iso);
   }
@@ -565,19 +576,31 @@ export class UserDialog implements OnInit {
     });
   }
 
-  /** Department and resource manager are required for an employee only, who is the only one with a manager. */
+  /**
+   * Everybody but the Admin belongs to a department. Only an employee has a resource manager, a
+   * seniority and a part-time capacity, since only they are matched and allocated; anybody else
+   * gets no seniority and 100%, as the API expects.
+   */
   private applyRoleRules(role: Role): void {
-    const { departmentId, managerId } = this.form.controls;
-    if (role === 'EMPLOYEE') {
-      departmentId.setValidators(Validators.required);
-      managerId.setValidators(Validators.required);
-    } else {
+    const { departmentId, managerId, seniority, capacityPercent } = this.form.controls;
+    if (role === 'ADMIN') {
       departmentId.clearValidators();
+    } else {
+      departmentId.setValidators(Validators.required);
+    }
+    if (role === 'EMPLOYEE') {
+      managerId.setValidators(Validators.required);
+      seniority.setValidators(Validators.required);
+    } else {
       managerId.clearValidators();
       managerId.setValue(null);
+      seniority.clearValidators();
+      seniority.setValue(null);
+      capacityPercent.setValue(100);
     }
     departmentId.updateValueAndValidity();
     managerId.updateValueAndValidity();
+    seniority.updateValueAndValidity();
   }
 
   private showServerErrors(error: unknown): void {
@@ -613,6 +636,10 @@ export class UserDialog implements OnInit {
       case 'USER_HAS_ACTIVE_ALLOCATIONS':
         this.conflict.set({ message: body.message, days: [] });
         this.setServerError('role', 'Still has allocations');
+        return;
+      case 'PM_HAS_OPEN_PROJECTS':
+        this.conflict.set({ message: body.message, days: [] });
+        this.setServerError('role', 'Still manages open projects');
         return;
       default:
         this.notifications.error(body.message);

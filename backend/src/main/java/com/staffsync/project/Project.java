@@ -115,4 +115,9 @@ public class Project {
 		return pm;
 	}
 
+	/** An Admin hands a PM's open projects over to another PM, e.g. before the first one leaves. */
+	public void setPm(User pm) {
+		this.pm = pm;
+	}
+
 }
