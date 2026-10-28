@@ -3,7 +3,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   AbstractControl,
-  FormControl,
   FormGroupDirective,
   NgForm,
   NonNullableFormBuilder,
@@ -11,12 +10,22 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { ErrorStateMatcher } from '@angular/material/core';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { apiErrorMessage, isApiError } from '../api/api-error';
+import {
+  SsDialogActions,
+  SsDialogClose,
+  SsDialogContent,
+  SsDialogRef,
+  SsDialogTitle,
+  SsError,
+  SsField,
+  SsHint,
+  SsInput,
+  SsLabel,
+  SsButton,
+  SsIcon,
+} from '../../shared/ui';
+import type { SsErrorStateMatcher } from '../../shared/ui/field/field';
 import { Notifications } from '../error/notifications';
 import { AuthService } from './auth.service';
 
@@ -40,8 +49,8 @@ const passwordsMatch: ValidatorFn = (group: AbstractControl) =>
     : { passwordsMismatch: true };
 
 /** Shows the mismatch, which is an error of the whole form, on the confirmation field. */
-class ConfirmPasswordErrorMatcher implements ErrorStateMatcher {
-  isErrorState(control: FormControl | null, form: FormGroupDirective | NgForm | null): boolean {
+class ConfirmPasswordErrorMatcher implements SsErrorStateMatcher {
+  isErrorState(control: AbstractControl | null, form: FormGroupDirective | NgForm | null): boolean {
     const touched = !!control?.touched || !!form?.submitted;
     const mismatch = !!form?.form.hasError('passwordsMismatch') && !!control?.value;
     return touched && (!!control?.invalid || mismatch);
@@ -50,29 +59,39 @@ class ConfirmPasswordErrorMatcher implements ErrorStateMatcher {
 
 /**
  * The *Change password* dialog from the user menu. Shows the API's errors itself, a wrong
- * current password on its field, and closes with a success snackbar once the password is changed.
+ * current password on its field, and closes with a success toast once the password is changed.
  */
 @Component({
   selector: 'app-change-password-dialog',
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
+    SsButton,
+    SsDialogActions,
+    SsDialogClose,
+    SsDialogContent,
+    SsDialogTitle,
+    SsIcon,
+    SsError,
+    SsField,
+    SsHint,
+    SsInput,
+    SsLabel,
   ],
   template: `
-    <h2 mat-dialog-title>Change password</h2>
+    <h2 ssDialogTitle>Change password</h2>
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-      <mat-dialog-content class="change-password__content">
+      <ss-dialog-content class="change-password__content">
         @if (error(); as message) {
-          <p class="change-password__error" role="alert">{{ message }}</p>
+          <p class="change-password__error ss-notice ss-notice--danger" role="alert">
+            <ss-icon class="ss-notice__icon">error</ss-icon>
+            <span class="ss-notice__text">{{ message }}</span>
+          </p>
         }
 
-        <mat-form-field appearance="outline">
-          <mat-label>Current password</mat-label>
+        <ss-field>
+          <ss-label>Current password</ss-label>
           <input
-            matInput
+            ssInput
             type="password"
             formControlName="oldPassword"
             autocomplete="current-password"
@@ -81,16 +100,16 @@ class ConfirmPasswordErrorMatcher implements ErrorStateMatcher {
             form.controls.oldPassword.hasError('required') ||
             form.controls.oldPassword.hasError('pattern')
           ) {
-            <mat-error>Current password is required</mat-error>
+            <ss-error>Current password is required</ss-error>
           } @else if (form.controls.oldPassword.hasError('incorrect')) {
-            <mat-error>Current password is incorrect</mat-error>
+            <ss-error>Current password is incorrect</ss-error>
           }
-        </mat-form-field>
+        </ss-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>New password</mat-label>
+        <ss-field>
+          <ss-label>New password</ss-label>
           <input
-            matInput
+            ssInput
             type="password"
             formControlName="newPassword"
             autocomplete="new-password"
@@ -99,61 +118,73 @@ class ConfirmPasswordErrorMatcher implements ErrorStateMatcher {
             form.controls.newPassword.hasError('required') ||
             form.controls.newPassword.hasError('pattern')
           ) {
-            <mat-error>New password is required</mat-error>
+            <ss-error>New password is required</ss-error>
           } @else if (form.controls.newPassword.hasError('minlength')) {
-            <mat-error>New password must be at least {{ minLength }} characters</mat-error>
+            <ss-error>New password must be at least {{ minLength }} characters</ss-error>
           } @else if (form.controls.newPassword.hasError('maxBytes')) {
-            <mat-error>New password is too long (at most {{ maxBytes }} bytes)</mat-error>
+            <ss-error>New password is too long (at most {{ maxBytes }} bytes)</ss-error>
           } @else {
-            <mat-hint>At least {{ minLength }} characters</mat-hint>
+            <ss-hint>At least {{ minLength }} characters</ss-hint>
           }
-        </mat-form-field>
+        </ss-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Confirm new password</mat-label>
+        <ss-field>
+          <ss-label>Confirm new password</ss-label>
           <input
-            matInput
+            ssInput
             type="password"
             formControlName="confirmPassword"
             autocomplete="new-password"
             [errorStateMatcher]="confirmMatcher"
           />
           @if (form.controls.confirmPassword.hasError('required')) {
-            <mat-error>Confirm the new password</mat-error>
+            <ss-error>Confirm the new password</ss-error>
           } @else if (form.hasError('passwordsMismatch')) {
-            <mat-error>Passwords do not match</mat-error>
+            <ss-error>Passwords do not match</ss-error>
           }
-        </mat-form-field>
-      </mat-dialog-content>
+        </ss-field>
+      </ss-dialog-content>
 
-      <mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close [disabled]="saving()">Cancel</button>
-        <button mat-flat-button type="submit" [disabled]="saving()">Change password</button>
-      </mat-dialog-actions>
+      <ss-dialog-actions>
+        <button ss-button type="button" ssDialogClose [disabled]="saving()">Cancel</button>
+        <button ss-button="filled" type="submit" [disabled]="saving()">Change password</button>
+      </ss-dialog-actions>
     </form>
   `,
   styles: `
+    // A quiet divider under the title and above the actions
+    h2[ssDialogTitle] {
+      padding-bottom: var(--ss-space-4);
+      border-bottom: 1px solid var(--ss-line);
+      letter-spacing: var(--ss-tracking-tight);
+    }
+
+    // The form sits between the dialog container and its content, so it passes the height on
+    form {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
     .change-password__content {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding-top: 8px;
+      padding-top: var(--ss-space-4);
     }
 
     .change-password__error {
-      margin: 0 0 12px;
-      padding: 12px 16px;
-      border-radius: 8px;
-      background: var(--mat-sys-error-container);
-      color: var(--mat-sys-on-error-container);
-      font: var(--mat-sys-body-medium);
+      margin: 0 0 var(--ss-space-3);
+    }
+
+    ss-dialog-actions {
+      border-top: 1px solid var(--ss-line);
     }
   `,
 })
 export class ChangePasswordDialog {
   private readonly auth = inject(AuthService);
   private readonly notifications = inject(Notifications);
-  private readonly dialogRef = inject<MatDialogRef<ChangePasswordDialog, boolean>>(MatDialogRef);
+  private readonly dialogRef = inject<SsDialogRef<ChangePasswordDialog, boolean>>(SsDialogRef);
 
   // Same rules as the API: @NotBlank, at least 8 characters and at most 72 bytes (BCrypt)
   protected readonly minLength = 8;
@@ -207,7 +238,7 @@ export class ChangePasswordDialog {
         this.saving.set(false);
         if (err instanceof HttpErrorResponse && err.status === 401) {
           // The auth interceptor has ended the session and is going to the login page, and
-          // MatDialog is a root service, so nothing else would close this dialog
+          // SsDialog is a root service, so nothing else would close this dialog
           this.dialogRef.close();
           return;
         }

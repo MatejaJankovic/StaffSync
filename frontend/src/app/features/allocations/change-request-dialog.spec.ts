@@ -1,11 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { errorInterceptor } from '../../core/error/error.interceptor';
 import { Notifications } from '../../core/error/notifications';
 import { parseIsoDate, shortDate, toIsoDate } from '../../shared/dates';
+import { SS_DIALOG_DATA, SsDialogRef } from '../../shared/ui';
 import { StaffingRequest } from '../requests/request.models';
 import { Allocation, AllocationChange } from './allocation.models';
 import { ChangeRequestDialog, ChangeRequestDialogData } from './change-request-dialog';
@@ -91,9 +90,8 @@ describe('ChangeRequestDialog', () => {
       providers: [
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: MAT_DIALOG_DATA, useValue: data },
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: SS_DIALOG_DATA, useValue: data },
+        { provide: SsDialogRef, useValue: dialogRef },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
@@ -105,7 +103,7 @@ describe('ChangeRequestDialog', () => {
 
   afterEach(() => httpMock.verify());
 
-  /** Material's inputs and the error messages each take a round of change detection to settle. */
+  /** The inputs and the error messages each take a round of change detection to settle. */
   async function settle(): Promise<void> {
     for (let round = 0; round < 3; round++) {
       fixture.detectChanges();
@@ -132,7 +130,7 @@ describe('ChangeRequestDialog', () => {
   }
 
   function cancelButton(): HTMLButtonElement {
-    return el().querySelector<HTMLButtonElement>('button[mat-dialog-close]')!;
+    return el().querySelector<HTMLButtonElement>('button[ss-dialog-close]')!;
   }
 
   function dateInputs(): HTMLInputElement[] {
@@ -322,7 +320,7 @@ describe('ChangeRequestDialog', () => {
       await submit();
 
       httpMock.expectNone(CHANGE_URL);
-      expect(el().querySelector('mat-error')?.textContent?.trim()).toBe(message);
+      expect(el().querySelector('ss-error')?.textContent?.trim()).toBe(message);
     });
   });
 

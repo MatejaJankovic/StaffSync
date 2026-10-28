@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { SS_DIALOG_DATA, SsDialogRef } from '../../shared/ui';
 import { Skill } from './skill.models';
 import { SKILLS_URL } from './skill.service';
 import { SkillDialog, SkillDialogData } from './skill-dialog';
@@ -18,8 +18,8 @@ describe('SkillDialog', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: MAT_DIALOG_DATA, useValue: data },
-        { provide: MatDialogRef, useValue: { close } },
+        { provide: SS_DIALOG_DATA, useValue: data },
+        { provide: SsDialogRef, useValue: { close } },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);

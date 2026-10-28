@@ -2,9 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MATERIAL_ANIMATIONS } from '@angular/material/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { MatSelect } from '@angular/material/select';
+import { SS_DIALOG_DATA, SsDialogRef, SsSelect } from '../../shared/ui';
 import { By } from '@angular/platform-browser';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorInterceptor } from '../../core/error/error.interceptor';
@@ -57,9 +55,8 @@ describe('UserDialog', () => {
       providers: [
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
-        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: MAT_DIALOG_DATA, useValue: data },
-        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: SS_DIALOG_DATA, useValue: data },
+        { provide: SsDialogRef, useValue: dialogRef },
         { provide: AuthService, useValue: { currentUser: signal({ id: ADMIN_ID }) } },
       ],
     }).compileComponents();
@@ -85,11 +82,13 @@ describe('UserDialog', () => {
   /** The texts of a dropdown's options, read by opening it. */
   async function options(control: string): Promise<string[]> {
     const select = fixture.debugElement
-      .query(By.css(`mat-select[formcontrolname="${control}"]`))
-      .injector.get(MatSelect);
+      .query(By.css(`ss-select[formcontrolname="${control}"]`))
+      .injector.get(SsSelect);
     select.open();
     await settle();
-    const texts = [...document.querySelectorAll('mat-option')].map((o) => o.textContent!.trim());
+    const texts = [...document.querySelectorAll('[role="option"]')].map((o) =>
+      o.textContent!.trim(),
+    );
     select.close();
     await settle();
     return texts;

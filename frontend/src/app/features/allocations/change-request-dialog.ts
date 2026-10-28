@@ -1,15 +1,25 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { map } from 'rxjs';
 import { ChangeDiff, ChangeValues } from '../../shared/change-diff/change-diff';
 import { DateRangePicker, DateRangeValue } from '../../shared/date-range-picker/date-range-picker';
 import { parseIsoDate, shortDate, toIsoDate } from '../../shared/dates';
+import {
+  SS_DIALOG_DATA,
+  SsDialogActions,
+  SsDialogClose,
+  SsDialogContent,
+  SsDialogRef,
+  SsDialogTitle,
+  SsError,
+  SsField,
+  SsInput,
+  SsLabel,
+  SsOption,
+  SsSelect,
+  SsButton,
+} from '../../shared/ui';
 import { formatPeriod } from '../projects/project.models';
 import { ALLOCATION_OPTIONS, StaffingRequest } from '../requests/request.models';
 import { Allocation, AllocationChange, hasStarted } from './allocation.models';
@@ -34,30 +44,36 @@ export interface ChangeRequestDialogData {
   selector: 'app-change-request-dialog',
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
+    SsButton,
+    SsDialogActions,
+    SsDialogClose,
+    SsDialogContent,
+    SsDialogTitle,
+    SsField,
+    SsLabel,
+    SsError,
+    SsInput,
+    SsSelect,
+    SsOption,
     ChangeDiff,
     DateRangePicker,
   ],
   template: `
-    <h2 mat-dialog-title>Request change for {{ allocation.employeeName }}</h2>
+    <h2 ssDialogTitle>Request change for {{ allocation.employeeName }}</h2>
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-      <mat-dialog-content class="change-request-dialog__content">
+      <ss-dialog-content class="change-request-dialog__content">
         <p class="change-request-dialog__request">
           {{ allocation.requestTitle }} · {{ allocation.projectName }}
         </p>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Allocation</mat-label>
-          <mat-select formControlName="percent">
+        <ss-field>
+          <ss-label>Allocation</ss-label>
+          <ss-select formControlName="percent">
             @for (percent of percents; track percent) {
-              <mat-option [value]="percent">{{ percent }}%</mat-option>
+              <ss-option [value]="percent">{{ percent }}%</ss-option>
             }
-          </mat-select>
-        </mat-form-field>
+          </ss-select>
+        </ss-field>
 
         <app-date-range-picker
           formControlName="period"
@@ -80,22 +96,22 @@ export interface ChangeRequestDialogData {
           </p>
         }
 
-        <mat-form-field appearance="outline">
-          <mat-label>Reason</mat-label>
+        <ss-field>
+          <ss-label>Reason</ss-label>
           <textarea
-            matInput
+            ssInput
             formControlName="reason"
             rows="3"
             placeholder="The client asked for more work on the reporting module"
           ></textarea>
           @if (form.controls.reason.hasError('required')) {
-            <mat-error>Reason is required</mat-error>
+            <ss-error>Reason is required</ss-error>
           } @else if (form.controls.reason.hasError('tooShort')) {
-            <mat-error>Reason must be at least {{ minReasonLength }} characters</mat-error>
+            <ss-error>Reason must be at least {{ minReasonLength }} characters</ss-error>
           } @else if (form.controls.reason.hasError('maxlength')) {
-            <mat-error>Reason must be at most {{ maxReasonLength }} characters</mat-error>
+            <ss-error>Reason must be at most {{ maxReasonLength }} characters</ss-error>
           }
-        </mat-form-field>
+        </ss-field>
 
         <section class="change-request-dialog__preview" aria-labelledby="change-preview-title">
           <h3 id="change-preview-title">Preview</h3>
@@ -110,52 +126,68 @@ export interface ChangeRequestDialogData {
             </p>
           }
         </section>
-      </mat-dialog-content>
+      </ss-dialog-content>
 
-      <mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close [disabled]="saving()">Cancel</button>
-        <button mat-flat-button type="submit" [disabled]="saving()">Request change</button>
-      </mat-dialog-actions>
+      <ss-dialog-actions>
+        <button ss-button type="button" ssDialogClose [disabled]="saving()">Cancel</button>
+        <button ss-button="filled" type="submit" [disabled]="saving()">Request change</button>
+      </ss-dialog-actions>
     </form>
   `,
   styles: `
+    h2[ssDialogTitle] {
+      border-bottom: 1px solid var(--ss-line);
+      letter-spacing: var(--ss-tracking-tight);
+    }
+    form {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+    }
     .change-request-dialog__content {
       display: flex;
       flex-direction: column;
-      padding-top: 8px;
+      padding-top: var(--ss-space-4);
     }
     .change-request-dialog__request {
-      color: var(--mat-sys-on-surface-variant);
-      margin: 0 0 12px;
+      margin: 0 0 var(--ss-space-4);
+      color: var(--ss-ink-muted);
     }
     .change-request-dialog__hint,
     .change-request-dialog__error {
-      font: var(--mat-sys-body-small);
-      color: var(--mat-sys-on-surface-variant);
-      margin: -4px 0 16px;
+      margin: calc(-1 * var(--ss-space-1)) 0 var(--ss-space-4);
+      font: var(--ss-type-body-small);
+      color: var(--ss-ink-muted);
     }
     .change-request-dialog__error {
-      color: var(--mat-sys-error);
+      font-weight: 500;
+      color: var(--ss-danger);
     }
     .change-request-dialog__preview {
-      padding: 12px 16px;
-      border-radius: 8px;
-      background: var(--mat-sys-surface-container);
+      padding: var(--ss-space-3) var(--ss-space-4);
+      border-radius: var(--ss-radius-md);
+      background: var(--ss-paper);
     }
     .change-request-dialog__preview h3 {
-      font: var(--mat-sys-title-small);
-      margin: 0 0 8px;
+      margin: 0 0 var(--ss-space-2);
+      color: var(--ss-ink-muted);
+      font: var(--ss-type-label-medium);
+      letter-spacing: var(--ss-tracking-label);
     }
     .change-request-dialog__preview .change-request-dialog__hint {
-      margin: 8px 0 0;
+      margin: var(--ss-space-2) 0 0;
+    }
+    ss-dialog-actions {
+      border-top: 1px solid var(--ss-line);
     }
   `,
 })
 export class ChangeRequestDialog {
   private readonly allocations = inject(AllocationService);
   private readonly dialogRef =
-    inject<MatDialogRef<ChangeRequestDialog, AllocationChange>>(MatDialogRef);
-  private readonly data = inject<ChangeRequestDialogData>(MAT_DIALOG_DATA);
+    inject<SsDialogRef<ChangeRequestDialog, AllocationChange>>(SsDialogRef);
+  private readonly data = inject<ChangeRequestDialogData>(SS_DIALOG_DATA);
 
   protected readonly allocation = this.data.allocation;
 

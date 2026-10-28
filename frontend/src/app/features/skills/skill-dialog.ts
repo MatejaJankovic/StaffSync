@@ -6,11 +6,21 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import {
+  SS_DIALOG_DATA,
+  SsDialogActions,
+  SsDialogClose,
+  SsDialogContent,
+  SsDialogRef,
+  SsDialogTitle,
+  SsError,
+  SsField,
+  SsInput,
+  SsLabel,
+  SsOption,
+  SsSelect,
+  SsButton,
+} from '../../shared/ui';
 import { Skill, SKILL_CATEGORIES, SKILL_CATEGORY_LABELS } from './skill.models';
 import { SkillService } from './skill.service';
 
@@ -27,68 +37,101 @@ export interface SkillDialogData {
   selector: 'app-skill-dialog',
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
+    SsButton,
+    SsDialogActions,
+    SsDialogClose,
+    SsDialogContent,
+    SsDialogTitle,
+    SsField,
+    SsLabel,
+    SsError,
+    SsInput,
+    SsSelect,
+    SsOption,
   ],
   template: `
-    <h2 mat-dialog-title>{{ skill ? 'Edit skill' : 'Add skill' }}</h2>
+    <header class="skill-dialog__header">
+      <h2 ssDialogTitle>{{ skill ? 'Edit skill' : 'Add skill' }}</h2>
+    </header>
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-      <mat-dialog-content class="skill-dialog__content">
+      <ss-dialog-content class="skill-dialog__content">
         @if (error(); as message) {
           <p class="skill-dialog__error" role="alert">{{ message }}</p>
         }
 
-        <mat-form-field appearance="outline">
-          <mat-label>Name</mat-label>
-          <input matInput formControlName="name" />
+        <ss-field>
+          <ss-label>Name</ss-label>
+          <input ssInput formControlName="name" />
           @if (form.controls.name.hasError('required') || form.controls.name.hasError('pattern')) {
-            <mat-error>Name is required</mat-error>
+            <ss-error>Name is required</ss-error>
           } @else if (form.controls.name.hasError('maxlength')) {
-            <mat-error>Name must be at most {{ maxNameLength }} characters</mat-error>
+            <ss-error>Name must be at most {{ maxNameLength }} characters</ss-error>
           } @else if (form.controls.name.hasError('controlChars')) {
-            <mat-error>Name must not contain control characters</mat-error>
+            <ss-error>Name must not contain control characters</ss-error>
           }
-        </mat-form-field>
+        </ss-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Category</mat-label>
-          <mat-select formControlName="category">
+        <ss-field>
+          <ss-label>Category</ss-label>
+          <ss-select formControlName="category">
             @for (category of categories; track category) {
-              <mat-option [value]="category">{{ labels[category] }}</mat-option>
+              <ss-option [value]="category">{{ labels[category] }}</ss-option>
             }
-          </mat-select>
+          </ss-select>
           @if (form.controls.category.hasError('required')) {
-            <mat-error>Category is required</mat-error>
+            <ss-error>Category is required</ss-error>
           }
-        </mat-form-field>
-      </mat-dialog-content>
+        </ss-field>
+      </ss-dialog-content>
 
-      <mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close>Cancel</button>
-        <button mat-flat-button type="submit" [disabled]="saving()">Save</button>
-      </mat-dialog-actions>
+      <ss-dialog-actions class="skill-dialog__actions">
+        <button ss-button type="button" ssDialogClose>Cancel</button>
+        <button ss-button="filled" type="submit" [disabled]="saving()">Save</button>
+      </ss-dialog-actions>
     </form>
   `,
   styles: `
+    :host {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .skill-dialog__header {
+      border-bottom: 1px solid var(--ss-line);
+    }
+
     .skill-dialog__content {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding-top: 8px;
+      padding-top: var(--ss-space-4);
     }
+
+    // A failed save (e.g. a duplicate name) reads as a sentence on a danger wash, not as color alone
     .skill-dialog__error {
-      color: var(--mat-sys-error);
-      margin: 0 0 8px;
+      margin: 0 0 var(--ss-space-3);
+      padding: var(--ss-space-2) var(--ss-space-3);
+      border-radius: var(--ss-radius-md);
+      font-size: var(--ss-text-sm);
+      color: var(--ss-danger);
+      background: var(--ss-danger-tint);
+    }
+
+    .skill-dialog__actions {
+      border-top: 1px solid var(--ss-line);
     }
   `,
 })
 export class SkillDialog {
   private readonly skills = inject(SkillService);
-  private readonly dialogRef = inject<MatDialogRef<SkillDialog, Skill>>(MatDialogRef);
-  protected readonly skill = inject<SkillDialogData>(MAT_DIALOG_DATA).skill;
+  private readonly dialogRef = inject<SsDialogRef<SkillDialog, Skill>>(SsDialogRef);
+  protected readonly skill = inject<SkillDialogData>(SS_DIALOG_DATA).skill;
 
   protected readonly categories = SKILL_CATEGORIES;
   protected readonly labels = SKILL_CATEGORY_LABELS;

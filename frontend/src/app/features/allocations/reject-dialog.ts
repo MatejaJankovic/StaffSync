@@ -1,10 +1,20 @@
 import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { ChangeDiff } from '../../shared/change-diff/change-diff';
+import {
+  SS_DIALOG_DATA,
+  SsDialogActions,
+  SsDialogClose,
+  SsDialogContent,
+  SsDialogRef,
+  SsDialogTitle,
+  SsError,
+  SsField,
+  SsHint,
+  SsInput,
+  SsLabel,
+  SsButton,
+} from '../../shared/ui';
 import { Allocation, PendingApproval, requestedValues } from './allocation.models';
 import { AllocationService } from './allocation.service';
 import { MAX_TEXT_LENGTH, MIN_TEXT_LENGTH, textLength } from './allocation.validators';
@@ -19,16 +29,22 @@ import { MAX_TEXT_LENGTH, MIN_TEXT_LENGTH, textLength } from './allocation.valid
   selector: 'app-reject-dialog',
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
+    SsButton,
+    SsDialogActions,
+    SsDialogClose,
+    SsDialogContent,
+    SsDialogTitle,
+    SsField,
+    SsLabel,
+    SsError,
+    SsHint,
+    SsInput,
     ChangeDiff,
   ],
   template: `
-    <h2 mat-dialog-title>{{ title }}</h2>
+    <h2 ssDialogTitle>{{ title }}</h2>
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-      <mat-dialog-content class="reject-dialog__content">
+      <ss-dialog-content class="reject-dialog__content">
         <p class="reject-dialog__request">
           {{ allocation.requestTitle }} · {{ allocation.projectName }}
         </p>
@@ -42,61 +58,75 @@ import { MAX_TEXT_LENGTH, MIN_TEXT_LENGTH, textLength } from './allocation.valid
           }
         </p>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Comment</mat-label>
+        <ss-field>
+          <ss-label>Comment</ss-label>
           <textarea
-            matInput
+            ssInput
             formControlName="comment"
             rows="3"
             placeholder="Fully booked on Project Beta until December"
           ></textarea>
-          <mat-hint
-            >Tell the project manager why, in at least {{ minCommentLength }} characters</mat-hint
+          <ss-hint
+            >Tell the project manager why, in at least {{ minCommentLength }} characters</ss-hint
           >
           @if (form.controls.comment.hasError('required')) {
-            <mat-error>Comment is required</mat-error>
+            <ss-error>Comment is required</ss-error>
           } @else if (form.controls.comment.hasError('tooShort')) {
-            <mat-error>Comment must be at least {{ minCommentLength }} characters</mat-error>
+            <ss-error>Comment must be at least {{ minCommentLength }} characters</ss-error>
           } @else if (form.controls.comment.hasError('maxlength')) {
-            <mat-error>Comment must be at most {{ maxCommentLength }} characters</mat-error>
+            <ss-error>Comment must be at most {{ maxCommentLength }} characters</ss-error>
           }
-        </mat-form-field>
-      </mat-dialog-content>
+        </ss-field>
+      </ss-dialog-content>
 
-      <mat-dialog-actions align="end">
-        <button mat-button type="button" mat-dialog-close [disabled]="saving()">Cancel</button>
-        <button mat-flat-button type="submit" class="reject-dialog__confirm" [disabled]="saving()">
+      <ss-dialog-actions>
+        <button ss-button type="button" ssDialogClose [disabled]="saving()">Cancel</button>
+        <button
+          ss-button="filled"
+          type="submit"
+          class="reject-dialog__confirm ss-button-danger"
+          [disabled]="saving()"
+        >
           {{ item.type === 'CHANGE' ? 'Reject change' : 'Reject' }}
         </button>
-      </mat-dialog-actions>
+      </ss-dialog-actions>
     </form>
   `,
   styles: `
+    h2[ssDialogTitle] {
+      border-bottom: 1px solid var(--ss-line);
+      letter-spacing: var(--ss-tracking-tight);
+    }
+    form {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+    }
     .reject-dialog__content {
       display: flex;
       flex-direction: column;
-      padding-top: 8px;
+      padding-top: var(--ss-space-4);
     }
     .reject-dialog__request {
-      color: var(--mat-sys-on-surface-variant);
-      margin: 0 0 12px;
+      margin: 0 0 var(--ss-space-4);
+      color: var(--ss-ink-muted);
     }
     .reject-dialog__hint {
-      font: var(--mat-sys-body-small);
-      color: var(--mat-sys-on-surface-variant);
-      margin: 8px 0 16px;
+      margin: var(--ss-space-3) 0 var(--ss-space-4);
+      font: var(--ss-type-body-small);
+      color: var(--ss-ink-muted);
     }
-    .reject-dialog__confirm {
-      background: var(--mat-sys-error);
-      color: var(--mat-sys-on-error);
+    ss-dialog-actions {
+      border-top: 1px solid var(--ss-line);
     }
   `,
 })
 export class RejectDialog {
   private readonly allocations = inject(AllocationService);
-  private readonly dialogRef = inject<MatDialogRef<RejectDialog, Allocation>>(MatDialogRef);
+  private readonly dialogRef = inject<SsDialogRef<RejectDialog, Allocation>>(SsDialogRef);
 
-  protected readonly item = inject<PendingApproval>(MAT_DIALOG_DATA);
+  protected readonly item = inject<PendingApproval>(SS_DIALOG_DATA);
   protected readonly allocation = this.item.allocation;
   protected readonly after = requestedValues(this.item);
   protected readonly title =
