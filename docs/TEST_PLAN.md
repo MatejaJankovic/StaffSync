@@ -95,6 +95,14 @@ test/
 - **Page Object Model.** Spec files never use selectors or URLs directly. UI tests call page objects (`loginPage.signIn(email, password)`), and API tests call API clients (`authApi.login(email, password)`). When the UI or an endpoint changes, only one class changes.
 - **REST Assured** is used for a small set of API tests (login and one allocation rule), in its own package `backend/src/test/java/com/staffsync/qa/`, to practise it next to Playwright. Those tests run with `mvn verify` like the rest of the backend tests.
 
+### Test independence
+
+The API, UI and E2E suites all change the data of the same seeded employees, and capacity is counted per employee across all projects. So:
+
+- **One worker.** The suites that change data run with `workers: 1` in `playwright.config.ts`, because spec files running in parallel would book Marko and Jelena at the same time.
+- **Chains run in order.** Cases that build on each other (TC_API_FLOW_003 → 004 → 011, 014 → 015 → 022, 006 → 023) are one `test.describe.serial` block. The first test of each chain creates its preconditions through the API clients, so the chain doesn't depend on another spec file.
+- **One suite per reset.** The API, UI and E2E suites each start from their own reset database (§4). For example, after the E2E run Marko is approved at 60% for Nov 1 – Jan 31, so TC_API_FLOW_004 would get 409.
+
 ### How the test cases are written
 
 - Each test case has an ID, priority, type (positive, negative, boundary or security), level and a link to its story or business rule (BR-x). See [TEST_CASES.md](TEST_CASES.md).
@@ -130,7 +138,7 @@ The personas come from the demo seed (US-15, `backend/src/main/resources/db/dev-
   - an overlap only on the boundary day, adjacent periods, and an overlap only on a weekend: Jelena's Helios allocation ends on Sat Nov 14
   - part-time employees at 50% and 80%: Stefan and Milica
 - The first capacity example in §7 skips absence days. Absences are stretch work, so without them the overloaded days in that example are Nov 10 – 13 and Nov 16 – 20.
-- **Clean data for every run:** the API suite and the E2E test start from a freshly reset database (`docker compose down -v && docker compose up --build`). A unique project name isn't enough, because load is counted per employee across all projects: a second run would find Marko and Jelena already booked. Boundary cases that approve an allocation only to check the status code cancel it at the end, so they don't affect the next case.
+- **Clean data for every run:** the API suite, the UI suite and the E2E test each start from a freshly reset database (`docker compose down -v && docker compose up --build`). A unique project name isn't enough, because load is counted per employee across all projects: a second run would find Marko and Jelena already booked. Boundary cases that approve an allocation only to check the status code cancel it at the end, so they don't affect the next case.
 
 ## 5. Entry and exit criteria
 
@@ -168,5 +176,5 @@ A bug found on `main` is reported straight to the story owner on the team channe
 | Risk | Mitigation |
 |---|---|
 | The demo seed changes | The tests read the persona data from one fixture file, so changes stay in one place |
-| Tests that change data fail on the second run, because capacity is counted per employee across projects | The API suite and the E2E test always start from a reset database. Boundary cases cancel the allocations they approve |
+| Tests that change data fail on the second run, because capacity is counted per employee across projects | The API suite, the UI suite and the E2E test each start from a reset database and run with one worker (§3, *Test independence*). Boundary cases cancel the allocations they approve |
 | UI selectors break when the UI changes | Use roles and labels (`getByRole`, `getByLabel`) instead of CSS classes, all inside page objects |
