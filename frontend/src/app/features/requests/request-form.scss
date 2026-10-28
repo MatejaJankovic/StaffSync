@@ -1,84 +1,166 @@
-.request-form {
-  padding: 24px;
-  max-width: 800px;
-
-  h1 {
-    font: var(--mat-sys-headline-small);
-    margin: 0 0 4px;
-  }
-
-  h2 {
-    font: var(--mat-sys-title-medium);
-    margin: 0 0 8px;
-  }
+:host {
+  display: block;
 }
 
 .request-form__back {
-  margin: 0 0 8px -12px;
+  margin: 0 0 var(--ss-space-2) calc(var(--ss-space-3) * -1);
 }
 
-.request-form__project,
-.request-form__hint,
-.request-form__message {
-  color: var(--mat-sys-on-surface-variant);
-  margin: 0 0 16px;
-}
+.request-form__header {
+  margin-bottom: var(--ss-space-6);
 
-.request-form__wide {
-  width: 100%;
-}
-
-.request-form__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 16px;
-
-  mat-form-field {
-    flex: 1 1 180px;
+  h1 {
+    margin: 0;
   }
 }
 
-.request-form__skills {
-  border-top: 1px solid var(--mat-sys-outline-variant);
-  padding-top: 16px;
-  margin-top: 8px;
+.request-form__hint,
+.request-form__message {
+  margin: 0;
+  color: var(--ss-ink-muted);
 }
 
+.request-form__message {
+  margin-block: var(--ss-space-6);
+}
+
+.request-form__hint {
+  font-size: var(--ss-text-sm);
+  line-height: 1.5;
+}
+
+.request-form__empty {
+  margin-bottom: var(--ss-space-4);
+}
+
+// The form reads like a page of a notebook: a calm column, sections divided by hairlines, each with
+// its small heading and a line of context on the left and its fields on the right.
+.request-form__form {
+  max-width: 920px;
+}
+
+.request-form__section {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: var(--ss-space-4) var(--ss-space-10);
+  padding-block: var(--ss-space-6);
+  border-top: 1px solid var(--ss-line);
+}
+
+.request-form__intro {
+  h2 {
+    margin: 0 0 var(--ss-space-1);
+    font: var(--ss-type-title-medium);
+    letter-spacing: var(--ss-tracking-snug);
+  }
+}
+
+// Two columns of fields; the title takes the whole row.
+.request-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--ss-space-4);
+  align-items: start;
+}
+
+.request-form__span {
+  grid-column: 1 / -1;
+}
+
+// Two dates and the calendar button need the whole row: in half of it they are cut off
+.request-form__period {
+  grid-column: 1 / -1;
+}
+
+.request-form__skills-body {
+  min-width: 0;
+}
+
+.request-form__skill-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ss-space-3);
+}
+
+.request-form__skill-list:not(:empty) {
+  margin-bottom: var(--ss-space-4);
+}
+
+// One skill per row: a soft panel so that the skill, its level and its remove button belong together.
 .request-form__skill {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0 16px;
+  gap: 0 var(--ss-space-4);
+  padding: var(--ss-space-4) var(--ss-space-4) 0;
+  background: var(--ss-surface);
+  border-radius: var(--ss-radius-md);
+  box-shadow: 0 0 0 1px var(--ss-line);
 }
 
 .request-form__skill-select {
-  flex: 1 1 240px;
+  flex: 1 1 220px;
+  min-width: 0;
 }
 
 .request-form__level {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 4px;
+  gap: var(--ss-space-1);
+  // Same height as the label of a field, so the picker lines up with the boxes next to it
+  margin-bottom: var(--ss-space-4);
 }
 
 .request-form__level-label {
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-small);
+  color: var(--ss-ink);
+  font-size: var(--ss-text-sm);
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .request-form__error {
-  color: var(--mat-sys-error);
-  font: var(--mat-sys-body-small);
+  color: var(--ss-danger);
+  font-size: var(--ss-text-xs);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+// Centered on the 44px boxes, which sit below a label of about 24px
+.request-form__required {
+  margin-top: 25px;
 }
 
 .request-form__remove {
-  margin-top: 4px;
+  margin-top: 25px;
+  margin-left: auto;
 }
 
 .request-form__actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 24px;
+  gap: var(--ss-space-2);
+  padding-top: var(--ss-space-6);
+  border-top: 1px solid var(--ss-line);
+}
+
+@media (max-width: 799px) {
+  .request-form__section {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ss-space-3);
+    padding-block: var(--ss-space-4);
+  }
+}
+
+@media (max-width: 599px) {
+  .request-form__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .request-form__actions {
+    flex-direction: column-reverse;
+
+    > * {
+      width: 100%;
+    }
+  }
 }

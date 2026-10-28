@@ -1,56 +1,103 @@
 <main class="login">
-  <mat-card class="login__card" appearance="outlined">
-    <mat-card-header>
-      <mat-card-title>StaffSync</mat-card-title>
-      <mat-card-subtitle>Sign in to your account</mat-card-subtitle>
-    </mat-card-header>
+  <section class="login__aside">
+    <div class="login__brand">
+      <svg class="login__mark" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+        <circle
+          class="login__mark-arc"
+          cx="14"
+          cy="14"
+          r="10"
+          pathLength="100"
+          stroke-dasharray="100"
+          transform="rotate(-90 14 14)"
+        />
+        <line class="login__mark-tick" x1="14" y1="1.5" x2="14" y2="6.5" />
+      </svg>
+      <span class="login__wordmark">StaffSync</span>
+    </div>
 
-    <mat-card-content>
+    <svg class="login__ring" viewBox="0 0 400 400" aria-hidden="true" focusable="false">
+      <circle class="login__ring-track" cx="200" cy="200" r="160" />
+      <circle
+        class="login__ring-arc login__ring-arc--outer"
+        cx="200"
+        cy="200"
+        r="160"
+        pathLength="100"
+        stroke-dasharray="100"
+        stroke-dashoffset="28"
+        transform="rotate(-90 200 200)"
+      />
+      <circle class="login__ring-track" cx="200" cy="200" r="122" />
+      <circle
+        class="login__ring-arc login__ring-arc--inner"
+        cx="200"
+        cy="200"
+        r="122"
+        pathLength="100"
+        stroke-dasharray="100"
+        stroke-dashoffset="52"
+        transform="rotate(-90 200 200)"
+      />
+      <line class="login__ring-tick" x1="200" y1="20" x2="200" y2="62" />
+    </svg>
+
+    <p class="login__line">See who is free and who is full, before you plan.</p>
+  </section>
+
+  <section class="login__panel">
+    <div class="login__box">
+      <h1 class="login__title">Sign in to your account</h1>
+      <p class="login__lead">Welcome back. Enter your details to continue.</p>
+
       <form class="login__form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
         @if (error(); as message) {
-          <p class="login__error" role="alert">{{ message }}</p>
+          <p class="login__error ss-notice ss-notice--danger" role="alert">
+            <ss-icon class="ss-notice__icon">error</ss-icon>
+            <span class="ss-notice__text">{{ message }}</span>
+          </p>
         }
 
-        <mat-form-field appearance="outline">
-          <mat-label>Email</mat-label>
-          <input matInput type="email" formControlName="email" autocomplete="username" />
+        <ss-field>
+          <ss-label>Email</ss-label>
+          <input ssInput type="email" formControlName="email" autocomplete="username" />
           @if (form.controls.email.hasError('required')) {
-            <mat-error>Email is required</mat-error>
+            <ss-error>Email is required</ss-error>
           } @else if (form.controls.email.hasError('email')) {
-            <mat-error>Enter a valid email address</mat-error>
+            <ss-error>Enter a valid email address</ss-error>
           }
-        </mat-form-field>
+        </ss-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Password</mat-label>
+        <ss-field>
+          <ss-label>Password</ss-label>
           <input
-            matInput
+            ssInput
             [type]="hidePassword() ? 'password' : 'text'"
             formControlName="password"
             autocomplete="current-password"
           />
           <button
-            mat-icon-button
-            matSuffix
+            ss-button="icon"
+            ssSuffix
             type="button"
             (click)="hidePassword.set(!hidePassword())"
             [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'"
           >
-            <mat-icon>{{ hidePassword() ? 'visibility' : 'visibility_off' }}</mat-icon>
+            <ss-icon>{{ hidePassword() ? 'visibility' : 'visibility_off' }}</ss-icon>
           </button>
           @if (form.controls.password.hasError('required')) {
-            <mat-error>Password is required</mat-error>
+            <ss-error>Password is required</ss-error>
           }
-        </mat-form-field>
+        </ss-field>
 
-        <button mat-flat-button type="submit" class="login__submit" [disabled]="loading()">
+        <button ss-button="filled" type="submit" class="login__submit" [disabled]="loading()">
           @if (loading()) {
-            <mat-spinner diameter="20" aria-label="Signing in" />
+            <ss-spinner [diameter]="20" aria-label="Signing in" />
           } @else {
             Sign in
           }
         </button>
       </form>
-    </mat-card-content>
-  </mat-card>
+    </div>
+  </section>
 </main>

@@ -2,24 +2,30 @@ import { Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../core/auth/auth.service';
+import {
+  SsError,
+  SsField,
+  SsInput,
+  SsLabel,
+  SsSpinner,
+  SsSuffix,
+  SsButton,
+  SsIcon,
+} from '../../shared/ui';
 
 @Component({
   selector: 'app-login',
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
+    SsButton,
+    SsIcon,
+    SsError,
+    SsField,
+    SsInput,
+    SsLabel,
+    SsSpinner,
+    SsSuffix,
   ],
   templateUrl: './login.html',
   styleUrl: './login.scss',

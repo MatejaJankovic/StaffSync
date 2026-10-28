@@ -11,12 +11,6 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, Observable, of } from 'rxjs';
 import { apiErrorMessage, isApiError } from '../../core/api/api-error';
@@ -25,6 +19,18 @@ import { Notifications } from '../../core/error/notifications';
 import { parseIsoDate, toIsoDate } from '../../shared/dates';
 import { DateRangePicker, DateRangeValue } from '../../shared/date-range-picker/date-range-picker';
 import { SkillLevelPicker } from '../../shared/skill-level-picker/skill-level-picker';
+import {
+  SsCheckbox,
+  SsError,
+  SsField,
+  SsInput,
+  SsLabel,
+  SsOptgroup,
+  SsOption,
+  SsSelect,
+  SsButton,
+  SsIcon,
+} from '../../shared/ui';
 import { formatPeriod, isEditable, Project } from '../projects/project.models';
 import { ProjectService } from '../projects/project.service';
 import { Skill, SKILL_CATEGORIES, SKILL_CATEGORY_LABELS } from '../skills/skill.models';
@@ -79,14 +85,18 @@ function isFieldViolation(detail: unknown): detail is FieldViolation {
   selector: 'app-request-form',
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatCheckboxModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatSelectModule,
+    SsButton,
+    SsIcon,
     RouterLink,
     DateRangePicker,
+    SsCheckbox,
+    SsError,
+    SsField,
+    SsInput,
+    SsLabel,
+    SsOptgroup,
+    SsOption,
+    SsSelect,
     SkillLevelPicker,
   ],
   templateUrl: './request-form.html',
