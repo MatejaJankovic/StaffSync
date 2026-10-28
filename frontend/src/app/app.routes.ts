@@ -16,8 +16,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'home' },
-      // Each page is a placeholder until its owner swaps in the real component,
-      // e.g. menuRoute('projects', ProjectList). Roles come from MENU in core/layout/menu.ts.
+      // A menu page and its roles come from MENU in core/layout/menu.ts, e.g. menuRoute('projects', ...)
       menuRoute('home', {
         loadComponent: () => import('./features/home/home-page').then((m) => m.HomePage),
       }),

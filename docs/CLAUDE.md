@@ -37,7 +37,7 @@ U većini IT firmi ljudi se raspoređuju na projekte preko Excel tabela, poruka 
 - **Nevidljivi „bench“.** Ljudi bez projekta postoje, ali ih PM-ovi ne nalaze jer ne znaju ko šta zna niti ko je slobodan.
 - **Spor i netransparentan proces.** PM pita line managera u porukama, odgovor se gubi, i nije jasno ko je šta odobrio.
 
-**StaffSync** rešava ovo na jednom mestu. PM opiše koga traži (skillovi, nivo, procenat angažovanja, period), sistem predloži najbolje kandidate na osnovu skillova i stvarne dostupnosti, a line manager (RM) jednim klikom odobri ili odbije. Svaka kasnija izmena alokacije takođe ide RM-u na odobrenje. Pravilo kapaciteta garantuje da niko ne može biti zauzet preko svog kapaciteta.
+**StaffSync** rešava ovo na jednom mestu. PM opiše koga traži (skillovi, nivo, procenat angažovanja, period), sistem predloži najbolje kandidate na osnovu skillova i stvarne dostupnosti, a line manager (RM) odobri (uz potvrdu) ili odbije, i pre odluke vidi da li alokacija staje u kapacitet. Svaka kasnija izmena alokacije takođe ide RM-u na odobrenje. Pravilo kapaciteta garantuje da niko ne može biti zauzet preko svog kapaciteta.
 
 > **Rečenica za prezentaciju:** „Napravili smo alat kojim biste vi rasporedili nas posle onboardinga.“
 
@@ -50,9 +50,9 @@ U većini IT firmi ljudi se raspoređuju na projekte preko Excel tabela, poruka 
 | **Employee** | Svaki zaposleni | Održava profil i skillove (nivo 1–5), uploaduje CV *(stretch)*, vidi svoje alokacije, prijavljuje odsustva *(stretch)* |
 | **Project Manager (PM)** | Vodi jedan ili više projekata | Kreira svoje projekte i staffing zahteve, pregleda rangirane kandidate, predlaže alokacije, traži izmene odobrenih alokacija, otkazuje predloge |
 | **Resource Manager (RM)** | Line manager tima zaposlenih | Odobrava ili odbija nove alokacije i izmene alokacija svojih ljudi, odobrava odsustva *(stretch)*, prati zauzetost tima |
-| **Admin** | Administracija sistema | Kreira naloge (nema samoregistracije), upravlja rolama, departmentima i katalogom skillova |
+| **Admin** | Administracija sistema | Kreira naloge (nema samoregistracije), resetuje zaboravljene lozinke, deaktivira i ponovo aktivira naloge, predaje projekte PM-a drugom PM-u, upravlja rolama, departmentima i katalogom skillova |
 
-Svaki korisnik ima tačno jednu rolu. Svaki Employee ima tačno jednog RM-a (`manager_id`). Na projekte se alociraju samo korisnici sa rolom EMPLOYEE.
+Svaki korisnik ima tačno jednu rolu. Svaki Employee ima tačno jednog RM-a (`manager_id`). Na projekte se alociraju samo korisnici sa rolom EMPLOYEE, pa samo Employee ima seniority (obavezan) i kapacitet manji od 100%. Employee, PM i RM pripadaju departmentu, a Admin ne mora.
 
 ---
 
@@ -71,7 +71,8 @@ Svaki korisnik ima tačno jednu rolu. Svaki Employee ima tačno jednog RM-a (`ma
 | Migracije baze | Flyway | Verzionisana šema, dovoljno je znati SQL |
 | UI biblioteka | Angular CDK + sopstveni UI kit (`frontend/src/app/shared/ui`) | Bez Angular Material-a: CDK daje overlay, dijalog, meni i pristupačnost, a izgled je naš (`--ss-*` tokeni) |
 | **Pokretanje** | **Ceo stack u Docker-u** | `docker compose up --build` diže sve za demo |
-| Nalozi | Kreira ih Admin, nema registracije | Interni enterprise alat |
+| Nalozi | Kreira ih Admin, nema registracije. Privremenu lozinku (novi nalog ili reset) korisnik menja pri prvoj prijavi | Interni enterprise alat |
+| Rad unazad | Ne postoji: nema projekta ni zahteva koji su se već završili, ni alokacije, izmene ili odobrenja sa početkom u prošlosti | StaffSync planira, ne evidentira prošlost |
 | JWT | Samo access token (8h) | Bez refresh tokena |
 | CI | Ne koristi se | Testovi se pokreću lokalno pre PR-a |
 | **PR review** | **Svaki PR odobrava 1 član tima (QA odobrenje nije obavezno)** | Brz tok bez čekanja. Reviewer proverava kod i da PR radi ono što piše u kriterijumima prihvatanja, a QA testira spojen kod na `main` i bagove prijavljuje kroz GitHub Issues |
@@ -96,8 +97,8 @@ Svaki korisnik ima tačno jednu rolu. Svaki Employee ima tačno jednog RM-a (`ma
    - …
 4. Ana predlaže Marka. Alokacija dobija status `PROPOSED`.
 5. **Igor (RM)**, Markov line manager, vidi zahtev na čekanju i odobrava ga. Alokacija prelazi u `APPROVED`, a zahtev u `PARTIALLY_FILLED` (1 od 2).
-6. Ana predlaže Jelenu za ceo period. Njen RM pokušava da odobri, ali sistem odbija sa porukom: *„Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120%)“*.
-7. Ana menja period Jeleninog predloga na 15.11–31.1. RM odobrava, a zahtev postaje `FILLED`.
+6. Ana predlaže Jelenu za ceo period. U *Pending approvals* RM već vidi *Over capacity on 10 working days*, a kad pokuša da odobri, sistem odbija sa porukom: *„Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity)“*.
+7. Ana povlači Jelenin predlog i predlaže je ponovo za 15.11–31.1 (predlog se ne menja, nego se povlači i daje novi). RM odobrava, a zahtev postaje `FILLED`.
 8. Klijent traži više posla, pa Ana šalje **zahtev za izmenu** Markove alokacije: 60% → 80%, uz razlog. Alokacija prelazi u `CHANGE_PENDING`, a dok Igor ne odluči i dalje važi 60%. Igor u listi *Pending approvals* vidi oznaku **Change** i prikaz *60% → 80%*. Odobrava izmenu, a sistem proverava kapacitet za novih 80% i primenjuje ga.
 
 Ovaj tok je ujedno i scenario za demo na prezentaciji.
@@ -127,14 +128,14 @@ erDiagram
 
 | Entitet | Polja | Napomena |
 |---|---|---|
-| `User` | id, email (unique), passwordHash, firstName, lastName, role, department_id, manager_id, capacityPercent, seniority, active | `capacityPercent` ∈ {100, 80, 50}. `seniority` ∈ {JUNIOR, MEDIOR, SENIOR} |
+| `User` | id, email (unique), passwordHash, firstName, lastName, role, department_id, manager_id, capacityPercent, seniority, active, mustChangePassword | `capacityPercent` ∈ {100, 80, 50}, a manje od 100 samo za Employee. `seniority` ∈ {JUNIOR, MEDIOR, SENIOR}, obavezan za Employee i prazan za ostale. `mustChangePassword` je `true` dok korisnik ima privremenu lozinku od Admina |
 | `Department` | id, name (unique) | |
 | `Skill` | id, name (unique), category | Kategorije: BACKEND, FRONTEND, DATABASE, DEVOPS, QA, OTHER |
 | `EmployeeSkill` | id, user_id, skill_id, level (1–5), yearsOfExperience | Kombinacija (user, skill) je unique |
-| `Project` | id, name, client, description, startDate, endDate, status, pm_id | Status: PLANNED / ACTIVE / COMPLETED / CANCELLED |
-| `StaffingRequest` | id, project_id, title, seniority, allocationPercent, startDate, endDate, headcount, status, createdAt | `allocationPercent` ∈ [10, 100], u koracima od 10 |
+| `Project` | id, name (unique, bez obzira na velika i mala slova), client, description, startDate, endDate, status, pm_id | Status: PLANNED / ACTIVE / COMPLETED / CANCELLED |
+| `StaffingRequest` | id, project_id, title, seniority, allocationPercent, startDate, endDate, headcount, status, createdAt | `allocationPercent` ∈ [10, 100], u koracima od 10. `title` je jedinstven u projektu među zahtevima koji nisu otkazani |
 | `RequestSkill` | id, request_id, skill_id, minLevel, mandatory | |
-| `Allocation` | id, request_id, employee_id, percent, startDate, endDate, status, proposedBy_id, decidedBy_id, decisionComment, createdAt, decidedAt, **pendingPercent, pendingStartDate, pendingEndDate, changeReason** | Status: PROPOSED / APPROVED / **CHANGE_PENDING** / REJECTED / CANCELLED. `percent` se podrazumevano preuzima iz zahteva. `pending*` polja su popunjena samo dok izmena čeka odluku |
+| `Allocation` | id, request_id, employee_id, percent, startDate, endDate, status, proposedBy_id, decidedBy_id, decisionComment, createdAt, decidedAt, **pendingPercent, pendingStartDate, pendingEndDate, changeReason, changeRequestedAt** | Status: PROPOSED / APPROVED / **CHANGE_PENDING** / REJECTED / CANCELLED. `percent` se podrazumevano preuzima iz zahteva. `pending*` polja i `changeRequestedAt` su popunjena samo dok izmena čeka odluku. `decisionComment` PM vidi u timu projekta |
 | `Absence` *(stretch)* | id, employee_id, type, startDate, endDate, status, decidedBy_id | Type: VACATION / SICK / OTHER |
 | `Document` *(stretch)* | id, ownerType, ownerId, fileName, contentType, size, storagePath, uploadedBy_id, uploadedAt | Fajlovi se čuvaju na disku (Docker volume), u bazi su samo metapodaci |
 
@@ -150,20 +151,22 @@ Ova pravila su srž projekta. Implementiraju se u service layer-u, a QA ih pokri
 |---|---|---|
 | **BR-1** | **Kapacitet kroz vreme.** Za svaki radni dan u periodu alokacije: zbir aktivnih alokacija zaposlenog + nova alokacija ≤ `capacityPercent`. Dani odobrenog odsustva *(stretch)* se preskaču, jer zaposleni tada ne radi ni na jednom projektu, ali se vraća upozorenje. | 409 Conflict, uz listu dana koji prelaze kapacitet |
 | **BR-2** | Provera iz BR-1 je **obavezna pri odobravanju** (nove alokacije i izmene). Pri predlaganju i pri zahtevu za izmenu sistem samo **upozorava** ako bi zbir aktivnih + `PROPOSED` alokacija prešao kapacitet (soft booking). | Pri odobravanju greška; pri predlogu samo upozorenje u odgovoru |
-| **BR-3** | Period alokacije (i predložene izmene) mora biti unutar perioda zahteva, a period zahteva unutar perioda projekta. `startDate ≤ endDate`. | 400 Bad Request |
+| **BR-3** | Period alokacije (i predložene izmene) mora biti unutar perioda zahteva, a period zahteva unutar perioda projekta. `startDate ≤ endDate`. Važi i pri izmeni: novi period zahteva mora da obuhvati sve njegove predložene i aktivne alokacije (409 `ALLOCATION_OUTSIDE_REQUEST`), a novi period projekta sve njegove zahteve koji nisu otkazani (400 `REQUESTS_OUTSIDE_PROJECT`). | 400 Bad Request |
 | **BR-4** | Staffing zahteve kreira, kandidate predlaže i izmene traži samo PM tog projekta. | 403 Forbidden |
 | **BR-5** | Alokaciju ili izmenu odobrava ili odbija samo RM kome zaposleni pripada (`employee.manager_id`). | 403 Forbidden |
 | **BR-6** | Za odbijanje alokacije ili izmene komentar je obavezan (min. 10 karaktera). | 400 Bad Request |
 | **BR-7** | Odlučuje se samo o alokacijama u statusu `PROPOSED` ili `CHANGE_PENDING`. O alokaciji koja je već odobrena, odbijena ili otkazana ne može se ponovo odlučivati. | 409 Conflict |
 | **BR-8** | Isti zaposleni ne može imati dve alokacije u statusu `PROPOSED`, `APPROVED` ili `CHANGE_PENDING` na istom zahtevu u periodima koji se preklapaju. | 409 Conflict |
 | **BR-9** | Predlaganje je dozvoljeno samo na zahtevu u statusu `OPEN` ili `PARTIALLY_FILLED`, i to samo ako zaposleni ispunjava sve obavezne skillove. | 409 / 400 |
-| **BR-10** | Status zahteva se računa automatski iz broja aktivnih alokacija: 0 = `OPEN`, između 1 i headcount−1 = `PARTIALLY_FILLED`, headcount = `FILLED`. Kad je zahtev `FILLED`, preostali `PROPOSED` predlozi se automatski otkazuju. | – |
+| **BR-10** | Status zahteva se računa automatski iz broja **ljudi** sa aktivnom alokacijom (jedna osoba sa dve uzastopne alokacije popunjava jedno mesto): 0 = `OPEN`, između 1 i headcount−1 = `PARTIALLY_FILLED`, headcount = `FILLED`. Kad je zahtev `FILLED`, preostali `PROPOSED` predlozi se automatski otkazuju. Headcount ne može pasti ispod broja ljudi na zahtevu (409 `HEADCOUNT_BELOW_FILLED`), a posle izmene zahteva status se ponovo računa. Otkazati se može samo zahtev na kome niko nije alociran (`OPEN`), i tada se otkazuju i njegovi predlozi; da se prestane sa traženjem, PM spušta headcount. | 409 Conflict |
 | **BR-11** | Kad se projekat završi ili otkaže: otvoreni zahtevi i `PROPOSED` alokacije se otkazuju, izmene koje čekaju se poništavaju, a aktivne alokacije se skraćuju do tog dana. | – |
-| **BR-12** | Korisnik sa aktivnim alokacijama (tekućim ili budućim) ne može biti deaktiviran. | 409 Conflict |
+| **BR-12** | Korisnik sa aktivnim alokacijama (tekućim ili budućim) ne može biti deaktiviran. PM sa projektima u statusu PLANNED ili ACTIVE ne može biti deaktiviran niti dobiti drugu rolu dok ih Admin ne preda drugom PM-u (`PM_HAS_OPEN_PROJECTS`), da nijedan projekat ne ostane bez PM-a. Deaktiviran korisnik može ponovo biti aktiviran. | 409 Conflict |
 | **BR-13** | Smanjenje `capacityPercent` zaposlenog nije dozvoljeno ako bi postojeće aktivne alokacije prekoračile novi kapacitet. | 409 Conflict |
 | **BR-14** *(stretch)* | Odsustvo odobrava RM zaposlenog. Ako se preklapa sa aktivnom alokacijom, odobravanje je dozvoljeno, ali se konflikt prikazuje PM-u i RM-u. | Upozorenje |
 | **BR-15** | **Izmena odobrene alokacije.** PM može tražiti izmenu procenta, početka i/ili kraja samo za `APPROVED` alokaciju koja se nije završila, uz obavezan razlog. Može čekati samo jedna izmena u isto vreme. Alokacija koja je već počela ne može promeniti `startDate`. Kad RM odobri izmenu, kapacitet (BR-1) se proverava za nove vrednosti bez trenutnih vrednosti te iste alokacije, i nove vrednosti se primenjuju. Kad RM odbije ili PM povuče izmenu, ostaju stare vrednosti. U svim slučajevima status se vraća na `APPROVED`. | 409 (pogrešan status, izmena već čeka), 400 (validacija) |
 | **BR-16** | `CHANGE_PENDING` alokacija se u kapacitetu (BR-1), statusu zahteva (BR-10) i deaktivaciji (BR-12) računa kao aktivna, sa trenutnim vrednostima. | – |
+| **BR-17** | **Nema rada unazad.** Projekat i zahtev ne mogu da se završe u prošlosti, alokacija i izmena ne mogu da počnu pre današnjeg dana, a predlog čiji je početak prošao ne može biti odobren (PM ga predlaže ponovo od danas). Projekat prelazi u `ACTIVE` najranije na dan početka. Matching računa dostupnost od danas. | 400 / 409 |
+| **BR-18** | Employee ne može ukloniti skill ili ga spustiti ispod nivoa koji je obavezan na nekoj njegovoj tekućoj ili budućoj alokaciji ili predlogu (`SKILL_REQUIRED_BY_ALLOCATION`). | 409 Conflict |
 
 ---
 
@@ -218,7 +221,7 @@ Izmena: Projekat A 60% → 70%, isti period (1.11–15.12)
 | Komponenta | Težina | Računanje |
 |---|---|---|
 | **Skillovi** | 50% | Za svaki traženi skill se računa poklapanje: obavezni skill na minimalnom nivou = 0,7, svaki nivo iznad minimuma +0,1 (najviše 1,0); poželjni skill nosi isto, a ako ga kandidat nema = 0. Prosek se množi sa 50. |
-| **Dostupnost** | 40% | Udeo radnih dana u periodu na kojima je slobodan kapacitet ≥ traženi procenat. Množi se sa 40. |
+| **Dostupnost** | 40% | Udeo radnih dana u periodu (od danas, za zahtev koji je već počeo) na kojima je slobodan kapacitet ≥ traženi procenat. Množi se sa 40. |
 | **Seniority** | 10% | Isti nivo = 10, susedni nivo = 5, ostalo = 0. |
 
 ### Korak 3: objašnjenje
@@ -265,19 +268,21 @@ stateDiagram-v2
     OPEN --> PARTIALLY_FILLED: prva odobrena alokacija
     PARTIALLY_FILLED --> FILLED: aktivnih = headcount
     PARTIALLY_FILLED --> OPEN: odobrena alokacija otkazana
-    FILLED --> PARTIALLY_FILLED: odobrena alokacija otkazana
-    OPEN --> CANCELLED
-    PARTIALLY_FILLED --> CANCELLED
+    PARTIALLY_FILLED --> FILLED: PM spusti headcount na broj ljudi
+    FILLED --> PARTIALLY_FILLED: odobrena alokacija otkazana / PM podigne headcount
+    OPEN --> CANCELLED: PM otkaže (predlozi se otkazuju)
 ```
 
+Zahtev na kome je neko alociran ne otkazuje se (BR-10), osim pri zatvaranju projekta (BR-11).
+
 ### Project
-`PLANNED → ACTIVE → COMPLETED`; iz `PLANNED` ili `ACTIVE` projekat može preći u `CANCELLED` (vidi BR-11).
+`PLANNED → ACTIVE → COMPLETED`; iz `PLANNED` ili `ACTIVE` projekat može preći u `CANCELLED` (vidi BR-11). U `ACTIVE` prelazi najranije na dan početka (BR-17).
 
 ---
 
 ## 10. REST API i Swagger
 
-Svi endpointi osim login-a i Swagger-a zahtevaju JWT (`Authorization: Bearer …`). Liste podržavaju `page`, `size` i `sort`.
+Svi endpointi osim login-a i Swagger-a zahtevaju JWT (`Authorization: Bearer …`). Liste podržavaju `page`, `size` (podrazumevano 20) i `sort`.
 
 ### Swagger / OpenAPI (obavezno)
 
@@ -318,7 +323,7 @@ public class AllocationController {
 ### Auth
 | Metod | Putanja | Rola | Opis |
 |---|---|---|---|
-| POST | `/api/auth/login` | javno | Vraća JWT (važi 8h) i osnovne podatke o korisniku. Neaktivan korisnik dobija 401 |
+| POST | `/api/auth/login` | javno | Vraća JWT (važi 8h) i osnovne podatke o korisniku, uz `mustChangePassword`. Neaktivan korisnik dobija 401 |
 | GET | `/api/auth/me` | svi | Trenutni korisnik |
 | PUT | `/api/auth/password` | svi | Promena sopstvene lozinke (stara + nova, min. 8 karaktera) |
 
@@ -334,7 +339,10 @@ public class AllocationController {
 | POST | `/api/users` | ADMIN | Kreiranje naloga sa privremenom lozinkom (nema samoregistracije) |
 | PUT | `/api/users/{id}` | ADMIN | Izmena (BR-13) |
 | PATCH | `/api/users/{id}/deactivate` | ADMIN | Deaktivacija (BR-12) |
-| GET / PUT | `/api/users/{id}/skills` | vlasnik, ADMIN (izmena); svi (čitanje) | Skillovi zaposlenog |
+| PATCH | `/api/users/{id}/activate` | ADMIN | Ponovna aktivacija |
+| PUT | `/api/users/{id}/password` | ADMIN | Reset zaboravljene lozinke: nova privremena lozinka, koju korisnik menja pri prvoj prijavi |
+| POST | `/api/users/{id}/hand-over-projects` | ADMIN | Predaja svih PLANNED i ACTIVE projekata PM-a drugom aktivnom PM-u (BR-12) |
+| GET / PUT | `/api/users/{id}/skills` | vlasnik, ADMIN (izmena); svi (čitanje) | Skillovi zaposlenog (BR-18) |
 | GET | `/api/users/{id}/availability?from&to` | PM, RM, vlasnik | Dnevna zauzetost i slobodan kapacitet |
 | GET | `/api/users/me/team` | RM | Moj tim sa trenutnom zauzetošću |
 | CRUD | `/api/departments` | ADMIN (izmena), svi (čitanje) | |
@@ -347,15 +355,15 @@ public class AllocationController {
 | POST / PUT | `/api/projects`, `/api/projects/{id}` | PM | Kreiranje i izmena sopstvenog projekta |
 | PATCH | `/api/projects/{id}/status` | PM (vlasnik) | Promena statusa (BR-11) |
 | GET / POST | `/api/projects/{id}/requests` | PM (vlasnik); svi (čitanje) | Staffing zahtevi projekta (BR-3, BR-4) |
-| GET / PUT / DELETE | `/api/requests/{id}` | PM (vlasnik) | Detalji, izmena, otkazivanje |
+| GET / PUT / DELETE | `/api/requests/{id}` | PM (vlasnik) | Detalji, izmena (BR-3, BR-10), otkazivanje samo `OPEN` zahteva. Odgovor ima i `filled`, broj ljudi na zahtevu |
 | GET | `/api/requests/{id}/candidates` | PM (vlasnik) | **Matching engine** |
 
 ### Alokacije
 | Metod | Putanja | Rola | Opis |
 |---|---|---|---|
 | POST | `/api/allocations` | PM | Predlog (BR-2, BR-3, BR-8, BR-9) |
-| GET | `/api/allocations?status&employeeId&projectId&from&to` | svi (filtrirano po roli) | Pretraga alokacija |
-| GET | `/api/allocations/pending` | RM | Na čekanju za moj tim. Svaka stavka ima `type`: `NEW` (novi predlog) ili `CHANGE` (izmena, sa starim i novim vrednostima) |
+| GET | `/api/allocations?status&employeeId&projectId&from&to` | svi (filtrirano po roli) | Pretraga alokacija. `status` može da se ponovi za više statusa |
+| GET | `/api/allocations/pending` | RM | Na čekanju za moj tim, najduže čekanje prvo. Svaka stavka ima `type`: `NEW` (novi predlog) ili `CHANGE` (izmena, sa starim i novim vrednostima), predlagača, `awaitingSince` i pregled kapaciteta (`capacityPercent`, `peakLoad`, `overCapacityDays`) |
 | POST | `/api/allocations/{id}/approve` | RM | Odobrava novi predlog ili izmenu (BR-1, BR-5, BR-7, BR-10, BR-15) |
 | POST | `/api/allocations/{id}/reject` | RM | Odbija novi predlog ili izmenu (BR-5, BR-6, BR-7, BR-15) |
 | POST | `/api/allocations/{id}/cancel` | PM | Povlačenje predloga ili otkazivanje odobrene alokacije pre početka |
@@ -393,7 +401,7 @@ public class AllocationController {
 
 UI je na **engleskom**.
 
-**Zajedničko:** login, layout sa menijem koji zavisi od role, `AuthGuard` i `RoleGuard`, JWT `HttpInterceptor` (na 401 briše token i vraća korisnika na login), globalni error handler (snackbar), *Change password* dijalog, pretraga zaposlenih.
+**Zajedničko:** login, layout sa menijem koji zavisi od role (ispod 1280px meni počinje kao uska traka sa ikonama), `AuthGuard` i `RoleGuard`, JWT `HttpInterceptor` (na 401 briše token i vraća korisnika na login), globalni error handler (toast), *Change password* dijalog (obavezan posle prijave sa privremenom lozinkom). Pretraga zaposlenih je za PM-a i RM-a.
 
 **Početna stranica (*Home*)** je za svaku rolu nekoliko kartica sa brojem i linkom ka listi. Nema grafikona.
 
@@ -406,10 +414,10 @@ UI je na **engleskom**.
 
 | Rola | Stranice |
 |---|---|
-| **Employee** | *My profile* (podaci, skillovi sa nivoima, CV upload *(stretch)*), *My allocations* (lista i trenutna zauzetost), *My absences* *(stretch)* |
-| **PM** | *My projects* (lista i filteri), *Project details* (zahtevi, tim, dokumenti), *New/Edit request* (reactive form sa dinamičkom listom skillova), **Candidates** (rangirana lista, breakdown skora, upozorenja, dugme *Propose*), *Request change* dijalog na odobrenoj alokaciji (novi %, datumi, razlog) |
-| **RM** | **Pending approvals** (oznaka *New*/*Change*; za izmenu prikaz staro → novo; approve/reject dijalog sa komentarom), *My team* (lista sa trenutnom zauzetošću), **Timeline/heatmap** *(stretch)* (redovi = ljudi, kolone = nedelje, boja = zauzetost) |
-| **Admin** | *Users* (kreiranje naloga sa privremenom lozinkom), *Departments*, *Skills catalog* |
+| **Employee** | *My profile* (podaci, skillovi sa nivoima, CV upload *(stretch)*), *My allocations* (predlozi, odobrene alokacije i izmene na čekanju, bez povučenih i odbijenih, i trenutna zauzetost), *My absences* *(stretch)* |
+| **PM** | *My projects* (lista i filteri), *Project details* (zahtevi sa brojem popunjenih mesta, tim sa komentarom RM-a uz odbijene predloge i izmene, dokumenti), *New/Edit request* (reactive form sa dinamičkom listom skillova), **Candidates** (rangirana lista, breakdown skora, upozorenja, dugme *Propose*; dijalog ponovo računa upozorenja za izabrani procenat i period), *Request change* dijalog na odobrenoj alokaciji (novi %, datumi, razlog) |
+| **RM** | **Pending approvals** (oznaka *New*/*Change*; predlagač; za izmenu prikaz staro → novo; da li odobrenje staje u kapacitet; approve/reject dijalog sa komentarom), *My team* (lista sa trenutnom zauzetošću), **Timeline/heatmap** *(stretch)* (redovi = ljudi, kolone = nedelje, boja = zauzetost) |
+| **Admin** | *Users* (kreiranje naloga sa privremenom lozinkom, izmena, deaktivacija i ponovna aktivacija, reset lozinke, predaja projekata PM-a), *Departments*, *Skills catalog* |
 
 **Reusable komponente:** `skill-level-picker`, `capacity-bar` (traka zauzetosti), `status-chip`, `date-range-picker`, `confirm-dialog`, `paged-table`, `stat-card` (kartica na početnoj stranici), `change-diff` (prikaz staro → novo).
 
@@ -428,13 +436,15 @@ UI je na **engleskom**.
 
 ### Struktura repozitorijuma
 ```text
-Capstone-project/
-├── backend/             (Spring Boot, Maven, Dockerfile)
-├── frontend/            (Angular, Dockerfile, nginx.conf)
-├── docs/                (proposal, sprint backlog, test plan)
+StaffSync/
+├── backend/             (Spring Boot, Maven, Dockerfile, run-dev.cmd)
+├── frontend/            (Angular, Dockerfile, nginx.conf, README.md)
+├── docs/                (specifikacija CLAUDE.md, SPRINT_BACKLOG.md)
+├── .github/             (šabloni za PR i issue-e)
 ├── docker-compose.yml
+├── README.md            (pokretanje, demo, nalozi, API konvencije)
 ├── CONTRIBUTING.md      (konvencije: grane, commit-ovi, PR-ovi)
-└── .env.example         (DB_USER, DB_PASSWORD, JWT_SECRET, ...)
+└── .env.example         (DB_USER, DB_PASSWORD, JWT_SECRET)
 ```
 
 ### Struktura backenda (paketi po feature-ima)
@@ -444,6 +454,8 @@ com.staffsync
 ├── config/        (OpenApiConfig)
 ├── dashboard/     (DashboardController, DashboardService)
 ├── user/          (User, UserController, UserService, UserRepository, dto/)
+├── employeeskill/ (skillovi zaposlenog)
+├── employee/      (pretraga zaposlenih)
 ├── skill/
 ├── department/
 ├── project/
@@ -473,24 +485,28 @@ services:
     image: postgres:16
     environment:
       POSTGRES_DB: staffsync
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USER:-staffsync}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-staffsync}
     volumes:
       - db-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d staffsync"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-staffsync} -d staffsync"]
       interval: 5s
       retries: 10
 
   backend:
     build: ./backend
+    # Opciono, npr. JWT_SECRET; bez njega važe podrazumevane vrednosti dev profila
+    env_file:
+      - path: .env
+        required: false
     environment:
+      SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/staffsync
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
+      DB_USER: ${DB_USER:-staffsync}
+      DB_PASSWORD: ${DB_PASSWORD:-staffsync}
     depends_on:
       db:
         condition: service_healthy
@@ -519,7 +535,7 @@ volumes:
 - Ako se lokalna baza pokvari, reset je `docker compose down -v`. Seed migracije sve vraćaju.
 
 ### Seed podaci
-Flyway migracije sa demo podacima: 1 admin, 4 departmenta, oko 25 skillova, oko 30 zaposlenih sa različitim skillovima i kapacitetima (uključujući part-time), 3 PM-a, 3 RM-a, 5 projekata i nekoliko postojećih alokacija, tako da matching i početna stranica imaju šta da pokažu. Svaki developer pravi seed za entitete svog dela.
+Flyway migracije sa demo podacima (`db/dev-seed`, učitavaju se samo uz `dev` profil, koji koriste Docker, `run-dev.cmd` i testovi): 1 admin, 4 departmenta, 25 skillova, 30 zaposlenih sa različitim skillovima i kapacitetima (uključujući part-time), 3 PM-a, 3 RM-a, 5 projekata i nekoliko postojećih alokacija, tako da matching i početna stranica imaju šta da pokažu. Demo podaci su datirani za Sprint Review 30.10.2026: zbog BR-17, posle 2.11.2026. postojeći predlozi više ne mogu da se odobre i demo brojevi se menjaju, pa ih tada treba pomeriti novom seed migracijom.
 
 ### Autentifikacija
 - Nema samoregistracije. Admin kreira naloge sa privremenom lozinkom, a prvi admin dolazi iz seed podataka.
@@ -527,7 +543,7 @@ Flyway migracije sa demo podacima: 1 admin, 4 departmenta, oko 25 skillova, oko 
 - JWT je samo access token, važi 8h i nema refresh tokena. Tajni ključ se čita iz `JWT_SECRET` env promenljive.
 
 ### Kvalitet bez CI-ja
-CI se ne koristi. Zato je pravilo da se **pre otvaranja PR-a** lokalno pokrene `mvn verify` (backend), odnosno `ng build` i `ng test` (frontend). QA pušta regresione testove pre većih merge-ova u `main`.
+CI se ne koristi. Zato je pravilo da se **pre otvaranja PR-a** lokalno pokrene `mvn verify` (backend), odnosno `npm run build`, `npm test`, `npm run lint` i `npm run format:check` (frontend), kao u [CONTRIBUTING.md](../CONTRIBUTING.md#testing-and-validation). QA pušta regresione testove pre većih merge-ova u `main`.
 
 ---
 
@@ -660,6 +676,15 @@ QA ne čeka da developeri završe, nego radi paralelno sa njima:
 | T-38 | Auth | Promena lozinke sa pogrešnom starom lozinkom | 400 |
 | T-39 | Swagger | `/swagger-ui.html` bez tokena; zaštićeni endpoint iz Swagger-a bez Authorize | 200; 401 |
 | T-40 | Dashboard | Svaka rola poziva `/api/dashboard` | Svaka rola dobija samo svoje kartice i podatke |
+| T-41 | BR-3 | Izmena zahteva tako da alokacija ostane izvan njegovog perioda | 409 `ALLOCATION_OUTSIDE_REQUEST` |
+| T-42 | BR-10 | Headcount spušten ispod broja ljudi na zahtevu | 409 `HEADCOUNT_BELOW_FILLED` |
+| T-43 | BR-10 | Ista osoba sa dve uzastopne alokacije na zahtevu sa headcount 2 | `PARTIALLY_FILLED` (1 od 2) |
+| T-44 | BR-10 | Otkazivanje zahteva sa predlogom / sa odobrenom alokacijom | 200 i predlog `CANCELLED` / 409 `REQUEST_HAS_ACTIVE_ALLOCATIONS` |
+| T-45 | BR-3 | Skraćivanje projekta tako da zahtev ostane izvan njega | 400 `REQUESTS_OUTSIDE_PROJECT` |
+| T-46 | BR-12 | Deaktivacija PM-a sa aktivnim projektom, pa predaja projekata, pa deaktivacija | 409 `PM_HAS_OPEN_PROJECTS`, 200, 200 |
+| T-47 | BR-17 | Predlog sa početkom u prošlosti; odobrenje predloga čiji je početak prošao | 400 `ALLOCATION_IN_PAST`; 409 `ALLOCATION_START_PASSED` |
+| T-48 | BR-18 | Employee spušta skill ispod nivoa obaveznog na svojoj alokaciji | 409 `SKILL_REQUIRED_BY_ALLOCATION` |
+| T-49 | Auth | Prijava sa privremenom lozinkom od Admina | 200, `mustChangePassword: true` |
 
 ---
 
@@ -670,7 +695,7 @@ QA ne čeka da developeri završe, nego radi paralelno sa njima:
 - Korisnici, departmenti, skillovi, profil zaposlenog
 - Projekti i staffing zahtevi
 - **Matching engine** sa skorom i objašnjenjem
-- **Tok alokacija** sa pravilima BR-1 do BR-13
+- **Tok alokacija** sa pravilima BR-1 do BR-13, BR-17 i BR-18
 - **Izmena odobrene alokacije** uz ponovno odobravanje (BR-15, BR-16)
 - Pretraga zaposlenih po skillu i dostupnosti
 - Početna stranica po roli
