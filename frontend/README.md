@@ -1,59 +1,43 @@
-# StaffsyncFrontend
+# StaffSync frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.2.
+The Angular app of StaffSync: standalone components, Angular CDK with the project's own UI kit (`src/app/shared/ui`, styled with the `--ss-*` tokens in `src/styles/`), Reactive Forms and RxJS. How to run the whole stack, the demo and the dev accounts are in the [root README](../README.md); the specification is [`docs/CLAUDE.md`](../docs/CLAUDE.md).
 
 ## Development server
 
-To start a local development server, run:
+Start the database and the backend first (see the root README), then:
 
 ```bash
-ng serve
+npm start
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Open http://localhost:4200. `proxy.conf.json` forwards `/api` to the backend on port 8080, and the app reloads when a source file changes. Stop the `frontend` Docker container first, because it uses port 4200 too.
 
-## Code scaffolding
+## Checks before a pull request
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+There is no CI, so run these locally (see [CONTRIBUTING](../CONTRIBUTING.md#testing-and-validation)):
 
 ```bash
-ng generate component component-name
+npm run build
 ```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
 
 ```bash
-ng generate --help
+npm test
 ```
-
-## Building
-
-To build the project run:
 
 ```bash
-ng build
+npm run lint
 ```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
 
 ```bash
-ng test
+npm run format:check
 ```
 
-## Running end-to-end tests
+`npm test` runs the unit tests with [Vitest](https://vitest.dev/). There are no end-to-end tests in this folder.
 
-For end-to-end (e2e) testing, run:
+## Where things are
 
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+| Folder | What |
+|---|---|
+| `src/app/core` | Auth (login, guards, interceptor, *Change password*), the error toast, the shell with the role menu |
+| `src/app/features` | One folder per page or area: projects, requests, matching (candidates), allocations (team panel, *Pending approvals*, *My allocations*), team, employees (search), users, departments, skills, profile, home |
+| `src/app/shared` | Reusable components (`paged-table`, `status-chip`, `capacity-bar`, `change-diff`, `confirm-dialog`, ...) and the UI kit in `shared/ui` |

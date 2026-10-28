@@ -1,4 +1,4 @@
-StaffSync replaces spreadsheets and chat messages in the process of assigning people to projects. A project manager creates a staffing request (skills, seniority level, allocation percentage, period), the system returns a ranked list of candidates with an explanation of each score, and a line manager approves or rejects the allocation with one click. A day-by-day capacity rule guarantees that nobody is booked beyond their capacity, and every change to an approved allocation also goes through approval.
+StaffSync replaces spreadsheets and chat messages in the process of assigning people to projects. A project manager creates a staffing request (skills, seniority level, allocation percentage, period), the system returns a ranked list of candidates with an explanation of each score, and a line manager approves or rejects the allocation, seeing beforehand whether it fits the person's capacity. A day-by-day capacity rule guarantees that nobody is booked beyond their capacity, and every change to an approved allocation also goes through approval.
 
 Key features: 4 roles (Employee, PM, RM, Admin), a matching engine with a 0-100 score, capacity checks over time, an allocation change workflow, Swagger documentation, and the whole stack with a single command: docker compose up --build
 
@@ -38,13 +38,15 @@ This deletes the database volume. On the next start Flyway runs every migration 
 
 The [§4 scenario](docs/CLAUDE.md#4-glavni-scenario-demo-tok), step by step. It takes about 5 minutes.
 
-**Before you start:** reset and start the stack with one command, and wait for the backend log line `Started StaffsyncBackendApplication` (Flyway applies V1–V10 just before it):
+**Before you start:** reset and start the stack with one command, and wait for the backend log line `Started StaffsyncBackendApplication` (Flyway applies V1–V12 just before it):
 
 ```bash
 docker compose down -v && docker compose up --build
 ```
 
-Open http://localhost:4200. Use *Logout* in the user menu (top right) to switch roles. The password is always `Password123!`. *Approve* in *Pending approvals* asks for a confirmation, so click *Approve* in the dialog too.
+Open http://localhost:4200. Use *Logout* in the user menu (the button with your name at the bottom of the sidebar) to switch roles. The password is always `Password123!`. *Approve* in *Pending approvals* asks for a confirmation, so click *Approve* in the dialog too.
+
+**The demo is dated.** The seed is set up for the Sprint Review on 30 Oct 2026. Nobody can be staffed in the past (BR-17), so from 2 Nov 2026 on the seeded proposals can't be approved any more and the §4 numbers change; move the seed dates with a new seed migration before demoing later.
 
 | # | Log in as | Do | You should see |
 |---|---|---|---|
@@ -52,20 +54,22 @@ Open http://localhost:4200. Use *Logout* in the user menu (top right) to switch 
 | 2 | Ana | Open Project Alpha → *New request*: **Java Developer**, Medior, 60%, headcount 2, period 1 Nov 2026 – 31 Jan 2027. *Add skill* three times: Java ≥ 4 required, Spring ≥ 3 required, PostgreSQL ≥ 2 nice to have → *Save* | The request in the project, *Open* |
 | 3 | Ana | *Find candidates* on the request | **Marko 85** (40 + 40 + 5, *Seniority SENIOR (MEDIOR requested)*), **Jelena 67** (23 + 34 + 10, *Insufficient capacity 2026-11-02 – 2026-11-13 (40% free, 60% required)*, *Missing PostgreSQL*), then Nikola 61, Luka 60, Stefan 47, Milica 41. The other 24 employees don't have the required skills |
 | 4 | Ana | *Propose* on Marko, keep 60% and the whole period | Marko is *Proposed* |
-| 5 | Igor, `igor_rm@staffsync.local` | *Pending approvals* → Marko on Java Developer, marked **New** → *Approve* | Approved. In Ana's project the request is now *Partially filled* (1 of 2) |
-| 6 | Ana, then Igor | Ana: *Find candidates* → *Propose* Jelena for the whole period (the dialog warns about capacity). Igor: *Pending approvals* → *Approve* Jelena, then confirm | A red panel above the list: *Not approved: Jelena Petrovic would be over capacity on 10 working days* with *2 Nov 2026 – 13 Nov 2026: 60% existing + 60% new = 120%*. Jelena stays in the list, *Proposed*. (The API answers 409 with *Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity)*, which you see in Swagger) |
-| 7 | Ana, then Igor | Ana: Project Alpha → *Team* → *Withdraw* Jelena, then *Find candidates* → *Propose* Jelena with the period **15 Nov 2026 – 31 Jan 2027**. Igor: *Approve* | Approved. The request is now *Filled* |
+| 5 | Igor, `igor_rm@staffsync.local` | *Pending approvals* → Marko on Java Developer, marked **New**, *Fits* in the *Capacity* column → *Approve* | Approved. In Ana's project the request is now *Partially filled*, *1 of 2* in the *Filled* column |
+| 6 | Ana, then Igor | Ana: *Find candidates* → *Propose* Jelena for the whole period (the dialog warns about capacity). Igor: *Pending approvals* shows Jelena *Over capacity on 10 working days* → *Approve*, then confirm | A red panel above the list: *Not approved: Jelena Petrovic would be over capacity on 10 working days* with *2 Nov 2026 – 13 Nov 2026: 60% existing + 60% new = 120%*. Jelena stays in the list, *Proposed*. (The API answers 409 with *Capacity exceeded on 2026-11-02 – 2026-11-13 (60% existing + 60% new = 120% of 100% capacity)*, which you see in Swagger) |
+| 7 | Ana, then Igor | Ana: Project Alpha → *Team* → *Withdraw* Jelena, then *Find candidates* → *Propose* Jelena with the period **15 Nov 2026 – 31 Jan 2027** (the capacity warning disappears from the dialog). Igor: *Approve* | Approved. The request is now *Filled*, *2 of 2* |
 | 8 | Ana, then Igor | Ana: Project Alpha → *Team* → *Request change* on Marko: **80%**, with a reason. Igor: *Pending approvals* shows Marko marked **Change**, *60% → 80%* → *Approve*, then *Approve change* in the dialog | Marko's allocation is *Approved* at 80% |
 
 **If step 1 or 2 fails live:** Ana's project **Orion Customer Portal** already has the same *Java Developer* request. Open it and continue from step 3. This only works on a freshly reset database.
 
-**What the seed provides for the other screens:** Lazar and Maja each have two items in *Pending approvals* (Maja's include a **Change** on Uros), *My team* shows partial loads and people on the bench, and Jelena's *My allocations* shows her 60% on *Helios CRM*.
+**What the seed provides for the other screens:** Lazar and Maja each have two items in *Pending approvals* (Maja's include a **Change** on Uros), *My team* shows partial loads and people on the bench, and Jelena's *My allocations* shows her 60% on *Helios CRM*. A rejection shows the RM's comment in the project's *Team*.
 
 **Swagger:** http://localhost:8080/swagger-ui.html. Log in with `POST /api/auth/login`, copy the `token`, click *Authorize* and paste it (see [Swagger](#swagger) below).
 
 ## Dev accounts
 
 The `dev` profile seeds a demo dataset from `db/dev-seed` (there is no self-registration). Other environments don't get it. **Every account has the password `Password123!`.**
+
+An Admin creates further accounts on *Users* with a temporary password, which the person has to replace with their own at the first login; *Reset password* does the same for someone who forgot theirs. *Users* also activates a deactivated account again and hands a PM's open projects over to another PM, which is needed before that PM can be deactivated or given another role.
 
 The [§4 demo](docs/CLAUDE.md#4-glavni-scenario-demo-tok) personas:
 
@@ -191,7 +195,7 @@ Use an UPPER_SNAKE_CASE `code` the UI can rely on, a `message` a user can read (
 
 ### Paging
 
-Lists take `page` (0-based), `size` (default 20, max 100) and `sort` (`sort=lastName,asc`, repeat it for more fields), and return a Spring Data `Page`, which is always serialized as:
+Lists take `page` (0-based), `size` (default 20, set with `@PageableDefault(size = 20)` since Spring's own default is 10; max 100) and `sort` (`sort=lastName,asc`, repeat it for more fields), and return a Spring Data `Page`, which is always serialized as:
 
 ```json
 {
@@ -203,7 +207,7 @@ Lists take `page` (0-based), `size` (default 20, max 100) and `sort` (`sort=last
 ```java
 @GetMapping
 public Page<ProjectDto> list(@RequestParam(required = false) ProjectStatus status,
-        @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
+        @ParameterObject @PageableDefault(size = 20, sort = "name") Pageable pageable) {
     return projectService.list(status, pageable);   // repository.findAll(spec, pageable).map(mapper::toDto)
 }
 ```
@@ -216,10 +220,11 @@ Reuse these instead of building your own. Each file has a doc comment with a ful
 
 | What | Where | Use it for |
 |---|---|---|
-| Error snackbar | `core/error/error.interceptor.ts` | Nothing to do: every failed `/api` call shows the API's `message` in a snackbar (except 401, which logs the user out). If your page shows the error itself (e.g. inline in a form), pass `{ context: skipErrorSnackbar() }` to that request |
+| Error toast | `core/error/error.interceptor.ts` | Nothing to do: every failed `/api` call shows the API's `message` in a toast, with its ISO dates and seniority levels written the way the UI writes them (`readableMessage` in `shared/dates.ts`), except 401, which logs the user out. If your page shows the error itself (e.g. inline in a form), pass `{ context: skipErrorSnackbar() }` to that request |
 | `Notifications` | `core/error/notifications.ts` | `notifications.success('Allocation approved')` after an action, or `error(…)` for a client-side error |
 | `ConfirmDialogService` | `shared/confirm-dialog/` | `confirm({ title, message, confirmText?, cancelText?, destructive? })` returns `Observable<boolean>`, `false` for cancel/Escape/outside click |
 | `<app-status-chip>` | `shared/status-chip/` | `<app-status-chip [status]="row.status" />` for any project, request or allocation status, with one color per meaning |
+| `<app-warning-list>` | `shared/warning-list/` | Warnings from the API, e.g. a candidate's, shown readably with a warning icon |
 | `<app-paged-table>` | `shared/paged-table/` | Any backend list: give it `columns` and a `fetch(query)` function. It sends `page`/`size`/`sort` and reads `{ content, page }`. Custom cells with `<ng-template appPagedTableCell="key" let-row>` |
 | `Page<T>`, `PageQuery`, `toPageParams` | `core/api/page.ts` | Typing list responses and building the query in your service |
 
