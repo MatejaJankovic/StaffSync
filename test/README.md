@@ -4,7 +4,7 @@ Playwright tests from the [test plan](../docs/TEST_PLAN.md). Each test name star
 
 ```text
 api/        API clients: one class per endpoint group
-fixtures/   The seeded personas and their password
+fixtures/   The seeded personas and their password, and the Playwright fixtures (`test.ts`)
 tests/api/  API tests
 ```
 
