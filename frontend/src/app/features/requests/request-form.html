@@ -1,6 +1,6 @@
-<section class="request-form">
-  <a mat-button [routerLink]="backLink()" class="request-form__back">
-    <mat-icon>arrow_back</mat-icon>
+<section class="request-form ss-page">
+  <a ss-button [routerLink]="backLink()" class="request-form__back">
+    <ss-icon>arrow_back</ss-icon>
     {{ project()?.name ?? 'Project' }}
   </a>
 
@@ -15,153 +15,190 @@
       <p class="request-form__message" role="alert">Unable to load the form. Please try again.</p>
     }
     @default {
-      <h1>{{ request() ? 'Edit request' : 'New request' }}</h1>
-      <p class="request-form__project">{{ project()?.name }} · {{ projectPeriod() }}</p>
+      <header class="request-form__header">
+        <p class="ss-eyebrow">Staffing request</p>
+        <h1>{{ request() ? 'Edit request' : 'New request' }}</h1>
+        <p class="ss-page-context">{{ project()?.name }} · {{ projectPeriod() }}</p>
+      </header>
 
       @if (blockedReason(); as reason) {
         <p class="request-form__message" role="alert">{{ reason }}</p>
       } @else {
-        <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-          <mat-form-field appearance="outline" class="request-form__wide">
-            <mat-label>Title</mat-label>
-            <input matInput formControlName="title" placeholder="Java Developer" />
-            @if (form.controls.title.hasError('server')) {
-              <mat-error>{{ form.controls.title.getError('server') }}</mat-error>
-            } @else if (
-              form.controls.title.hasError('required') || form.controls.title.hasError('pattern')
-            ) {
-              <mat-error>Title is required</mat-error>
-            } @else if (form.controls.title.hasError('maxlength')) {
-              <mat-error>Title must be at most {{ maxTitleLength }} characters</mat-error>
-            } @else if (form.controls.title.hasError('controlChars')) {
-              <mat-error>Title must not contain control characters</mat-error>
-            }
-          </mat-form-field>
-
-          <div class="request-form__row">
-            <mat-form-field appearance="outline">
-              <mat-label>Seniority</mat-label>
-              <mat-select formControlName="seniority">
-                @for (seniority of seniorities; track seniority) {
-                  <mat-option [value]="seniority">{{ seniorityLabels[seniority] }}</mat-option>
-                }
-              </mat-select>
-              @if (form.controls.seniority.hasError('server')) {
-                <mat-error>{{ form.controls.seniority.getError('server') }}</mat-error>
-              } @else if (form.controls.seniority.hasError('required')) {
-                <mat-error>Seniority is required</mat-error>
-              }
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Allocation</mat-label>
-              <mat-select formControlName="allocationPercent">
-                @for (percent of allocations; track percent) {
-                  <mat-option [value]="percent">{{ percent }}%</mat-option>
-                }
-              </mat-select>
-              @if (form.controls.allocationPercent.hasError('server')) {
-                <mat-error>{{ form.controls.allocationPercent.getError('server') }}</mat-error>
-              } @else if (form.controls.allocationPercent.hasError('required')) {
-                <mat-error>Allocation is required</mat-error>
-              }
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Headcount</mat-label>
-              <input matInput type="number" min="1" step="1" formControlName="headcount" />
-              @if (form.controls.headcount.hasError('server')) {
-                <mat-error>{{ form.controls.headcount.getError('server') }}</mat-error>
-              } @else if (form.controls.headcount.hasError('required')) {
-                <mat-error>Headcount is required</mat-error>
-              } @else if (
-                form.controls.headcount.hasError('min') ||
-                form.controls.headcount.hasError('pattern')
-              ) {
-                <mat-error>Headcount must be a whole number, at least 1</mat-error>
-              }
-            </mat-form-field>
-          </div>
-
-          <app-date-range-picker
-            formControlName="period"
-            label="Period"
-            required
-            [min]="projectStart()"
-            [max]="projectEnd()"
-          />
-
-          <section class="request-form__skills" aria-labelledby="request-skills">
-            <h2 id="request-skills">Skills</h2>
-            @if (skills.hasError('server')) {
-              <p class="request-form__error" role="alert">{{ skills.getError('server') }}</p>
-            }
-            @if (skills.length === 0) {
-              <p class="request-form__hint">
-                No skills yet. Add the skills the person needs, with a minimum level.
-              </p>
-            }
-
-            <div formArrayName="skills">
-              @for (row of skills.controls; track row; let i = $index) {
-                <div class="request-form__skill" [formGroupName]="i">
-                  <mat-form-field appearance="outline" class="request-form__skill-select">
-                    <mat-label>Skill</mat-label>
-                    <mat-select formControlName="skillId">
-                      @for (group of skillGroups(); track group.label) {
-                        <mat-optgroup [label]="group.label">
-                          @for (skill of group.skills; track skill.id) {
-                            <mat-option [value]="skill.id" [disabled]="isTaken(skill.id, i)">{{
-                              skill.name
-                            }}</mat-option>
-                          }
-                        </mat-optgroup>
-                      }
-                    </mat-select>
-                    @if (row.controls.skillId.hasError('server')) {
-                      <mat-error>{{ row.controls.skillId.getError('server') }}</mat-error>
-                    } @else if (row.controls.skillId.hasError('required')) {
-                      <mat-error>Pick a skill</mat-error>
-                    }
-                  </mat-form-field>
-
-                  <div class="request-form__level">
-                    <span class="request-form__level-label">Minimum level</span>
-                    <app-skill-level-picker
-                      formControlName="minLevel"
-                      [ariaLabel]="'Minimum level of ' + skillName(row)"
-                    />
-                    @if (row.controls.minLevel.touched && row.controls.minLevel.invalid) {
-                      <span class="request-form__error" role="alert">{{
-                        row.controls.minLevel.getError('server') ?? 'Pick a level'
-                      }}</span>
-                    }
-                  </div>
-
-                  <mat-checkbox formControlName="mandatory">Required</mat-checkbox>
-
-                  <button
-                    mat-icon-button
-                    type="button"
-                    class="request-form__remove"
-                    [attr.aria-label]="'Remove ' + skillName(row)"
-                    (click)="removeSkill(i)"
-                  >
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </div>
-              }
+        <form class="request-form__form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+          <section class="request-form__section" aria-labelledby="request-role">
+            <div class="request-form__intro">
+              <h2 id="request-role">Role</h2>
+              <p class="request-form__hint">What the person will do, and at which level.</p>
             </div>
 
-            <button mat-stroked-button type="button" (click)="addSkill()">
-              <mat-icon>add</mat-icon>
-              Add skill
-            </button>
+            <div class="request-form__grid">
+              <ss-field class="request-form__span">
+                <ss-label>Title</ss-label>
+                <input ssInput formControlName="title" placeholder="Java Developer" />
+                @if (form.controls.title.hasError('server')) {
+                  <ss-error>{{ form.controls.title.getError('server') }}</ss-error>
+                } @else if (
+                  form.controls.title.hasError('required') ||
+                  form.controls.title.hasError('pattern')
+                ) {
+                  <ss-error>Title is required</ss-error>
+                } @else if (form.controls.title.hasError('maxlength')) {
+                  <ss-error>Title must be at most {{ maxTitleLength }} characters</ss-error>
+                } @else if (form.controls.title.hasError('controlChars')) {
+                  <ss-error>Title must not contain control characters</ss-error>
+                }
+              </ss-field>
+
+              <ss-field>
+                <ss-label>Seniority</ss-label>
+                <ss-select formControlName="seniority">
+                  @for (seniority of seniorities; track seniority) {
+                    <ss-option [value]="seniority">{{ seniorityLabels[seniority] }}</ss-option>
+                  }
+                </ss-select>
+                @if (form.controls.seniority.hasError('server')) {
+                  <ss-error>{{ form.controls.seniority.getError('server') }}</ss-error>
+                } @else if (form.controls.seniority.hasError('required')) {
+                  <ss-error>Seniority is required</ss-error>
+                }
+              </ss-field>
+
+              <ss-field>
+                <ss-label>Headcount</ss-label>
+                <input ssInput type="number" min="1" step="1" formControlName="headcount" />
+                @if (form.controls.headcount.hasError('server')) {
+                  <ss-error>{{ form.controls.headcount.getError('server') }}</ss-error>
+                } @else if (form.controls.headcount.hasError('required')) {
+                  <ss-error>Headcount is required</ss-error>
+                } @else if (
+                  form.controls.headcount.hasError('min') ||
+                  form.controls.headcount.hasError('pattern')
+                ) {
+                  <ss-error>Headcount must be a whole number, at least 1</ss-error>
+                }
+              </ss-field>
+            </div>
+          </section>
+
+          <section class="request-form__section" aria-labelledby="request-timing">
+            <div class="request-form__intro">
+              <h2 id="request-timing">Time and load</h2>
+              <p class="request-form__hint">
+                How much of a person’s time, and when. The period stays inside the project’s.
+              </p>
+            </div>
+
+            <div class="request-form__grid">
+              <ss-field>
+                <ss-label>Allocation</ss-label>
+                <ss-select formControlName="allocationPercent">
+                  @for (percent of allocations; track percent) {
+                    <ss-option [value]="percent">{{ percent }}%</ss-option>
+                  }
+                </ss-select>
+                @if (form.controls.allocationPercent.hasError('server')) {
+                  <ss-error>{{ form.controls.allocationPercent.getError('server') }}</ss-error>
+                } @else if (form.controls.allocationPercent.hasError('required')) {
+                  <ss-error>Allocation is required</ss-error>
+                }
+              </ss-field>
+
+              <app-date-range-picker
+                class="request-form__period"
+                formControlName="period"
+                label="Period"
+                required
+                [min]="projectStart()"
+                [max]="projectEnd()"
+              />
+            </div>
+          </section>
+
+          <section
+            class="request-form__section request-form__skills"
+            aria-labelledby="request-skills"
+          >
+            <div class="request-form__intro">
+              <h2 id="request-skills">Skills</h2>
+              <p class="request-form__hint">
+                What the person needs, each with a minimum level. Skills that are not required are
+                nice to have.
+              </p>
+            </div>
+
+            <div class="request-form__skills-body">
+              @if (skills.hasError('server')) {
+                <p class="request-form__error" role="alert">{{ skills.getError('server') }}</p>
+              }
+              @if (skills.length === 0) {
+                <p class="request-form__hint request-form__empty">
+                  No skills yet. Add the skills the person needs, with a minimum level.
+                </p>
+              }
+
+              <div formArrayName="skills" class="request-form__skill-list">
+                @for (row of skills.controls; track row; let i = $index) {
+                  <div class="request-form__skill" [formGroupName]="i">
+                    <ss-field class="request-form__skill-select">
+                      <ss-label>Skill</ss-label>
+                      <ss-select formControlName="skillId">
+                        @for (group of skillGroups(); track group.label) {
+                          <ss-optgroup [label]="group.label">
+                            @for (skill of group.skills; track skill.id) {
+                              <ss-option [value]="skill.id" [disabled]="isTaken(skill.id, i)">{{
+                                skill.name
+                              }}</ss-option>
+                            }
+                          </ss-optgroup>
+                        }
+                      </ss-select>
+                      @if (row.controls.skillId.hasError('server')) {
+                        <ss-error>{{ row.controls.skillId.getError('server') }}</ss-error>
+                      } @else if (row.controls.skillId.hasError('required')) {
+                        <ss-error>Pick a skill</ss-error>
+                      }
+                    </ss-field>
+
+                    <div class="request-form__level">
+                      <span class="request-form__level-label">Minimum level</span>
+                      <app-skill-level-picker
+                        formControlName="minLevel"
+                        [ariaLabel]="'Minimum level of ' + skillName(row)"
+                      />
+                      @if (row.controls.minLevel.touched && row.controls.minLevel.invalid) {
+                        <span class="request-form__error" role="alert">{{
+                          row.controls.minLevel.getError('server') ?? 'Pick a level'
+                        }}</span>
+                      }
+                    </div>
+
+                    <ss-checkbox class="request-form__required" formControlName="mandatory"
+                      >Required</ss-checkbox
+                    >
+
+                    <button
+                      ss-button="icon"
+                      type="button"
+                      class="request-form__remove"
+                      [attr.aria-label]="'Remove ' + skillName(row)"
+                      (click)="removeSkill(i)"
+                    >
+                      <ss-icon>delete</ss-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+
+              <button ss-button="outlined" type="button" (click)="addSkill()">
+                <ss-icon>add</ss-icon>
+                Add skill
+              </button>
+            </div>
           </section>
 
           <div class="request-form__actions">
-            <a mat-button [routerLink]="backLink()">Cancel</a>
-            <button mat-flat-button type="submit" [disabled]="saving()">Save</button>
+            <a ss-button [routerLink]="backLink()">Cancel</a>
+            <button ss-button="filled" type="submit" [disabled]="saving()">Save</button>
           </div>
         </form>
       }
