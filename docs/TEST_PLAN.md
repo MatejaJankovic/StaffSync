@@ -177,4 +177,5 @@ A bug found on `main` is reported straight to the story owner on the team channe
 |---|---|
 | The demo seed changes | The tests read the persona data from one fixture file, so changes stay in one place |
 | Tests that change data fail on the second run, because capacity is counted per employee across projects | The API suite, the UI suite and the E2E test each start from a reset database and run with one worker (§3, *Test independence*). Boundary cases cancel the allocations they approve |
+| The seed and the test cases use fixed dates (Nov 2026 – Jan 2027), but the backend compares with today: an approved allocation can only be cancelled before its start date. From Nov 1, 2026 the cancel clean-up gets 409 `ALLOCATION_ALREADY_STARTED`, and a re-run fails | Run the suites before Nov 1, 2026. After that, reset the database between the cases that approve allocations instead of cancelling them, or move the seed dates forward |
 | UI selectors break when the UI changes | Use roles and labels (`getByRole`, `getByLabel`) instead of CSS classes, all inside page objects |
