@@ -29,9 +29,6 @@ test('TC_E2E_001 the §4 demo flow across roles', async ({ page, loginAs }) => {
     await loginAs(persona);
     current = persona;
   };
-  const openProject = async () => {
-    await details.goto(projectId);
-  };
 
   await test.step('1. Ana creates Project Alpha (Nov 1 – Mar 31)', async () => {
     await switchTo(users.ana);
@@ -80,7 +77,7 @@ test('TC_E2E_001 the §4 demo flow across roles', async ({ page, loginAs }) => {
 
   await test.step('4. Ana proposes Marko', async () => {
     await candidates.propose(MARKO);
-    await openProject();
+    await details.goto(projectId);
 
     await expect(details.teamRow(MARKO)).toContainText('Proposed');
   });
@@ -93,7 +90,7 @@ test('TC_E2E_001 the §4 demo flow across roles', async ({ page, loginAs }) => {
     await expect(approvals.row(MARKO, REQUEST)).toBeHidden();
 
     await switchTo(users.ana);
-    await openProject();
+    await details.goto(projectId);
     await expect(details.teamRow(MARKO)).toContainText('Approved');
     await expect(details.requestRow(REQUEST)).toContainText('Partially filled');
   });
@@ -109,12 +106,13 @@ test('TC_E2E_001 the §4 demo flow across roles', async ({ page, loginAs }) => {
 
     await expect(approvals.capacityError).toContainText(`Not approved: ${JELENA} would be over capacity on 10 working days`);
     await expect(approvals.capacityError).toContainText('2 Nov 2026 – 13 Nov 2026');
+    await expect(approvals.capacityError).toContainText('60% existing + 60% new = 120%');
     await expect(approvals.row(JELENA, REQUEST)).toBeVisible();
   });
 
   await test.step('7. Ana re-proposes Jelena for Nov 15 – Jan 31, Igor approves, and the request is filled', async () => {
     await switchTo(users.ana);
-    await openProject();
+    await details.goto(projectId);
     await details.withdraw(JELENA, REQUEST);
     await expect(details.teamRow(JELENA)).toContainText('Cancelled');
     await details.findCandidates(REQUEST);
@@ -126,7 +124,9 @@ test('TC_E2E_001 the §4 demo flow across roles', async ({ page, loginAs }) => {
     await expect(approvals.row(JELENA, REQUEST)).toBeHidden();
 
     await switchTo(users.ana);
-    await openProject();
+    await details.goto(projectId);
+    // Jelena has two rows by now: the withdrawn proposal and the approved one
+    await expect(details.teamRow(JELENA).filter({ hasText: 'Approved' })).toBeVisible();
     await expect(details.requestRow(REQUEST)).toContainText('Filled');
     await expect(details.requestRow(REQUEST)).not.toContainText('Partially');
   });
@@ -143,7 +143,7 @@ test('TC_E2E_001 the §4 demo flow across roles', async ({ page, loginAs }) => {
     await expect(approvals.row(MARKO, REQUEST)).toBeHidden();
 
     await switchTo(users.ana);
-    await openProject();
+    await details.goto(projectId);
     await expect(details.teamRow(MARKO)).toContainText('80%');
     await expect(details.teamRow(MARKO)).toContainText('Approved');
   });
