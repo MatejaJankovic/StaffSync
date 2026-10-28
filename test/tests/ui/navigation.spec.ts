@@ -1,5 +1,6 @@
 import { expect, test } from '../../fixtures/ui';
 import { users } from '../../fixtures/users';
+import { ProjectsPage } from '../../pages/ProjectsPage';
 import { Shell } from '../../pages/Shell';
 
 // Test cases TC_UI_NAV_001 – 004 in docs/TEST_CASES.md §3: the menu per role and the route guards
@@ -23,7 +24,7 @@ for (const { persona, links } of MENU) {
 }
 
 test('TC_UI_NAV_002 a protected page without logging in redirects to login', async ({ page }) => {
-  await page.goto('/projects');
+  await new ProjectsPage(page).goto();
 
   await expect(page).toHaveURL(/\/login$/);
 });
@@ -31,6 +32,7 @@ test('TC_UI_NAV_002 a protected page without logging in redirects to login', asy
 test('TC_UI_NAV_003 a page of another role redirects to Home', async ({ page, loginAs }) => {
   await loginAs(users.ana);
 
+  // The admin URL is the input of the test case, not a screen these tests use, so it has no page object
   await page.goto('/admin/users');
 
   await expect(page).toHaveURL(/\/home$/);
@@ -38,7 +40,7 @@ test('TC_UI_NAV_003 a page of another role redirects to Home', async ({ page, lo
 
 test('TC_UI_NAV_004 logout, and Back does not open the app again', async ({ page, loginAs }) => {
   await loginAs(users.ana);
-  await page.goto('/projects');
+  await new ProjectsPage(page).goto();
 
   await new Shell(page).logout(users.ana);
   await expect(page).toHaveURL(/\/login$/);

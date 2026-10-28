@@ -30,7 +30,7 @@ test('TC_UI_PROJ_002 the project form shows its errors and does not save', async
   await projectsPage.saveButton.click();
 
   await expect(projectsPage.dialogError('Name is required')).toBeVisible();
-  await expect(projectsPage.dialog.getByRole('alert')).toHaveText('Start date must not be after end date');
+  await expect(projectsPage.dateRangeError).toHaveText('Start date must not be after end date');
   await expect(projectsPage.dialog).toBeVisible();
 });
 

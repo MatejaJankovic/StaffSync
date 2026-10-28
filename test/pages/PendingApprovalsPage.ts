@@ -5,10 +5,13 @@ export class PendingApprovalsPage {
   /** The red panel after an approve that fails on capacity. */
   readonly capacityError: Locator;
   readonly dialog: Locator;
+  /** The comment field of the Reject dialog. */
+  readonly rejectComment: Locator;
 
   constructor(private readonly page: Page) {
     this.capacityError = page.getByRole('alert').filter({ hasText: 'Not approved' });
     this.dialog = page.getByRole('dialog');
+    this.rejectComment = this.dialog.getByLabel('Comment');
   }
 
   async goto(): Promise<void> {
@@ -36,5 +39,19 @@ export class PendingApprovalsPage {
 
   async openReject(fullName: string, requestTitle: string): Promise<void> {
     await this.row(fullName, requestTitle).getByRole('button', { name: 'Reject' }).click();
+  }
+
+  /** Clicks Reject in the open Reject dialog. */
+  async confirmReject(): Promise<void> {
+    await this.dialog.getByRole('button', { name: 'Reject' }).click();
+  }
+
+  async cancelDialog(): Promise<void> {
+    await this.dialog.getByRole('button', { name: 'Cancel' }).click();
+  }
+
+  /** A validation message in the dialog, e.g. "Comment is required". */
+  dialogError(text: string): Locator {
+    return this.dialog.getByText(text, { exact: true });
   }
 }

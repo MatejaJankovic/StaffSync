@@ -59,16 +59,14 @@ test.describe('with Jelena proposed for the whole period', () => {
 
   test('TC_UI_APPR_003 reject needs a comment of at least 10 characters', async () => {
     await approvalsPage.openReject(fullName(users.jelena), requestTitle);
-    const dialog = approvalsPage.dialog;
-    const comment = dialog.getByLabel('Comment');
 
-    await comment.fill('Too busy');
-    await comment.blur();
-    await dialog.getByRole('button', { name: 'Reject' }).click();
+    await approvalsPage.rejectComment.fill('Too busy');
+    await approvalsPage.rejectComment.blur();
+    await approvalsPage.confirmReject();
 
-    await expect(dialog.getByText('Comment must be at least 10 characters')).toBeVisible();
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(approvalsPage.dialogError('Comment must be at least 10 characters')).toBeVisible();
+    await expect(approvalsPage.dialog).toBeVisible();
+    await approvalsPage.cancelDialog();
     await expect(approvalsPage.row(fullName(users.jelena), requestTitle)).toBeVisible();
   });
 });

@@ -21,22 +21,20 @@ test('TC_UI_CAND_001 candidates are ranked with their score, reasons and warning
   expect(scores.length).toBeGreaterThan(1);
   expect(scores).toEqual([...scores].sort((a, b) => b - a));
 
-  const jelena = candidatesPage.row(fullName(users.jelena));
-  await expect(jelena).toContainText(/67\s*\/100/);
-  await expect(jelena.getByRole('list', { name: 'Reasons' })).toContainText('Java 4/5 (required ≥ 4)');
+  await expect(candidatesPage.row(fullName(users.jelena))).toContainText(/67\s*\/100/);
+  await expect(candidatesPage.reasons(fullName(users.jelena))).toContainText('Java 4/5 (required ≥ 4)');
   await expect(candidatesPage.warnings(fullName(users.jelena))).toContainText([JELENA_CAPACITY]);
 });
 
 test('TC_UI_CAND_002 the propose dialog is pre-filled and shows the warning', async () => {
   await candidatesPage.openPropose(fullName(users.jelena));
-  const dialog = candidatesPage.proposeDialog;
 
-  await expect(dialog).toHaveAccessibleName(`Propose ${fullName(users.jelena)}`);
-  await expect(dialog.getByRole('combobox', { name: 'Allocation' })).toContainText('60%');
-  await expect(dialog.getByLabel('Start date')).toHaveValue('01/11/2026');
-  await expect(dialog.getByLabel('End date')).toHaveValue('31/01/2027');
-  await expect(dialog.getByRole('list', { name: 'Warnings' })).toContainText(JELENA_CAPACITY);
+  await expect(candidatesPage.proposeDialog).toHaveAccessibleName(`Propose ${fullName(users.jelena)}`);
+  await expect(candidatesPage.proposeAllocation).toContainText('60%');
+  await expect(candidatesPage.proposeStartDate).toHaveValue('01/11/2026');
+  await expect(candidatesPage.proposeEndDate).toHaveValue('31/01/2027');
+  await expect(candidatesPage.proposeWarnings).toContainText(JELENA_CAPACITY);
 
-  await dialog.getByRole('button', { name: 'Cancel' }).click();
-  await expect(dialog).toBeHidden();
+  await candidatesPage.cancelPropose();
+  await expect(candidatesPage.proposeDialog).toBeHidden();
 });

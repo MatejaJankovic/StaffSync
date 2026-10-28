@@ -13,11 +13,14 @@ export class ProjectsPage {
   readonly newProjectButton: Locator;
   readonly dialog: Locator;
   readonly saveButton: Locator;
+  /** The error under the dates when the start is after the end. */
+  readonly dateRangeError: Locator;
 
   constructor(private readonly page: Page) {
     this.newProjectButton = page.getByRole('button', { name: 'New project' });
     this.dialog = page.getByRole('dialog', { name: 'New project' });
     this.saveButton = this.dialog.getByRole('button', { name: 'Save' });
+    this.dateRangeError = this.dialog.getByRole('alert');
   }
 
   async goto(): Promise<void> {
@@ -43,6 +46,11 @@ export class ProjectsPage {
   /** The row of a project in the list. */
   row(name: string): Locator {
     return this.page.getByRole('row').filter({ has: this.page.getByRole('link', { name, exact: true }) });
+  }
+
+  /** Opens the details of a project from the list. */
+  async open(name: string): Promise<void> {
+    await this.row(name).getByRole('link', { name, exact: true }).click();
   }
 
   /** A validation message in the dialog, e.g. "Name is required". */

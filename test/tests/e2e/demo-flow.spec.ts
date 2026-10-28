@@ -40,7 +40,7 @@ test('TC_E2E_001 the §4 demo flow across roles', async ({ page, loginAs }) => {
     await projects.createProject({ name: projectName, client: 'Vega Retail', startDate: '01/11/2026', endDate: '31/03/2027' });
 
     await expect(projects.row(projectName)).toContainText('Planned');
-    await projects.row(projectName).getByRole('link', { name: projectName }).click();
+    await projects.open(projectName);
     await expect(page).toHaveURL(/\/projects\/\d+$/);
     projectId = Number(page.url().split('/').pop());
   });
@@ -101,7 +101,7 @@ test('TC_E2E_001 the §4 demo flow across roles', async ({ page, loginAs }) => {
   await test.step('6. Ana proposes Jelena for the whole period, and Igor gets the capacity error', async () => {
     await details.findCandidates(REQUEST);
     await candidates.propose(JELENA);
-    await expect(page.getByRole('status').filter({ hasText: `${JELENA} was proposed, with warnings` })).toBeVisible();
+    await expect(shell.toast(`${JELENA} was proposed, with warnings`)).toBeVisible();
 
     await switchTo(users.igor);
     await approvals.goto();
